@@ -3,128 +3,91 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>aiup — local catalog for AI tools on macOS</title>
-  <meta name="description" content="Scan this Mac. Update what is already installed. Install or remove from one list. Nothing is uploaded." />
+  <title>aiup</title>
+  <meta name="description" content="Scan this Mac for AI tools. Update what is already installed. Install or remove from one list. Nothing is uploaded." />
   <link rel="canonical" href="https://aiup.neuman.dev/" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <meta property="og:title" content="aiup" />
-  <meta property="og:description" content="A local catalog for AI tools on macOS. Scan what you have. Update it. Nothing leaves the machine." />
+  <meta property="og:description" content="A local catalog of AI tools on this Mac." />
   <meta property="og:url" content="https://aiup.neuman.dev/" />
   <meta property="og:image" content="https://aiup.neuman.dev/aiup-list.gif" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:opsz,wght@16..72,500;16..72,600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="wrap">
-    <header class="top">
-      <a class="mark" href="/">aiup</a>
-      <nav>
-        <a href="#catalog">Catalog</a>
-        <a href="#install">Install</a>
-        <a href="https://github.com/travisjneuman/aiup">Source</a>
-      </nav>
-    </header>
+  <a class="skip" href="#catalog">Skip to catalog</a>
+  <header class="bar">
+    <a class="mark" href="/">aiup</a>
+    <p class="tag">Local catalog for AI tools on this Mac</p>
+    <a class="src" href="https://github.com/travisjneuman/aiup">Source</a>
+  </header>
 
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">macOS · local · MIT</p>
-        <h1>One catalog for the AI tools already on this Mac.</h1>
-        <p class="lede">aiup scans PATH, app bundles, and Homebrew. It updates what is present. Missing tools stay missing until you ask. Nothing is uploaded.</p>
-        <div class="cta">
-          <a class="btn" href="#install">Install</a>
-          <a class="btn quiet" href="https://github.com/travisjneuman/aiup">GitHub</a>
-        </div>
-        <p class="meta" id="version-pill"></p>
-      </div>
-      <figure class="product">
-        <img src="aiup-list.gif" alt="aiup list catalog" width="1280" height="720" />
-      </figure>
-    </section>
-
-    <section class="facts" aria-label="Facts">
-      <div><strong id="tool-count">—</strong><span>tools in the catalog</span></div>
-      <div><strong>0</strong><span>network calls on scan</span></div>
-      <div><strong>never</strong><span>sudo</span></div>
-      <div><strong>MIT</strong><span>license</span></div>
-    </section>
-
-    <section class="principles" id="why">
-      <ol>
-        <li>
-          <h2>Scan is the default</h2>
-          <p>Running <code>aiup</code> updates installed tools only. Uninstalls stay uninstalled.</p>
-        </li>
-        <li>
-          <h2>User prefixes only</h2>
-          <p>Installs go under your home directory. Node CLIs use <code>~/.local/share/aiup/npm</code>, not a root-owned global.</p>
-        </li>
-        <li>
-          <h2>Homebrew is inventory, not a store</h2>
-          <p>Child lists show what brew already put on this Mac, plus a short recommended set. An app you installed some other way shows as on disk — not missing.</p>
-        </li>
-        <li>
-          <h2>Settings survive a switch</h2>
-          <p>Enter on an on-disk app lets Homebrew manage it. Notes, vaults, and <code>~/Library</code> are left alone. Never <code>--zap</code>.</p>
-        </li>
-      </ol>
-    </section>
-
-    <section class="gallery">
-      <figure>
-        <img src="aiup-list-collapsed.png" alt="Collapsed categories" />
-        <figcaption>Categories start collapsed</figcaption>
-      </figure>
-      <figure>
-        <img src="aiup-list-homebrew.png" alt="Homebrew recommended" />
-        <figcaption>Recommended extras, including on-disk apps</figcaption>
-      </figure>
-      <figure>
-        <img src="aiup-list-adopt.png" alt="Switch to Homebrew" />
-        <figcaption>Switch to Homebrew without wiping data</figcaption>
-      </figure>
-    </section>
-
-    <section id="keys">
-      <h2 class="sec">Keyboard</h2>
-      <table class="keys">
-        <tbody>
-          <tr><th><kbd>enter</kbd></th><td>Expand a category, install or update, or switch an on-disk app to Homebrew</td></tr>
-          <tr><th><kbd>tab</kbd></th><td>Check or uncheck</td></tr>
-          <tr><th><kbd>ctrl</kbd><kbd>d</kbd></th><td>Uninstall</td></tr>
-          <tr><th><kbd>ctrl</kbd><kbd>o</kbd></th><td>Open docs</td></tr>
-          <tr><th><kbd>esc</kbd></th><td>Leave</td></tr>
-        </tbody>
-      </table>
-    </section>
-
-    <section id="install">
-      <h2 class="sec">Install</h2>
-      <div class="term">
-        <button type="button" class="copy" id="copy-install" aria-label="Copy install commands">Copy</button>
+  <main>
+    <section class="get" id="install" aria-labelledby="get-title">
+      <h1 id="get-title">Get the script, then open the list.</h1>
+      <p>aiup looks at PATH, app bundles, and Homebrew on this machine. It updates what is already there. Missing tools stay missing until you add them.</p>
+      <div class="cmd">
+        <button type="button" class="copy" id="copy-install">Copy</button>
         <pre id="install-block"><code>mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup -o ~/.local/bin/aiup
 chmod +x ~/.local/bin/aiup
 export PATH="$HOME/.local/bin:$PATH"
 aiup list</code></pre>
       </div>
-      <p class="fine">Needs bash, python3, and curl. <a href="https://github.com/junegunn/fzf">fzf</a> makes the list full-screen; numbered prompts work without it. Homebrew, Node, and uv install on demand.</p>
+      <p class="note">bash, python3, curl. <a href="https://github.com/junegunn/fzf">fzf</a> for the full-screen list; numbered prompts without it.</p>
     </section>
 
-    <section id="catalog">
-      <h2 class="sec">Catalog</h2>
-      <p class="fine">Read from the same script that runs on your Mac. When the catalog grows, this list grows with it.</p>
-      <div class="catalog" id="cats"></div>
+    <section id="catalog" aria-labelledby="cat-title">
+      <div class="cat-head">
+        <h2 id="cat-title">Catalog</h2>
+        <p class="note" id="version-pill">Loaded from the same script that runs on your Mac.</p>
+      </div>
+      <div class="cats" id="cats">
+        <p class="note">Loading catalog…</p>
+      </div>
     </section>
 
-    <footer>
-      <span>aiup</span>
-      <a href="https://github.com/travisjneuman/aiup">github.com/travisjneuman/aiup</a>
-      <a href="https://github.com/travisjneuman/aiup/blob/main/docs/privacy.md">Privacy</a>
-      <span>MIT</span>
-    </footer>
-  </div>
+    <section class="how" aria-labelledby="how-title">
+      <h2 id="how-title">On this Mac</h2>
+      <ul>
+        <li>
+          <h3>Scan</h3>
+          <p><code>aiup</code> updates installed tools only. It will not put back something you removed.</p>
+        </li>
+        <li>
+          <h3>Switch</h3>
+          <p>An app already here, just not via Homebrew, shows as on disk. Enter lets Homebrew manage it. Notes and settings stay.</p>
+        </li>
+        <li>
+          <h3>Stay local</h3>
+          <p>The scan never leaves the machine. Installers you choose still talk to their own vendors.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="keys" aria-labelledby="keys-title">
+      <h2 id="keys-title">In the list</h2>
+      <dl>
+        <div><dt><kbd>enter</kbd></dt><dd>Expand, install, update, or switch an on-disk app to Homebrew</dd></div>
+        <div><dt><kbd>tab</kbd></dt><dd>Check or uncheck</dd></div>
+        <div><dt><kbd>ctrl</kbd> <kbd>d</kbd></dt><dd>Uninstall</dd></div>
+        <div><dt><kbd>ctrl</kbd> <kbd>o</kbd></dt><dd>Open docs</dd></div>
+        <div><dt><kbd>esc</kbd></dt><dd>Leave</dd></div>
+      </dl>
+      <figure>
+        <img src="aiup-list.gif" width="1280" height="720" alt="aiup list in the terminal, categories collapsed" />
+        <figcaption>The same catalog, in the terminal.</figcaption>
+      </figure>
+    </section>
+  </main>
+
+  <footer>
+    <span>MIT</span>
+    <a href="https://github.com/travisjneuman/aiup">github.com/travisjneuman/aiup</a>
+    <a href="https://github.com/travisjneuman/aiup/blob/main/docs/privacy.md">Privacy</a>
+  </footer>
   <script src="app.js"></script>
 </body>
 </html>

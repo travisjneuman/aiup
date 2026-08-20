@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-14
+
+- Site rebuilt from the Grok `frontend-design` skill: the page is the catalog (expandable rows from `catalog.json`), not a dark-mode marketing template.
+
 ## 2026.08.20-13
 
 - Site redesign: product layout, no CRT overlay, no emoji section headers. Catalog still loaded from `catalog.json`.

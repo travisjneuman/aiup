@@ -1,45 +1,59 @@
-async function main() {
-  const res = await fetch("catalog.json", { cache: "no-store" });
-  if (!res.ok) return;
-  const data = await res.json();
-
-  const pill = document.getElementById("version-pill");
-  if (pill) {
-    pill.textContent = `${data.version}  ·  ${data.tools.length} tools  ·  ${data.recommended.length} recommended extras`;
-  }
-  const count = document.getElementById("tool-count");
-  if (count) count.textContent = String(data.tools.length);
-
-  const root = document.getElementById("cats");
-  if (!root) return;
-  root.innerHTML = "";
-  for (const cat of data.categories) {
-    if (String(cat.id).startsWith("homebrew/")) continue;
-    const tools = cat.tools || [];
-    const row = document.createElement("article");
-    row.className = "cat";
-    const n = cat.id === "homebrew" ? `${data.recommended.length} recommended` : `${tools.length}`;
-    const chips = tools
-      .map((t) => `<span>${escapeHtml(t.id)}</span>`)
-      .join("");
-    row.innerHTML = `
-      <div>
-        <h3>${escapeHtml(cat.id)}</h3>
-        <p class="blurb">${escapeHtml(cat.blurb || "")}</p>
-        <span class="count">${escapeHtml(n)}</span>
-      </div>
-      <div class="chips">${chips || "<span>inventory of this Mac</span>"}</div>
-    `;
-    root.appendChild(row);
-  }
-}
-
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+async function main() {
+  const root = document.getElementById("cats");
+  const pill = document.getElementById("version-pill");
+  let data;
+  try {
+    const res = await fetch("catalog.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("catalog missing");
+    data = await res.json();
+  } catch {
+    if (root) {
+      root.innerHTML = "<p class=\"note\">Catalog could not be loaded. Open this page from the deployed site, or run scripts/sync-public-docs.</p>";
+    }
+    return;
+  }
+
+  if (pill) {
+    pill.textContent = `${data.version} · ${data.tools.length} tools · click a row to open it`;
+  }
+  if (!root) return;
+  root.innerHTML = "";
+
+  for (const cat of data.categories) {
+    if (String(cat.id).startsWith("homebrew/")) continue;
+    const tools = cat.tools || [];
+    const n = cat.id === "homebrew"
+      ? `${(data.recommended || []).length} recommended`
+      : String(tools.length);
+    const details = document.createElement("details");
+    details.className = "cat";
+    const chips = tools.length
+      ? tools.map((t) => {
+          const href = t.docs ? escapeHtml(t.docs) : "";
+          const id = escapeHtml(t.id);
+          return href
+            ? `<a href="${href}">${id}</a>`
+            : `<span>${id}</span>`;
+        }).join("")
+      : "<span>inventory of this Mac</span>";
+    details.innerHTML = `
+      <summary>
+        <span class="id">${escapeHtml(cat.id)}</span>
+        <span class="blurb">${escapeHtml(cat.blurb || "")}</span>
+        <span class="n">${escapeHtml(n)}</span>
+      </summary>
+      <div class="chips">${chips}</div>
+    `;
+    root.appendChild(details);
+  }
 }
 
 const copyBtn = document.getElementById("copy-install");
