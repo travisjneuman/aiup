@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Scan this Mac. Update what you already have. Install or remove from a full-screen list.</strong><br/>
+  <strong>Scan your Mac. Update what you already have. Install or remove from a full-screen list.</strong><br/>
   Nothing is uploaded. Nothing requires an account.
 </p>
 
@@ -46,7 +46,7 @@ aiup list
 
 | You type | What happens |
 |---|---|
-| `aiup` | 🔍 Scan this Mac → update **installed** tools only |
+| `aiup` | 🔍 Scan your Mac → update **installed** tools only |
 | `aiup list` | 🎛️ Full-screen catalog |
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup doctor` | 🩺 How each tool was detected |
@@ -72,7 +72,7 @@ User-prefix installs. Node CLIs live in `~/.local/share/aiup/npm`, not a root-ow
 <td>
 
 ### 🍺 Homebrew, honestly
-Child lists are **this Mac**, plus a short recommended set — not all of Homebrew.
+Child lists are **your Mac**, plus a short recommended set — not all of Homebrew.
 
 </td>
 <td>
@@ -128,7 +128,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.20-11** · **68** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.20-19** · **68** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -138,10 +138,10 @@ _**2026.08.20-11** · **68** tools in the main catalog. Generated from `macos/ai
 | ✏️ | **editors** | Places you type code | 5 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
 | 💬 | **chat** | Cloud chat apps | 4 tools |
-| 🧠 | **local-ai** | Models, capture, and engines that run on this Mac | 10 tools |
+| 🧠 | **local-ai** | Models, capture, and engines that run on your Mac | 10 tools |
 | 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
 | 🔌 | **adapters** | Glue between agents and editors | 1 tool |
-| 🍺 | **homebrew** | What Homebrew already put on this Mac, plus a short recommended list | this Mac + recommended |
+| 🍺 | **homebrew** | What Homebrew already put on your Mac, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 
 The table above is generated from `macos/aiup`. When the catalog grows, `scripts/sync-public-docs` refreshes this README, [docs/catalog.md](docs/catalog.md), and [site/catalog.json](site/catalog.json) so the site stays in lockstep.

@@ -6,13 +6,13 @@ Homebrew is how many catalog items land on a Mac. It is not the whole catalog.
 
 | Child | What you see |
 |---|---|
-| **casks** | GUI apps Homebrew already installed on this Mac (minus main-catalog items) |
+| **casks** | GUI apps Homebrew already installed on your Mac (minus main-catalog items) |
 | **fonts** | `font-*` casks already installed |
 | **formulae** | CLI formulae already installed (not classified as libraries) |
 | **libraries** | Libraries Homebrew already installed |
 | **recommended** | A short popular list that is not already a Homebrew install |
 
-casks / fonts / formulae / libraries are **inventory of this Mac**. They are not a search of everything Homebrew ships. Opening Homebrew will still show thousands of other packages.
+casks / fonts / formulae / libraries are **inventory of your Mac**. They are not a search of everything Homebrew ships. Opening Homebrew will still show thousands of other packages.
 
 **recommended** is the list that can show things you don't have yet.
 
@@ -23,7 +23,7 @@ The same product can exist as a Homebrew cask *and* as a drag-installed / App St
 | State | Meaning |
 |---|---|
 | **installed** | Homebrew owns this formula or cask |
-| **on disk** | The app or command is on this Mac some other way |
+| **on disk** | The app or command is on your Mac some other way |
 | **absent** | Not found via Homebrew *or* the app/PATH check (recommended only) |
 
 ## Switch to Homebrew without losing settings

@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.08.20-11",
+  "version": "2026.08.20-19",
   "categories": [
     {
       "id": "infra",
@@ -463,7 +463,7 @@
     {
       "id": "local-ai",
       "emoji": "🧠",
-      "blurb": "Models, capture, and engines that run on this Mac",
+      "blurb": "Models, capture, and engines that run on your Mac",
       "tools": [
         {
           "id": "ollama",
@@ -612,31 +612,31 @@
     {
       "id": "homebrew",
       "emoji": "🍺",
-      "blurb": "What Homebrew already put on this Mac, plus a short recommended list",
+      "blurb": "What Homebrew already put on your Mac, plus a short recommended list",
       "tools": []
     },
     {
       "id": "homebrew/casks",
       "emoji": "📦",
-      "blurb": "GUI apps Homebrew already installed on this Mac",
+      "blurb": "GUI apps Homebrew already installed on your Mac",
       "tools": []
     },
     {
       "id": "homebrew/fonts",
       "emoji": "🔤",
-      "blurb": "Fonts Homebrew already installed on this Mac",
+      "blurb": "Fonts Homebrew already installed on your Mac",
       "tools": []
     },
     {
       "id": "homebrew/formulae",
       "emoji": "🛠️",
-      "blurb": "CLI formulae Homebrew already installed on this Mac",
+      "blurb": "CLI formulae Homebrew already installed on your Mac",
       "tools": []
     },
     {
       "id": "homebrew/libraries",
       "emoji": "📚",
-      "blurb": "Libraries Homebrew already installed on this Mac",
+      "blurb": "Libraries Homebrew already installed on your Mac",
       "tools": []
     },
     {

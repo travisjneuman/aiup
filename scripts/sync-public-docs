@@ -20,7 +20,7 @@ for cat in data["categories"]:
     tools = cat.get("tools") or []
     count = len(tools)
     if cat["id"] == "homebrew":
-        extra = "this Mac + recommended"
+        extra = "your Mac + recommended"
     elif count == 1:
         extra = "1 tool"
     else:

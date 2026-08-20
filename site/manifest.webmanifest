@@ -1,7 +1,7 @@
 {
   "name": "aiup",
   "short_name": "aiup",
-  "description": "The catalog of AI tools on this Mac.",
+  "description": "A local catalog for AI tools on macOS.",
   "start_url": "/",
   "display": "browser",
   "background_color": "#0b0c23",

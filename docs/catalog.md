@@ -1,4 +1,4 @@
-# Catalog (2026.08.20-11)
+# Catalog (2026.08.20-19)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -98,7 +98,7 @@ Cloud chat apps
 
 ## 🧠 local-ai
 
-Models, capture, and engines that run on this Mac
+Models, capture, and engines that run on your Mac
 
 | Id | Label |
 |---|---|
@@ -135,14 +135,14 @@ Glue between agents and editors
 
 ## 🍺 homebrew
 
-What Homebrew already put on this Mac, plus a short recommended list
+What Homebrew already put on your Mac, plus a short recommended list
 
 | Child | What |
 |---|---|
-| `casks` | GUI apps Homebrew already installed on this Mac |
-| `fonts` | Fonts Homebrew already installed on this Mac |
-| `formulae` | CLI formulae Homebrew already installed on this Mac |
-| `libraries` | Libraries Homebrew already installed on this Mac |
+| `casks` | GUI apps Homebrew already installed on your Mac |
+| `fonts` | Fonts Homebrew already installed on your Mac |
+| `formulae` | CLI formulae Homebrew already installed on your Mac |
+| `libraries` | Libraries Homebrew already installed on your Mac |
 | `recommended` | Popular extras you can add — or switch to Homebrew without losing settings |
 
 Recommended extras:

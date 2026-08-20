@@ -39,7 +39,7 @@ aiup never uses `sudo`. It writes to your home directory (`~/.local/bin`, `~/.lo
 
 ## First run
 
-`aiup` with no arguments **scans this machine** and updates what it finds. It will not install tools you do not have.
+`aiup` with no arguments **scans the machine** and updates what it finds. It will not install tools you do not have.
 
 ```bash
 aiup              # update whatever is already installed

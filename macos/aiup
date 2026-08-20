@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-11"
+AIUP_VERSION="2026.08.20-19"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -474,7 +474,7 @@ scan_friendly_name() {
 progress_start() {
   PROGRESS_N="$1"
   PROGRESS_I=0
-  PROGRESS_TITLE="${2:-Looking for tools on this Mac}"
+  PROGRESS_TITLE="${2:-Looking for tools on your Mac}"
   if [ ! -c /dev/tty ] || [ "${PROGRESS_N:-0}" -lt 1 ]; then
     PROGRESS_N=0
     return 0
@@ -630,14 +630,14 @@ catalog_category_blurb() {
     editors) printf 'Places you type code\n' ;;
     terminals) printf 'Places you run commands\n' ;;
     chat) printf 'Cloud chat apps\n' ;;
-    local-ai) printf 'Models, capture, and engines that run on this Mac\n' ;;
+    local-ai) printf 'Models, capture, and engines that run on your Mac\n' ;;
     llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
     adapters) printf 'Glue between agents and editors\n' ;;
-    homebrew) printf 'What Homebrew already put on this Mac, plus a short recommended list\n' ;;
-    homebrew/casks) printf 'GUI apps Homebrew already installed on this Mac\n' ;;
-    homebrew/fonts) printf 'Fonts Homebrew already installed on this Mac\n' ;;
-    homebrew/formulae) printf 'CLI formulae Homebrew already installed on this Mac\n' ;;
-    homebrew/libraries) printf 'Libraries Homebrew already installed on this Mac\n' ;;
+    homebrew) printf 'What Homebrew already put on your Mac, plus a short recommended list\n' ;;
+    homebrew/casks) printf 'GUI apps Homebrew already installed on your Mac\n' ;;
+    homebrew/fonts) printf 'Fonts Homebrew already installed on your Mac\n' ;;
+    homebrew/formulae) printf 'CLI formulae Homebrew already installed on your Mac\n' ;;
+    homebrew/libraries) printf 'Libraries Homebrew already installed on your Mac\n' ;;
     homebrew/recommended) printf 'Popular extras you can add — or switch to Homebrew without losing settings\n' ;;
     *) printf '\n' ;;
   esac
@@ -1115,13 +1115,13 @@ print_catalog_preview() {
       printf '%s\n' "$(brew_extra_label "$kind" "$name")"
       if [ "$kind" = 'cask' ] && extra_app="$(app_path_for_cask "$name")"; then
         if [ "$extra_state" = 'on-disk' ]; then
-          printf 'Found at %s — already on this Mac, not via Homebrew. Enter lets Homebrew manage it. Notes and settings stay; ~/Library is never deleted.\n' "$extra_app"
+          printf 'Found at %s — already on your Mac, not via Homebrew. Enter lets Homebrew manage it. Notes and settings stay; ~/Library is never deleted.\n' "$extra_app"
         fi
       elif [ "$kind" = 'formula' ] && [ "$extra_state" = 'on-disk' ]; then
         printf 'A %s command is already on PATH from outside Homebrew. Enter installs a Homebrew copy alongside it. The existing command is not uninstalled.\n' "$(formula_cmd_name "$name")"
       fi
       if [ "$kind" = 'cask' ]; then
-        printf 'casks / fonts / formulae / libraries = already on this Mac via Homebrew. recommended = a short popular list, not all of Homebrew.\n'
+        printf 'casks / fonts / formulae / libraries = already on your Mac via Homebrew. recommended = a short popular list, not all of Homebrew.\n'
       fi
       printf 'website  https://formulae.brew.sh/%s/%s\n' "$kind" "$name"
       printf 'needs: brew\n'
@@ -1248,13 +1248,13 @@ format_category_header() {
   fi
   case "$cat" in
     homebrew)
-      extra="${n_inst} on this Mac / ${n_abs} you can add"
+      extra="${n_inst} on your Mac / ${n_abs} you can add"
       ;;
     homebrew/recommended)
-      extra="${n_inst} already on this Mac / ${n_abs} you can add"
+      extra="${n_inst} already on your Mac / ${n_abs} you can add"
       ;;
     homebrew/*)
-      extra="${n_inst} already on this Mac via Homebrew"
+      extra="${n_inst} already on your Mac via Homebrew"
       ;;
     *)
       extra="${n_inst} installed / ${n_abs} absent"
@@ -1273,7 +1273,7 @@ brew_is_library() {
   return 1
 }
 
-# Map a Homebrew cask name to an .app bundle if one is already on this Mac
+# Map a Homebrew cask name to an .app bundle if one is already on your Mac
 # (App Store, vendor DMG, drag-install). Empty if unknown / CLI-only.
 app_path_for_cask() {
   local name="$1"
@@ -1480,7 +1480,7 @@ format_brew_extra_display() {
     state_txt=$'\033[1;38;2;57;255;20m'"$(printf '%-10s' 'on disk')"${reset}
     case "$label" in
       *'not via Homebrew'*) ;;
-      *) label="${label} · already on this Mac, not via Homebrew" ;;
+      *) label="${label} · already on your Mac, not via Homebrew" ;;
     esac
   else
     state_txt=$'\033[38;5;245m'"$(printf '%-10s' 'absent')"${reset}
@@ -1625,7 +1625,7 @@ apply_brew_extras() {
             if brew_cask_installed "$name"; then
               run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name" || true
             else
-              warn "$name is on this Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew (settings stay)."
+              warn "$name is on your Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew (settings stay)."
             fi
             ;;
           *)
@@ -1646,7 +1646,7 @@ apply_brew_extras() {
             if brew_formula_installed "$name"; then
               run_with_heartbeat "brew uninstall $name" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall "$name" || true
             else
-              warn "$name is not a Homebrew formula on this Mac; aiup will not delete the existing command"
+              warn "$name is not a Homebrew formula on your Mac; aiup will not delete the existing command"
             fi
             ;;
           update)
@@ -2250,7 +2250,7 @@ tool_is_present() {
 scan_installed_tools() {
   local tool
   local n="${#TOOLS_CATALOG[@]}"
-  progress_start "$((n + 1))" "Looking for tools on this Mac"
+  progress_start "$((n + 1))" "Looking for tools on your Mac"
   progress_tick "Reading your Homebrew inventory"
   brew_cache_load
   for tool in "${TOOLS_CATALOG[@]}"; do
@@ -3215,7 +3215,7 @@ print_summary_versions() {
 
 print_doctor() {
   ensure_managed_paths
-  progress_start 1 "Looking for tools on this Mac"
+  progress_start 1 "Looking for tools on your Mac"
   progress_tick "Reading your Homebrew inventory"
   brew_cache_load
   progress_end
@@ -3370,7 +3370,7 @@ print_list() {
     printf '\n== %s ==\n' "$cat"
     printf '%-18s %-10s %s\n' 'tool' 'state' 'label'
     if [ "$cat" = 'homebrew' ]; then
-      printf '%s\n' "casks/fonts/formulae/libraries = already on this Mac via Homebrew (not all of Homebrew)."
+      printf '%s\n' "casks/fonts/formulae/libraries = already on your Mac via Homebrew (not all of Homebrew)."
       printf '%s\n' "recommended = a short popular list. on-disk = same app/command, installed some other way."
       for child in "${HOMEBREW_CHILD_ORDER[@]}"; do
         printf '\n-- homebrew/%s --\n' "$child"
@@ -3392,7 +3392,7 @@ print_list() {
   done
 }
 
-# Catalog definition only — no scan of this Mac. Used by the public site/README.
+# Catalog definition only — no scan of your Mac. Used by the public site/README.
 print_catalog_definition() {
   local mode="${1:---json}"
   local tmp tool cat rec
@@ -3664,7 +3664,7 @@ scan_catalog_index() {
   local n="${#TOOLS_CATALOG[@]}"
   ensure_dir "$STATE_DIR"
   : > "$CATALOG_INDEX"
-  progress_start "$((n + 4))" "Looking for tools on this Mac"
+  progress_start "$((n + 4))" "Looking for tools on your Mac"
   progress_tick "Reading your Homebrew inventory"
   brew_cache_load
   for tool in "${TOOLS_CATALOG[@]}"; do
@@ -4083,7 +4083,7 @@ usage() {
 aiup $AIUP_VERSION
 
 Usage:
-  aiup                     Scan this Mac and update whatever is already installed
+  aiup                     Scan your Mac and update whatever is already installed
   aiup full                Same as default
   aiup core                Same as default
   aiup only <tools...>     Update (or install, for supported tools) a subset

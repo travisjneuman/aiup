@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-19
+
+- Site tab title is `aiup`. Root `/favicon.ico` is a real icon file.
+
 ## 2026.08.20-18
 
 - Sharing and search: Open Graph + Twitter large image (`og.png` 1200×630), JSON-LD, sitemap, robots.txt, llms.txt. HTML is not long-cached so each deploy is what people see.
@@ -34,6 +38,6 @@
 
 - First public repository: macOS script, README, site, local-only scan.
 - Homebrew extras can show **on disk** when the same app exists outside Homebrew.
-- Child Homebrew lists are this Mac's inventory; recommended is the short add-list.
+- Child Homebrew lists are your Mac's inventory; recommended is the short add-list.
 
 Earlier macOS history lived in a private working copy before this public repository.
