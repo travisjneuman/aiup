@@ -6,7 +6,7 @@ aiup is a bash script. There is no installer package yet.
 
 ```bash
 mkdir -p ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup -o ~/.local/bin/aiup
+curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup-launcher -o ~/.local/bin/aiup
 chmod +x ~/.local/bin/aiup
 ```
 
@@ -37,6 +37,12 @@ aiup list
 | uv | Only for uv-managed tools (shell-gpt, Open Interpreter) | Installed on demand |
 
 aiup does not invoke `sudo` itself. Homebrew's official installer may request macOS administrator authentication. aiup writes its own files to your home directory (`~/.local/bin`, `~/.local/share/aiup`).
+
+## Live public version
+
+The installed `aiup` command is a small launcher. Every invocation fetches the current `main/macos/aiup` script from the public repository, syntax-checks it, and atomically activates it under `~/.local/share/aiup/aiup-live` before running it. If the public fetch fails, aiup stops instead of silently running an older cached version.
+
+This means `aiup` runs the pushed public version immediately. `./macos/aiup` runs the copy in a local checkout and is useful when developing before a push. `AIUP_UPSTREAM_URL` can point the launcher at a different source for controlled testing.
 
 ## First run
 

@@ -38,7 +38,7 @@
 
 ```bash
 mkdir -p ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup -o ~/.local/bin/aiup
+curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup-launcher -o ~/.local/bin/aiup
 chmod +x ~/.local/bin/aiup
 export PATH="$HOME/.local/bin:$PATH"
 aiup only fzf
@@ -51,6 +51,10 @@ aiup list
 | `aiup list` | 🎛️ Full-screen catalog |
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup doctor` | 🩺 How each tool was detected |
+
+### 🔄 Always live
+
+The installed `aiup` command refreshes its runtime from public `main` on every invocation, so local testing starts with the latest pushed script. If the public fetch fails, it stops instead of silently running stale code.
 
 ## ✨ Why people keep it
 
@@ -129,7 +133,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.20-20** · **69** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.20-21** · **69** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

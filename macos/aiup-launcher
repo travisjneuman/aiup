@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -u
+set -o pipefail
+
+# Keep the installed command on the public repository's live main branch.
+# The launcher is intentionally small so it can remain stable while the
+# runtime script changes.
+AIUP_UPSTREAM_URL="${AIUP_UPSTREAM_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup}"
+AIUP_STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
+AIUP_RUNTIME_PATH="${AIUP_RUNTIME_PATH:-$AIUP_STATE_DIR/aiup-live}"
+
+die() {
+  printf 'aiup: %s\n' "$*" >&2
+  exit 1
+}
+
+if [ "${AIUP_LIVE_SYNCED:-0}" != 1 ]; then
+  command -v curl >/dev/null 2>&1 || die "curl is required to fetch the live public version"
+  command -v mktemp >/dev/null 2>&1 || die "mktemp is required to refresh the live public version"
+  command -v bash >/dev/null 2>&1 || die "bash is required to run aiup"
+
+  mkdir -p "$AIUP_STATE_DIR" || die "could not create $AIUP_STATE_DIR"
+  tmp_path="$(mktemp "$AIUP_STATE_DIR/.aiup-live.XXXXXX")" || die "could not create a temporary runtime"
+  cleanup() {
+    rm -f "$tmp_path"
+  }
+  trap cleanup EXIT HUP INT TERM
+
+  case "$AIUP_UPSTREAM_URL" in
+    *\?*) fetch_url="${AIUP_UPSTREAM_URL}&aiup_refresh=$(date +%s)-$$" ;;
+    *) fetch_url="${AIUP_UPSTREAM_URL}?aiup_refresh=$(date +%s)-$$" ;;
+  esac
+  if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
+    -H 'Cache-Control: no-cache' "$fetch_url" -o "$tmp_path"; then
+    die "could not fetch the live public version from $AIUP_UPSTREAM_URL"
+  fi
+  [ -s "$tmp_path" ] || die "the live public version was empty"
+  head -n 1 "$tmp_path" | grep -q '^#!/usr/bin/env bash$' || \
+    die "the live public version did not look like an aiup script"
+  grep -Eq '^AIUP_VERSION="[^"]+"$' "$tmp_path" || \
+    die "the live public version did not declare an aiup version"
+  bash -n "$tmp_path" || die "the live public version failed shell syntax validation"
+
+  chmod 700 "$tmp_path" || die "could not make the live runtime executable"
+  mv -f "$tmp_path" "$AIUP_RUNTIME_PATH" || die "could not activate the live runtime"
+  trap - EXIT HUP INT TERM
+fi
+
+export AIUP_LIVE_SYNCED=1
+exec bash "$AIUP_RUNTIME_PATH" "$@"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-21
+
+- Installed `aiup` now uses a live-sync launcher that fetches and validates the current public `main` runtime on every invocation, failing closed when it cannot refresh.
+
 ## 2026.08.20-20
 
 - fzf is required infrastructure, managed as a Homebrew formula and refreshed during update runs.
