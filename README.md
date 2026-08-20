@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/media/aiup-banner.jpg" alt="aiup" width="960" />
+  <img src="site/brand/derived/lockup.png" alt="aiup" width="560" />
 </p>
 
 <p align="center">

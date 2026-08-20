@@ -1,1 +1,0 @@
-/* Catalog data lives in the GitHub repo. This page is the poster. */

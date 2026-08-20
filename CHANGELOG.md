@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-17
+
+- Brand lockup on the site (navy, magenta–cyan–mint). Original logo lives in `site/brand/original/`; favicon, Apple touch, and OG images in `site/brand/derived/`. Product stills in `site/media/`.
+
 ## 2026.08.20-16
 
 - Public site is a poster: full-bleed catalog film, two lines of copy, GitHub. Install and how-to stay in the repo.
