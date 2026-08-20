@@ -1,95 +1,169 @@
-# aiup
-
-**A local catalog for AI tools on your Mac.**
-
-Scan what you already have. Update it. Install or remove from a full-screen list. Nothing is uploaded.
-
-[![aiup list](docs/media/aiup-list.gif)](https://aiup.neuman.dev)
+<p align="center">
+  <img src="docs/media/aiup-banner.jpg" alt="aiup" width="960" />
+</p>
 
 <p align="center">
-  <a href="https://aiup.neuman.dev"><strong>aiup.neuman.dev</strong></a>
+  <strong>Scan this Mac. Update what you already have. Install or remove from a full-screen list.</strong><br/>
+  Nothing is uploaded. Nothing requires an account.
+</p>
+
+<p align="center">
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-catalog-39FF14?style=for-the-badge&logo=apple&logoColor=black&labelColor=111" />
+  <img alt="local only" src="https://img.shields.io/badge/scan-local%20only-5CE1FF?style=for-the-badge&labelColor=111" />
+  <img alt="MIT" src="https://img.shields.io/badge/license-MIT-d67bff?style=for-the-badge&labelColor=111" />
+  <img alt="never sudo" src="https://img.shields.io/badge/sudo-never-ffb347?style=for-the-badge&labelColor=111" />
+</p>
+
+<p align="center">
+  <a href="https://aiup.neuman.dev">🌐 aiup.neuman.dev</a>
   ·
-  <a href="https://github.com/travisjneuman/aiup">github.com/travisjneuman/aiup</a>
+  <a href="https://github.com/travisjneuman/aiup">⭐ GitHub</a>
   ·
-  <a href="docs/install.md">install</a>
+  <a href="docs/install.md">⬇️ Install</a>
   ·
-  <a href="docs/catalog.md">catalog</a>
+  <a href="docs/catalog.md">📚 Catalog</a>
   ·
-  <a href="docs/privacy.md">privacy</a>
+  <a href="docs/privacy.md">🔒 Privacy</a>
 </p>
 
 ---
 
-aiup is a bash script that knows how a messy neighborhood of coding agents, chat apps, local-model tools, and Homebrew extras actually land on a Mac. Default `aiup` only **updates what is present**. Missing tools come back only when you ask.
+<p align="center">
+  <img src="docs/media/aiup-list.gif" alt="aiup list — collapsible catalog, neon installed rows, Homebrew extras" width="960" />
+</p>
+
+<p align="center"><em>⏎ install or expand &nbsp;·&nbsp; ⌃D uninstall &nbsp;·&nbsp; ⌃O docs &nbsp;·&nbsp; esc done</em></p>
+
+## ⚡ One minute
 
 ```bash
 mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup -o ~/.local/bin/aiup
 chmod +x ~/.local/bin/aiup
+export PATH="$HOME/.local/bin:$PATH"
 aiup list
 ```
 
-## Why it exists
-
-AI CLIs install everywhere: Homebrew, npm globals, vendor `curl | bash` scripts, `~/.local/bin`, `~/.grok`, `~/.hermes`. Updating with `sudo` writes root-owned files into user prefixes and the next update dies with `EACCES`. A hardcoded “install the whole set” command fights uninstalls.
-
-aiup’s rules:
-
-1. **Never sudo**
-2. **Scan by default** — do not reinstall what you removed
-3. **Presence is a live binary, package, cask, or app**
-4. **Explicit install**
-5. **Node CLIs go in `~/.local/share/aiup/npm`**, not `sudo npm -g`
-
-## Commands
-
-| Command | Behavior |
+| You type | What happens |
 |---|---|
-| `aiup` | Scan this Mac. Update installed tools only |
-| `aiup list` | Interactive catalog |
-| `aiup list --plain` | Print the table |
-| `aiup install` / `aiup remove` | Checkbox install / uninstall |
-| `aiup only grok` | Update, and install if missing |
-| `aiup doctor` | Status, method, path for every catalog tool |
-| `aiup docs grok` | Open the official GitHub or site |
+| `aiup` | 🔍 Scan this Mac → update **installed** tools only |
+| `aiup list` | 🎛️ Full-screen catalog |
+| `aiup only grok` | 📦 Install or update one tool |
+| `aiup doctor` | 🩺 How each tool was detected |
 
-In the list: **enter** install or expand a category, **ctrl-d** uninstall, **ctrl-o** docs, **esc** leave. Categories start collapsed. Installed rows are neon green; each category has a color bar.
+## ✨ Why people keep it
 
-## Catalog, in one screen
+<table>
+<tr>
+<td width="50%">
 
-| Category | Examples |
+### 🔍 Scan, don't spray
+Default `aiup` never brings back something you removed. Missing tools return only when you ask.
+
+</td>
+<td width="50%">
+
+### 🚫 Never sudo
+User-prefix installs. Node CLIs live in `~/.local/share/aiup/npm`, not a root-owned global.
+
+</td>
+</tr>
+<tr>
+<td>
+
+### 🍺 Homebrew, honestly
+Child lists are **this Mac**, plus a short recommended set — not all of Homebrew.
+
+</td>
+<td>
+
+### 🔒 Stays on the machine
+PATH, app bundles, `brew list`. No telemetry. [Privacy →](docs/privacy.md)
+
+</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Collapsed catalog" />
+  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Homebrew recommended" />
+</p>
+
+## 🎛️ Keys
+
+| Key | Action |
 |---|---|
-| infra | Homebrew, Node/npm, uv, gh |
-| coding-agents | Claude Code, Codex, Grok, Hermes CLI |
-| workspaces | Grok Bot, OpenCode desktop, **Hermes Desktop**, T3 Code |
-| editors | VS Code, Cursor, Zed |
-| terminals | Ghostty, iTerm, Warp, cmux |
-| chat | ChatGPT, Claude, Perplexity |
-| local-ai | Ollama, LM Studio, **MLX**, **mlx-lm** |
-| homebrew | What brew already put on *this* Mac, plus a short recommended list |
+| <kbd>enter</kbd> | Expand a category, install/update a tool, or **switch an on-disk app to Homebrew** |
+| <kbd>tab</kbd> / <kbd>space</kbd> | Check / uncheck |
+| <kbd>ctrl</kbd>+<kbd>e</kbd> | Toggle this category |
+| <kbd>alt</kbd>+<kbd>e</kbd> / <kbd>alt</kbd>+<kbd>c</kbd> | Expand / collapse all |
+| <kbd>ctrl</kbd>+<kbd>d</kbd> | Uninstall |
+| <kbd>ctrl</kbd>+<kbd>o</kbd> | Open GitHub or the product site |
+| <kbd>esc</kbd> | Leave |
 
-Hermes Desktop is a **workspace** (official Nous GUI for the same agent as the CLI), not a local-model runner.
+Installed rows glow **neon green**. Each category has a color bar. Categories start collapsed.
 
-**MLX** is Apple's Apple Silicon engine. **mlx-lm** runs local LLMs on that engine. They are not built into Ollama or LM Studio — those apps are separate products and may use MLX internally.
+## 🍺 Already installed — just not via Homebrew?
 
-Homebrew children with “0 absent” are **inventory**, not a claim that Homebrew has nothing else. See [docs/homebrew.md](docs/homebrew.md). An app you installed from a vendor DMG (Obsidian is the usual example) shows as **on disk**, not missing.
+Same app. Not a second copy.
 
-## Dependencies
+<p align="center">
+  <img src="docs/media/aiup-list-adopt.png" alt="Switch an existing app to Homebrew without losing settings" width="720" />
+</p>
 
-bash, python3, curl. **fzf** makes `aiup list` a TUI; without it you get numbered prompts. Homebrew / Node / uv are installed on demand when a catalog item needs them. Details: [docs/install.md](docs/install.md).
-
-## Privacy
-
-Scan is local. No account, no telemetry, no inventory upload. [docs/privacy.md](docs/privacy.md).
-
-## Status
-
-| OS | State |
+| State | Meaning |
 |---|---|
-| macOS | Current (`macos/aiup`) |
-| Linux | Planned |
-| Windows | Planned |
+| 💚 **installed** | Homebrew owns it |
+| 💚 **on disk** | The app or command is already here some other way |
+| ⬜ **absent** | Not found (recommended list only) |
 
-## License
+Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 
-[MIT](LICENSE)
+- Notes, vaults, preferences, and `~/Library` **stay**
+- Homebrew **never** runs `--zap`
+- If the versions already match, Homebrew **adopts** the existing `.app` (no re-download)
+- If they don't, only the app bundle is replaced — your data is left alone
+- Command-line tools already on PATH get a Homebrew copy **alongside**; the original is not deleted
+
+## 📚 What's in the catalog
+
+<!-- CATALOG:START -->
+_**2026.08.20-11** · **68** tools in the main catalog. Generated from `macos/aiup`._
+
+| | Category | What | Size |
+|---|---|---|---|
+| ⚙️ | **infra** | Runtimes and installers other tools need | 6 tools |
+| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
+| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 6 tools |
+| ✏️ | **editors** | Places you type code | 5 tools |
+| ⌨️ | **terminals** | Places you run commands | 4 tools |
+| 💬 | **chat** | Cloud chat apps | 4 tools |
+| 🧠 | **local-ai** | Models, capture, and engines that run on this Mac | 10 tools |
+| 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
+| 🔌 | **adapters** | Glue between agents and editors | 1 tool |
+| 🍺 | **homebrew** | What Homebrew already put on this Mac, plus a short recommended list | this Mac + recommended |
+<!-- CATALOG:END -->
+
+The table above is generated from `macos/aiup`. When the catalog grows, `scripts/sync-public-docs` refreshes this README, [docs/catalog.md](docs/catalog.md), and [site/catalog.json](site/catalog.json) so the site stays in lockstep.
+
+Full list + recommended extras → **[docs/catalog.md](docs/catalog.md)** · Homebrew semantics → **[docs/homebrew.md](docs/homebrew.md)**
+
+## 🧰 What aiup needs
+
+| Need | Why |
+|---|---|
+| bash · python3 · curl | The script (macOS already has these) |
+| [fzf](https://github.com/junegunn/fzf) | Full-screen list (numbered prompts without it) |
+| Homebrew / Node / uv | Only when a catalog item needs them — installed on demand |
+
+## 🗺️ Status
+
+| OS | |
+|---|---|
+| 🍎 macOS | Current — `macos/aiup` |
+| 🐧 Linux | Coming |
+| 🪟 Windows | Coming |
+
+## 📜 License
+
+[MIT](LICENSE) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)

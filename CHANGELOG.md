@@ -1,16 +1,15 @@
 # Changelog
 
+## 2026.08.20-11
+
+- Enter on an **on disk** app lets Homebrew manage it. Settings, notes, and `~/Library` stay (`--adopt`, then replace the `.app` only if versions differ). Never `--zap`.
+- Command-line tools already on PATH get a Homebrew copy alongside; the original is not deleted.
+- `aiup catalog` / `aiup catalog --markdown` export the catalog definition (no machine scan). `scripts/sync-public-docs` refreshes README, docs, and the site from that export.
+
 ## 2026.08.20-10
 
-- Hermes Desktop sits in **workspaces** (same class as Grok Bot / OpenCode desktop). Hermes CLI stays in coding-agents.
-- Add **MLX** and **mlx-lm** under local-ai. They are Apple's engine and LLM CLI, not Ollama/LM Studio.
-- Homebrew extras: **on disk** when the same app or command exists outside Homebrew (Obsidian from a DMG, system `curl`, …).
-- Child headers: casks/fonts/formulae/libraries are inventory of this Mac via Homebrew, not “everything Homebrew has.” Recommended is the only shopping list.
-- aiup does not brew-install over an app it already found, and does not delete apps it did not install through Homebrew.
-
-## 2026.08.20-9
-
-- Recategorize: workspaces, editors, terminals, chat, local-ai, adapters.
-- Jan, GPT4All, AnythingLLM, n8n, Open Interpreter.
+- First public repository: macOS script, README, site, local-only scan.
+- Homebrew extras can show **on disk** when the same app exists outside Homebrew.
+- Child Homebrew lists are this Mac's inventory; recommended is the short add-list.
 
 Earlier macOS history lived in a private working copy before this public repository.

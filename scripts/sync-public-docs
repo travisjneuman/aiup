@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Rebuild public catalog files from macos/aiup so README/site cannot drift.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+[ -x "$AIUP" ] || { echo "missing $AIUP" >&2; exit 1; }
+
+mkdir -p "$ROOT/site" "$ROOT/docs"
+"$AIUP" catalog --json > "$ROOT/site/catalog.json"
+"$AIUP" catalog --markdown > "$ROOT/docs/catalog.md"
+
+python3 - "$ROOT" <<'PY'
+import json, pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+data = json.loads((root / "site" / "catalog.json").read_text())
+body = []
+for cat in data["categories"]:
+    if cat["id"].startswith("homebrew/"):
+        continue
+    tools = cat.get("tools") or []
+    count = len(tools)
+    if cat["id"] == "homebrew":
+        extra = "this Mac + recommended"
+    elif count == 1:
+        extra = "1 tool"
+    else:
+        extra = f"{count} tools"
+    body.append(
+        f"| {cat.get('emoji','')} | **{cat['id']}** | {cat.get('blurb','')} | {extra} |"
+    )
+table = "\n".join([
+    "",
+    f"_**{data['version']}** · **{len(data['tools'])}** tools in the main catalog. Generated from `macos/aiup`._",
+    "",
+    "| | Category | What | Size |",
+    "|---|---|---|---|",
+    *body,
+    "",
+])
+readme = (root / "README.md").read_text()
+if "<!-- CATALOG:START -->" not in readme or "<!-- CATALOG:END -->" not in readme:
+    raise SystemExit("README.md missing CATALOG markers")
+readme = re.sub(
+    r"<!-- CATALOG:START -->.*?<!-- CATALOG:END -->",
+    "<!-- CATALOG:START -->" + table + "<!-- CATALOG:END -->",
+    readme,
+    count=1,
+    flags=re.S,
+)
+(root / "README.md").write_text(readme)
+print(f"synced catalog {data['version']} ({len(data['tools'])} tools)")
+PY

@@ -1,39 +1,50 @@
-# Homebrew in the catalog
+# Homebrew
 
-Homebrew is infrastructure, not the whole product. The main catalog is a curated list of AI / agent / editor / terminal tools. Under **homebrew** you also see extras that are already on *this* Mac.
+Homebrew is how many catalog items land on a Mac. It is not the whole catalog.
 
-## The children are not “all of Homebrew”
+## Child lists
 
-If a child says you are missing zero items, Homebrew still has thousands of other formulae. aiup is not a brew browser.
+| Child | What you see |
+|---|---|
+| **casks** | GUI apps Homebrew already installed on this Mac (minus main-catalog items) |
+| **fonts** | `font-*` casks already installed |
+| **formulae** | CLI formulae already installed (not classified as libraries) |
+| **libraries** | Libraries Homebrew already installed |
+| **recommended** | A short popular list that is not already a Homebrew install |
 
-| Child | What it lists | Absent count |
-|---|---|---|
-| **casks** | GUI apps Homebrew already installed, excluding items in the main catalog | Always empty on purpose |
-| **fonts** | `font-*` casks already installed | Always empty on purpose |
-| **formulae** | CLI formulae already installed (not treated as libraries) | Always empty on purpose |
-| **libraries** | Build/runtime libraries Homebrew already installed | Always empty on purpose |
-| **recommended** | A short popular list that is **not** already a Homebrew install | This is the only child that shows absents |
+casks / fonts / formulae / libraries are **inventory of this Mac**. They are not a search of everything Homebrew ships. Opening Homebrew will still show thousands of other packages.
 
-The header `N already on this Mac via Homebrew` means “here is what brew put on this computer,” not “here is everything you could install.”
+**recommended** is the list that can show things you don't have yet.
 
-## Installed vs on disk vs absent
+## installed · on disk · absent
 
-The same product can exist as a Homebrew cask *and* as a drag-installed / App Store / vendor `.app`. Those are **not two different apps**. Detection:
+The same product can exist as a Homebrew cask *and* as a drag-installed / App Store / vendor `.app`. Those are one app.
 
 | State | Meaning |
 |---|---|
 | **installed** | Homebrew owns this formula or cask |
-| **on disk** | The app or command is on this Mac some other way (`/Applications/Obsidian.app`, system `curl`, …) |
-| **absent** | Not found via Homebrew *or* the app/PATH check (recommended list only) |
+| **on disk** | The app or command is on this Mac some other way |
+| **absent** | Not found via Homebrew *or* the app/PATH check (recommended only) |
 
-Example: Obsidian installed from obsidian.md shows as **on disk** under recommended, not as a missing cask. Enter will **not** `brew install obsidian` on top of it. Uninstall will **not** delete an app aiup did not install through Homebrew.
+## Switch to Homebrew without losing settings
 
-## Recommended is a shopping list, not inventory
+On an **on disk** row, press enter.
 
-Recommended is a hand-picked set of launchers, note apps, terminals, and CLIs that people in this neighborhood often want. It is not “similar items Homebrew would show you.” Opening Homebrew and searching the same category will still find more.
+For apps:
 
-## What scan uses
+1. Confirm.
+2. `brew install --cask --adopt` — Homebrew tracks the existing `.app` when it matches.
+3. If versions differ, only the app bundle is replaced (`brew install --cask --force`). Notes, vaults, preferences, and everything under `~/Library` stay. aiup never passes `--zap`.
 
-- `brew list --cask` / `brew list --formula` for extras already managed by brew
-- `/Applications` and `~/Applications` for the recommended casks' `.app` names
-- `command -v` for recommended formulae that exist outside brew (including macOS `/usr/bin/curl`)
+For command-line tools already on PATH:
+
+- Homebrew's copy is installed **alongside**
+- The original command (including macOS `/usr/bin`) is not uninstalled
+
+Uninstall from aiup only removes Homebrew-managed installs. A drag-installed app is left for you to remove in Finder.
+
+## What a scan reads
+
+- `brew list --cask` / `brew list --formula`
+- `/Applications` and `~/Applications`
+- `command -v` for recommended formulae

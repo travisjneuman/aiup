@@ -1,0 +1,1537 @@
+{
+  "name": "aiup",
+  "version": "2026.08.20-11",
+  "categories": [
+    {
+      "id": "infra",
+      "emoji": "⚙️",
+      "blurb": "Runtimes and installers other tools need",
+      "tools": [
+        {
+          "id": "brew",
+          "category": "infra",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/Homebrew/brew",
+          "label": "Homebrew — required for formulae, casks, and Node/npm on this system (not removable)"
+        },
+        {
+          "id": "npm",
+          "category": "infra",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/nodejs/node",
+          "label": "Node/npm via Homebrew (infrastructure; update-only, not removable)"
+        },
+        {
+          "id": "uv",
+          "category": "infra",
+          "kind": "curl-installer",
+          "lifecycle": "active",
+          "docs": "https://github.com/astral-sh/uv",
+          "label": "Astral uv/uvx — Python toolchain (also used to install Aider/llm)"
+        },
+        {
+          "id": "gh",
+          "category": "infra",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/cli/cli",
+          "label": "GitHub CLI"
+        },
+        {
+          "id": "wrangler",
+          "category": "infra",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/cloudflare/workers-sdk",
+          "label": "Cloudflare Workers CLI (cloudflare-wrangler)"
+        },
+        {
+          "id": "deno",
+          "category": "infra",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/denoland/deno",
+          "label": "Deno runtime"
+        }
+      ]
+    },
+    {
+      "id": "coding-agents",
+      "emoji": "🤖",
+      "blurb": "Agents that write and edit code in the terminal",
+      "tools": [
+        {
+          "id": "claude",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/anthropics/claude-code",
+          "label": "Claude Code — Anthropic native CLI"
+        },
+        {
+          "id": "copilot",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/github/copilot-cli",
+          "label": "GitHub Copilot CLI — @github/copilot"
+        },
+        {
+          "id": "codex",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/openai/codex",
+          "label": "OpenAI Codex CLI — @openai/codex"
+        },
+        {
+          "id": "antigravity",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://antigravity.google/",
+          "label": "Google Antigravity CLI (agy)"
+        },
+        {
+          "id": "grok",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://x.ai/build",
+          "label": "Grok Build — xAI official CLI"
+        },
+        {
+          "id": "gemini",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "sunset",
+          "docs": "https://github.com/google-gemini/gemini-cli",
+          "label": "Google Gemini CLI (legacy; Antigravity is preferred)"
+        },
+        {
+          "id": "pi",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/badlogic/pi-mono",
+          "label": "Pi coding agent — @earendil-works/pi-coding-agent"
+        },
+        {
+          "id": "kilo",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/Kilo-Org/kilocode",
+          "label": "Kilo Code CLI — @kilocode/cli"
+        },
+        {
+          "id": "gsd2",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/opengsd/gsd-pi",
+          "label": "GSD (gsd-pi) — @opengsd/gsd-pi"
+        },
+        {
+          "id": "opencode",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/sst/opencode",
+          "label": "OpenCode — official installer"
+        },
+        {
+          "id": "hermes",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/NousResearch/hermes-agent",
+          "label": "Hermes Agent — Nous Research"
+        },
+        {
+          "id": "omp",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://pi.dev/",
+          "label": "Oh My Pi (omp) standalone binary"
+        },
+        {
+          "id": "warp",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/warpdotdev/warp",
+          "label": "Warp Agent CLI (warp / Oz TUI)"
+        },
+        {
+          "id": "aider",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/Aider-AI/aider",
+          "label": "Aider — git-native pair programming CLI"
+        },
+        {
+          "id": "goose",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/block/goose",
+          "label": "Goose — Block open-source agent CLI"
+        },
+        {
+          "id": "cursor",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://cursor.com/docs/cli",
+          "label": "Cursor Agent CLI (cursor-agent / cursor-cli cask)"
+        },
+        {
+          "id": "qwen",
+          "category": "coding-agents",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/QwenLM/qwen-code",
+          "label": "Qwen Code — @qwen-code/qwen-code"
+        },
+        {
+          "id": "crush",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/charmbracelet/crush",
+          "label": "Crush — Charm agentic TUI (@charmland/crush)"
+        },
+        {
+          "id": "amp",
+          "category": "coding-agents",
+          "kind": "curl-installer",
+          "lifecycle": "active",
+          "docs": "https://ampcode.com/",
+          "label": "Amp — Sourcegraph frontier coding agent"
+        },
+        {
+          "id": "kiro",
+          "category": "coding-agents",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://kiro.dev/docs/cli/",
+          "label": "Kiro CLI — Amazon Q Developer CLI successor"
+        },
+        {
+          "id": "droid",
+          "category": "coding-agents",
+          "kind": "curl-installer",
+          "lifecycle": "active",
+          "docs": "https://github.com/Factory-AI/factory",
+          "label": "Factory Droid — Factory.ai coding agent"
+        },
+        {
+          "id": "kimi",
+          "category": "coding-agents",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/MoonshotAI/kimi-code",
+          "label": "Kimi Code CLI — Moonshot (kimi-code)"
+        },
+        {
+          "id": "openclaw",
+          "category": "coding-agents",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/openclaw/openclaw",
+          "label": "OpenClaw — personal/local AI assistant CLI"
+        },
+        {
+          "id": "plandex",
+          "category": "coding-agents",
+          "kind": "curl-installer",
+          "lifecycle": "maintenance",
+          "docs": "https://github.com/plandex-ai/plandex",
+          "label": "Plandex — large-task planning CLI (quieter upstream)"
+        },
+        {
+          "id": "cline",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/cline/cline",
+          "label": "Cline CLI — npm cline"
+        },
+        {
+          "id": "continue",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "sunset",
+          "docs": "https://github.com/continuedev/continue",
+          "label": "[SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only"
+        },
+        {
+          "id": "interpreter",
+          "category": "coding-agents",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/openinterpreter/open-interpreter",
+          "label": "Open Interpreter — natural-language computer-use agent"
+        }
+      ]
+    },
+    {
+      "id": "workspaces",
+      "emoji": "🖥️",
+      "blurb": "Desktop hubs that drive those agents",
+      "tools": [
+        {
+          "id": "t3-code",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/pingdotgg/t3code",
+          "label": "T3 Code — desktop hub that drives Codex/Claude/Grok/OpenCode"
+        },
+        {
+          "id": "t3-nightly",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/pingdotgg/t3code",
+          "label": "T3 Code Nightly — desktop hub (nightly build)"
+        },
+        {
+          "id": "grokbot",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://x.ai/bot",
+          "label": "Grok Bot — xAI teammates that work across your apps"
+        },
+        {
+          "id": "opencode-desktop",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://opencode.ai/",
+          "label": "OpenCode desktop client"
+        },
+        {
+          "id": "hermes-desktop",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://hermes-agent.nousresearch.com/desktop",
+          "label": "Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI"
+        },
+        {
+          "id": "n8n",
+          "category": "workspaces",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/n8n-io/n8n",
+          "label": "n8n — workflow automation (often used with local LLMs)"
+        }
+      ]
+    },
+    {
+      "id": "editors",
+      "emoji": "✏️",
+      "blurb": "Places you type code",
+      "tools": [
+        {
+          "id": "vscode",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/microsoft/vscode",
+          "label": "Visual Studio Code"
+        },
+        {
+          "id": "vscode-insiders",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://code.visualstudio.com/insiders/",
+          "label": "VS Code Insiders"
+        },
+        {
+          "id": "cursor-ide",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://cursor.com/",
+          "label": "Cursor IDE app (Homebrew cask)"
+        },
+        {
+          "id": "zed",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/zed-industries/zed",
+          "label": "Zed editor app (Homebrew cask)"
+        },
+        {
+          "id": "antigravity-ide",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://antigravity.google/product/antigravity-ide",
+          "label": "Google Antigravity IDE"
+        }
+      ]
+    },
+    {
+      "id": "terminals",
+      "emoji": "⌨️",
+      "blurb": "Places you run commands",
+      "tools": [
+        {
+          "id": "cmux",
+          "category": "terminals",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/manaflow-ai/cmux",
+          "label": "cmux — terminal for running coding agents (not an agent itself)"
+        },
+        {
+          "id": "warp-app",
+          "category": "terminals",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.warp.dev/terminal",
+          "label": "Warp terminal (desktop; distinct from Warp Agent CLI)"
+        },
+        {
+          "id": "ghostty",
+          "category": "terminals",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/ghostty-org/ghostty",
+          "label": "Ghostty terminal"
+        },
+        {
+          "id": "iterm2",
+          "category": "terminals",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://iterm2.com/",
+          "label": "iTerm2 terminal"
+        }
+      ]
+    },
+    {
+      "id": "chat",
+      "emoji": "💬",
+      "blurb": "Cloud chat apps",
+      "tools": [
+        {
+          "id": "chatgpt",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://chatgpt.com/",
+          "label": "ChatGPT desktop app (Homebrew cask)"
+        },
+        {
+          "id": "claude-app",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://claude.com/download",
+          "label": "Claude desktop app (not Claude Code CLI)"
+        },
+        {
+          "id": "copilot-app",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/github/app",
+          "label": "GitHub Copilot native desktop app"
+        },
+        {
+          "id": "perplexity",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.perplexity.ai/personal-computer",
+          "label": "Perplexity desktop (Personal Computer agent)"
+        }
+      ]
+    },
+    {
+      "id": "local-ai",
+      "emoji": "🧠",
+      "blurb": "Models, capture, and engines that run on this Mac",
+      "tools": [
+        {
+          "id": "ollama",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/ollama/ollama",
+          "label": "Ollama local-model CLI"
+        },
+        {
+          "id": "lm-studio",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://lmstudio.ai/",
+          "label": "LM Studio — local LLM desktop app"
+        },
+        {
+          "id": "jan",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/janhq/jan",
+          "label": "Jan — local ChatGPT-style app"
+        },
+        {
+          "id": "gpt4all",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/nomic-ai/gpt4all",
+          "label": "GPT4All — local LLM desktop app"
+        },
+        {
+          "id": "anythingllm",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/Mintplex-Labs/anything-llm",
+          "label": "AnythingLLM — private local RAG/chat app"
+        },
+        {
+          "id": "mlx",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/ml-explore/mlx",
+          "label": "MLX — Apple Silicon engine for running local AI (not a chat app)"
+        },
+        {
+          "id": "mlx-lm",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/ml-explore/mlx-lm",
+          "label": "mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX"
+        },
+        {
+          "id": "ollama-app",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://ollama.com/",
+          "label": "Ollama desktop app (Homebrew cask)"
+        },
+        {
+          "id": "macwhisper",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://goodsnooze.gumroad.com/l/macwhisper",
+          "label": "MacWhisper — local speech-to-text"
+        },
+        {
+          "id": "screenpipe",
+          "category": "local-ai",
+          "kind": "app",
+          "lifecycle": "active",
+          "docs": "https://github.com/mediar-ai/screenpipe",
+          "label": "screenpipe — local screen/audio capture (app, no Homebrew cask)"
+        }
+      ]
+    },
+    {
+      "id": "llm-utils",
+      "emoji": "🔧",
+      "blurb": "Unix-pipe LLM CLIs",
+      "tools": [
+        {
+          "id": "llm",
+          "category": "llm-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/simonw/llm",
+          "label": "llm — Simon Willison Unix LLM CLI"
+        },
+        {
+          "id": "mods",
+          "category": "llm-utils",
+          "kind": "brew-formula",
+          "lifecycle": "archived",
+          "docs": "https://github.com/charmbracelet/mods",
+          "label": "mods — Charm pipe-to-LLM (upstream archived)"
+        },
+        {
+          "id": "aichat",
+          "category": "llm-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/sigoden/aichat",
+          "label": "aichat — all-in-one terminal AI workstation"
+        },
+        {
+          "id": "fabric",
+          "category": "llm-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/danielmiessler/fabric",
+          "label": "fabric-ai — Daniel Miessler prompt-pattern CLI"
+        },
+        {
+          "id": "sgpt",
+          "category": "llm-utils",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/TheR1D/shell_gpt",
+          "label": "shell-gpt (sgpt) via uv"
+        }
+      ]
+    },
+    {
+      "id": "adapters",
+      "emoji": "🔌",
+      "blurb": "Glue between agents and editors",
+      "tools": [
+        {
+          "id": "pi-acp",
+          "category": "adapters",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://www.npmjs.com/package/pi-acp",
+          "label": "Pi ACP adapter (pi-acp) for T3 Code / editors"
+        }
+      ]
+    },
+    {
+      "id": "homebrew",
+      "emoji": "🍺",
+      "blurb": "What Homebrew already put on this Mac, plus a short recommended list",
+      "tools": []
+    },
+    {
+      "id": "homebrew/casks",
+      "emoji": "📦",
+      "blurb": "GUI apps Homebrew already installed on this Mac",
+      "tools": []
+    },
+    {
+      "id": "homebrew/fonts",
+      "emoji": "🔤",
+      "blurb": "Fonts Homebrew already installed on this Mac",
+      "tools": []
+    },
+    {
+      "id": "homebrew/formulae",
+      "emoji": "🛠️",
+      "blurb": "CLI formulae Homebrew already installed on this Mac",
+      "tools": []
+    },
+    {
+      "id": "homebrew/libraries",
+      "emoji": "📚",
+      "blurb": "Libraries Homebrew already installed on this Mac",
+      "tools": []
+    },
+    {
+      "id": "homebrew/recommended",
+      "emoji": "⭐",
+      "blurb": "Popular extras you can add — or switch to Homebrew without losing settings",
+      "tools": []
+    }
+  ],
+  "tools": [
+    {
+      "id": "brew",
+      "category": "infra",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/Homebrew/brew",
+      "label": "Homebrew — required for formulae, casks, and Node/npm on this system (not removable)"
+    },
+    {
+      "id": "npm",
+      "category": "infra",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/nodejs/node",
+      "label": "Node/npm via Homebrew (infrastructure; update-only, not removable)"
+    },
+    {
+      "id": "uv",
+      "category": "infra",
+      "kind": "curl-installer",
+      "lifecycle": "active",
+      "docs": "https://github.com/astral-sh/uv",
+      "label": "Astral uv/uvx — Python toolchain (also used to install Aider/llm)"
+    },
+    {
+      "id": "gh",
+      "category": "infra",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/cli/cli",
+      "label": "GitHub CLI"
+    },
+    {
+      "id": "wrangler",
+      "category": "infra",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/cloudflare/workers-sdk",
+      "label": "Cloudflare Workers CLI (cloudflare-wrangler)"
+    },
+    {
+      "id": "deno",
+      "category": "infra",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/denoland/deno",
+      "label": "Deno runtime"
+    },
+    {
+      "id": "claude",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/anthropics/claude-code",
+      "label": "Claude Code — Anthropic native CLI"
+    },
+    {
+      "id": "copilot",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/github/copilot-cli",
+      "label": "GitHub Copilot CLI — @github/copilot"
+    },
+    {
+      "id": "codex",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/openai/codex",
+      "label": "OpenAI Codex CLI — @openai/codex"
+    },
+    {
+      "id": "antigravity",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://antigravity.google/",
+      "label": "Google Antigravity CLI (agy)"
+    },
+    {
+      "id": "grok",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://x.ai/build",
+      "label": "Grok Build — xAI official CLI"
+    },
+    {
+      "id": "gemini",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "sunset",
+      "docs": "https://github.com/google-gemini/gemini-cli",
+      "label": "Google Gemini CLI (legacy; Antigravity is preferred)"
+    },
+    {
+      "id": "pi",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/badlogic/pi-mono",
+      "label": "Pi coding agent — @earendil-works/pi-coding-agent"
+    },
+    {
+      "id": "kilo",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/Kilo-Org/kilocode",
+      "label": "Kilo Code CLI — @kilocode/cli"
+    },
+    {
+      "id": "gsd2",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/opengsd/gsd-pi",
+      "label": "GSD (gsd-pi) — @opengsd/gsd-pi"
+    },
+    {
+      "id": "opencode",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/sst/opencode",
+      "label": "OpenCode — official installer"
+    },
+    {
+      "id": "hermes",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/NousResearch/hermes-agent",
+      "label": "Hermes Agent — Nous Research"
+    },
+    {
+      "id": "omp",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://pi.dev/",
+      "label": "Oh My Pi (omp) standalone binary"
+    },
+    {
+      "id": "warp",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/warpdotdev/warp",
+      "label": "Warp Agent CLI (warp / Oz TUI)"
+    },
+    {
+      "id": "aider",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/Aider-AI/aider",
+      "label": "Aider — git-native pair programming CLI"
+    },
+    {
+      "id": "goose",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/block/goose",
+      "label": "Goose — Block open-source agent CLI"
+    },
+    {
+      "id": "cursor",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://cursor.com/docs/cli",
+      "label": "Cursor Agent CLI (cursor-agent / cursor-cli cask)"
+    },
+    {
+      "id": "qwen",
+      "category": "coding-agents",
+      "kind": "special",
+      "lifecycle": "active",
+      "docs": "https://github.com/QwenLM/qwen-code",
+      "label": "Qwen Code — @qwen-code/qwen-code"
+    },
+    {
+      "id": "crush",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/charmbracelet/crush",
+      "label": "Crush — Charm agentic TUI (@charmland/crush)"
+    },
+    {
+      "id": "amp",
+      "category": "coding-agents",
+      "kind": "curl-installer",
+      "lifecycle": "active",
+      "docs": "https://ampcode.com/",
+      "label": "Amp — Sourcegraph frontier coding agent"
+    },
+    {
+      "id": "kiro",
+      "category": "coding-agents",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://kiro.dev/docs/cli/",
+      "label": "Kiro CLI — Amazon Q Developer CLI successor"
+    },
+    {
+      "id": "droid",
+      "category": "coding-agents",
+      "kind": "curl-installer",
+      "lifecycle": "active",
+      "docs": "https://github.com/Factory-AI/factory",
+      "label": "Factory Droid — Factory.ai coding agent"
+    },
+    {
+      "id": "kimi",
+      "category": "coding-agents",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/MoonshotAI/kimi-code",
+      "label": "Kimi Code CLI — Moonshot (kimi-code)"
+    },
+    {
+      "id": "openclaw",
+      "category": "coding-agents",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/openclaw/openclaw",
+      "label": "OpenClaw — personal/local AI assistant CLI"
+    },
+    {
+      "id": "plandex",
+      "category": "coding-agents",
+      "kind": "curl-installer",
+      "lifecycle": "maintenance",
+      "docs": "https://github.com/plandex-ai/plandex",
+      "label": "Plandex — large-task planning CLI (quieter upstream)"
+    },
+    {
+      "id": "cline",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/cline/cline",
+      "label": "Cline CLI — npm cline"
+    },
+    {
+      "id": "continue",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "sunset",
+      "docs": "https://github.com/continuedev/continue",
+      "label": "[SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only"
+    },
+    {
+      "id": "pi-acp",
+      "category": "adapters",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://www.npmjs.com/package/pi-acp",
+      "label": "Pi ACP adapter (pi-acp) for T3 Code / editors"
+    },
+    {
+      "id": "llm",
+      "category": "llm-utils",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/simonw/llm",
+      "label": "llm — Simon Willison Unix LLM CLI"
+    },
+    {
+      "id": "mods",
+      "category": "llm-utils",
+      "kind": "brew-formula",
+      "lifecycle": "archived",
+      "docs": "https://github.com/charmbracelet/mods",
+      "label": "mods — Charm pipe-to-LLM (upstream archived)"
+    },
+    {
+      "id": "aichat",
+      "category": "llm-utils",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/sigoden/aichat",
+      "label": "aichat — all-in-one terminal AI workstation"
+    },
+    {
+      "id": "fabric",
+      "category": "llm-utils",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/danielmiessler/fabric",
+      "label": "fabric-ai — Daniel Miessler prompt-pattern CLI"
+    },
+    {
+      "id": "sgpt",
+      "category": "llm-utils",
+      "kind": "uv-tool",
+      "lifecycle": "active",
+      "docs": "https://github.com/TheR1D/shell_gpt",
+      "label": "shell-gpt (sgpt) via uv"
+    },
+    {
+      "id": "ollama",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/ollama/ollama",
+      "label": "Ollama local-model CLI"
+    },
+    {
+      "id": "lm-studio",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://lmstudio.ai/",
+      "label": "LM Studio — local LLM desktop app"
+    },
+    {
+      "id": "jan",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/janhq/jan",
+      "label": "Jan — local ChatGPT-style app"
+    },
+    {
+      "id": "gpt4all",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/nomic-ai/gpt4all",
+      "label": "GPT4All — local LLM desktop app"
+    },
+    {
+      "id": "anythingllm",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/Mintplex-Labs/anything-llm",
+      "label": "AnythingLLM — private local RAG/chat app"
+    },
+    {
+      "id": "mlx",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/ml-explore/mlx",
+      "label": "MLX — Apple Silicon engine for running local AI (not a chat app)"
+    },
+    {
+      "id": "mlx-lm",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/ml-explore/mlx-lm",
+      "label": "mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX"
+    },
+    {
+      "id": "chatgpt",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://chatgpt.com/",
+      "label": "ChatGPT desktop app (Homebrew cask)"
+    },
+    {
+      "id": "claude-app",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://claude.com/download",
+      "label": "Claude desktop app (not Claude Code CLI)"
+    },
+    {
+      "id": "copilot-app",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/github/app",
+      "label": "GitHub Copilot native desktop app"
+    },
+    {
+      "id": "perplexity",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.perplexity.ai/personal-computer",
+      "label": "Perplexity desktop (Personal Computer agent)"
+    },
+    {
+      "id": "vscode",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/microsoft/vscode",
+      "label": "Visual Studio Code"
+    },
+    {
+      "id": "vscode-insiders",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://code.visualstudio.com/insiders/",
+      "label": "VS Code Insiders"
+    },
+    {
+      "id": "cursor-ide",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://cursor.com/",
+      "label": "Cursor IDE app (Homebrew cask)"
+    },
+    {
+      "id": "zed",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/zed-industries/zed",
+      "label": "Zed editor app (Homebrew cask)"
+    },
+    {
+      "id": "antigravity-ide",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://antigravity.google/product/antigravity-ide",
+      "label": "Google Antigravity IDE"
+    },
+    {
+      "id": "t3-code",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/pingdotgg/t3code",
+      "label": "T3 Code — desktop hub that drives Codex/Claude/Grok/OpenCode"
+    },
+    {
+      "id": "t3-nightly",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/pingdotgg/t3code",
+      "label": "T3 Code Nightly — desktop hub (nightly build)"
+    },
+    {
+      "id": "grokbot",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://x.ai/bot",
+      "label": "Grok Bot — xAI teammates that work across your apps"
+    },
+    {
+      "id": "opencode-desktop",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://opencode.ai/",
+      "label": "OpenCode desktop client"
+    },
+    {
+      "id": "hermes-desktop",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://hermes-agent.nousresearch.com/desktop",
+      "label": "Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI"
+    },
+    {
+      "id": "cmux",
+      "category": "terminals",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/manaflow-ai/cmux",
+      "label": "cmux — terminal for running coding agents (not an agent itself)"
+    },
+    {
+      "id": "warp-app",
+      "category": "terminals",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.warp.dev/terminal",
+      "label": "Warp terminal (desktop; distinct from Warp Agent CLI)"
+    },
+    {
+      "id": "ghostty",
+      "category": "terminals",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/ghostty-org/ghostty",
+      "label": "Ghostty terminal"
+    },
+    {
+      "id": "iterm2",
+      "category": "terminals",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://iterm2.com/",
+      "label": "iTerm2 terminal"
+    },
+    {
+      "id": "ollama-app",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://ollama.com/",
+      "label": "Ollama desktop app (Homebrew cask)"
+    },
+    {
+      "id": "macwhisper",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://goodsnooze.gumroad.com/l/macwhisper",
+      "label": "MacWhisper — local speech-to-text"
+    },
+    {
+      "id": "screenpipe",
+      "category": "local-ai",
+      "kind": "app",
+      "lifecycle": "active",
+      "docs": "https://github.com/mediar-ai/screenpipe",
+      "label": "screenpipe — local screen/audio capture (app, no Homebrew cask)"
+    },
+    {
+      "id": "n8n",
+      "category": "workspaces",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/n8n-io/n8n",
+      "label": "n8n — workflow automation (often used with local LLMs)"
+    },
+    {
+      "id": "interpreter",
+      "category": "coding-agents",
+      "kind": "uv-tool",
+      "lifecycle": "active",
+      "docs": "https://github.com/openinterpreter/open-interpreter",
+      "label": "Open Interpreter — natural-language computer-use agent"
+    }
+  ],
+  "recommended": [
+    {
+      "kind": "cask",
+      "id": "raycast",
+      "label": "Raycast launcher"
+    },
+    {
+      "kind": "cask",
+      "id": "obsidian",
+      "label": "Obsidian notes"
+    },
+    {
+      "kind": "cask",
+      "id": "docker",
+      "label": "Docker Desktop"
+    },
+    {
+      "kind": "cask",
+      "id": "linear",
+      "label": "Linear issue tracker"
+    },
+    {
+      "kind": "cask",
+      "id": "notion",
+      "label": "Notion"
+    },
+    {
+      "kind": "cask",
+      "id": "windsurf",
+      "label": "Windsurf AI IDE"
+    },
+    {
+      "kind": "cask",
+      "id": "devin-desktop",
+      "label": "Devin Desktop"
+    },
+    {
+      "kind": "cask",
+      "id": "copilot-cli",
+      "label": "GitHub Copilot CLI (Homebrew cask)"
+    },
+    {
+      "kind": "cask",
+      "id": "cursor-cli",
+      "label": "Cursor Agent CLI cask"
+    },
+    {
+      "kind": "cask",
+      "id": "claude-code",
+      "label": "Claude Code cask"
+    },
+    {
+      "kind": "cask",
+      "id": "chatgpt-atlas",
+      "label": "ChatGPT Atlas"
+    },
+    {
+      "kind": "cask",
+      "id": "kiro",
+      "label": "Kiro IDE"
+    },
+    {
+      "kind": "cask",
+      "id": "warp-agent-cli",
+      "label": "Warp Agent CLI cask"
+    },
+    {
+      "kind": "cask",
+      "id": "coderabbit",
+      "label": "CodeRabbit AI review"
+    },
+    {
+      "kind": "cask",
+      "id": "auto-claude",
+      "label": "Auto Claude"
+    },
+    {
+      "kind": "cask",
+      "id": "monet",
+      "label": "Monet — mission control for coding agents"
+    },
+    {
+      "kind": "cask",
+      "id": "ollamac",
+      "label": "Ollamac local chat"
+    },
+    {
+      "kind": "cask",
+      "id": "notesollama",
+      "label": "NotesOllama"
+    },
+    {
+      "kind": "cask",
+      "id": "tableplus",
+      "label": "TablePlus database GUI"
+    },
+    {
+      "kind": "cask",
+      "id": "postman",
+      "label": "Postman API client"
+    },
+    {
+      "kind": "cask",
+      "id": "insomnia",
+      "label": "Insomnia API client"
+    },
+    {
+      "kind": "cask",
+      "id": "1password",
+      "label": "1Password"
+    },
+    {
+      "kind": "cask",
+      "id": "secretive",
+      "label": "Secretive SSH keys"
+    },
+    {
+      "kind": "cask",
+      "id": "stats",
+      "label": "Stats menu-bar monitors"
+    },
+    {
+      "kind": "cask",
+      "id": "iina",
+      "label": "IINA media player"
+    },
+    {
+      "kind": "cask",
+      "id": "wezterm",
+      "label": "WezTerm"
+    },
+    {
+      "kind": "cask",
+      "id": "kitty",
+      "label": "Kitty terminal"
+    },
+    {
+      "kind": "cask",
+      "id": "alacritty",
+      "label": "Alacritty terminal"
+    },
+    {
+      "kind": "cask",
+      "id": "neovide",
+      "label": "Neovide (Neovim GUI)"
+    },
+    {
+      "kind": "cask",
+      "id": "fork",
+      "label": "Fork git client"
+    },
+    {
+      "kind": "cask",
+      "id": "sublime-merge",
+      "label": "Sublime Merge"
+    },
+    {
+      "kind": "cask",
+      "id": "figma",
+      "label": "Figma"
+    },
+    {
+      "kind": "cask",
+      "id": "brave-browser",
+      "label": "Brave Browser"
+    },
+    {
+      "kind": "cask",
+      "id": "firefox",
+      "label": "Firefox"
+    },
+    {
+      "kind": "cask",
+      "id": "utm",
+      "label": "UTM virtual machines"
+    },
+    {
+      "kind": "cask",
+      "id": "jan",
+      "label": "Homebrew cask jan"
+    },
+    {
+      "kind": "cask",
+      "id": "gpt4all",
+      "label": "Homebrew cask gpt4all"
+    },
+    {
+      "kind": "cask",
+      "id": "anythingllm",
+      "label": "Homebrew cask anythingllm"
+    },
+    {
+      "kind": "formula",
+      "id": "jq",
+      "label": "jq JSON processor"
+    },
+    {
+      "kind": "formula",
+      "id": "neovim",
+      "label": "Neovim"
+    },
+    {
+      "kind": "formula",
+      "id": "go",
+      "label": "Go language"
+    },
+    {
+      "kind": "formula",
+      "id": "cmake",
+      "label": "CMake"
+    },
+    {
+      "kind": "formula",
+      "id": "ninja",
+      "label": "Ninja build"
+    },
+    {
+      "kind": "formula",
+      "id": "tree",
+      "label": "tree directory listing"
+    },
+    {
+      "kind": "formula",
+      "id": "watch",
+      "label": "watch repeating command"
+    },
+    {
+      "kind": "formula",
+      "id": "wget",
+      "label": "wget"
+    },
+    {
+      "kind": "formula",
+      "id": "curl",
+      "label": "curl"
+    },
+    {
+      "kind": "formula",
+      "id": "ripgrep",
+      "label": "ripgrep (rg)"
+    },
+    {
+      "kind": "formula",
+      "id": "fd",
+      "label": "fd file finder"
+    },
+    {
+      "kind": "formula",
+      "id": "fzf",
+      "label": "fzf fuzzy finder (used by aiup list)"
+    },
+    {
+      "kind": "formula",
+      "id": "tmux",
+      "label": "tmux"
+    },
+    {
+      "kind": "formula",
+      "id": "starship",
+      "label": "Starship prompt"
+    },
+    {
+      "kind": "formula",
+      "id": "eza",
+      "label": "eza (ls)"
+    },
+    {
+      "kind": "formula",
+      "id": "bat",
+      "label": "bat (cat)"
+    },
+    {
+      "kind": "formula",
+      "id": "git-delta",
+      "label": "delta git pager"
+    },
+    {
+      "kind": "formula",
+      "id": "gh",
+      "label": "Homebrew formula gh"
+    },
+    {
+      "kind": "formula",
+      "id": "git",
+      "label": "git"
+    },
+    {
+      "kind": "formula",
+      "id": "lazygit",
+      "label": "lazygit"
+    },
+    {
+      "kind": "formula",
+      "id": "helix",
+      "label": "Helix editor"
+    },
+    {
+      "kind": "formula",
+      "id": "mise",
+      "label": "mise runtime manager"
+    },
+    {
+      "kind": "formula",
+      "id": "direnv",
+      "label": "direnv"
+    },
+    {
+      "kind": "formula",
+      "id": "just",
+      "label": "just command runner"
+    },
+    {
+      "kind": "formula",
+      "id": "pnpm",
+      "label": "pnpm"
+    },
+    {
+      "kind": "formula",
+      "id": "yarn",
+      "label": "yarn"
+    },
+    {
+      "kind": "formula",
+      "id": "podman",
+      "label": "Podman"
+    },
+    {
+      "kind": "formula",
+      "id": "kubectl",
+      "label": "kubectl"
+    },
+    {
+      "kind": "formula",
+      "id": "helm",
+      "label": "Helm"
+    },
+    {
+      "kind": "formula",
+      "id": "terraform",
+      "label": "Terraform"
+    }
+  ]
+}

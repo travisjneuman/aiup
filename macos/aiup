@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-10"
+AIUP_VERSION="2026.08.20-11"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -622,6 +622,48 @@ catalog_category() {
   esac
 }
 
+catalog_category_blurb() {
+  case "$1" in
+    infra) printf 'Runtimes and installers other tools need\n' ;;
+    coding-agents) printf 'Agents that write and edit code in the terminal\n' ;;
+    workspaces) printf 'Desktop hubs that drive those agents\n' ;;
+    editors) printf 'Places you type code\n' ;;
+    terminals) printf 'Places you run commands\n' ;;
+    chat) printf 'Cloud chat apps\n' ;;
+    local-ai) printf 'Models, capture, and engines that run on this Mac\n' ;;
+    llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
+    adapters) printf 'Glue between agents and editors\n' ;;
+    homebrew) printf 'What Homebrew already put on this Mac, plus a short recommended list\n' ;;
+    homebrew/casks) printf 'GUI apps Homebrew already installed on this Mac\n' ;;
+    homebrew/fonts) printf 'Fonts Homebrew already installed on this Mac\n' ;;
+    homebrew/formulae) printf 'CLI formulae Homebrew already installed on this Mac\n' ;;
+    homebrew/libraries) printf 'Libraries Homebrew already installed on this Mac\n' ;;
+    homebrew/recommended) printf 'Popular extras you can add — or switch to Homebrew without losing settings\n' ;;
+    *) printf '\n' ;;
+  esac
+}
+
+catalog_category_emoji() {
+  case "$1" in
+    infra) printf '⚙️\n' ;;
+    coding-agents) printf '🤖\n' ;;
+    workspaces) printf '🖥️\n' ;;
+    editors) printf '✏️\n' ;;
+    terminals) printf '⌨️\n' ;;
+    chat) printf '💬\n' ;;
+    local-ai) printf '🧠\n' ;;
+    llm-utils) printf '🔧\n' ;;
+    adapters) printf '🔌\n' ;;
+    homebrew) printf '🍺\n' ;;
+    homebrew/casks) printf '📦\n' ;;
+    homebrew/fonts) printf '🔤\n' ;;
+    homebrew/formulae) printf '🛠️\n' ;;
+    homebrew/libraries) printf '📚\n' ;;
+    homebrew/recommended) printf '⭐\n' ;;
+    *) printf '•\n' ;;
+  esac
+}
+
 catalog_lifecycle() {
   case "$1" in
     continue) printf 'sunset\n' ;;
@@ -1025,7 +1067,7 @@ HOTKEY_HELP_LINES=11
 PREVIEW_META_LINES=8
 
 catalog_hotkey_help() {
-  printf 'enter              install/update tool, or expand/collapse category\n'
+  printf 'enter              install/update, expand category, or switch on-disk apps to Homebrew (settings stay)\n'
   printf 'tab  or  space     check / uncheck\n'
   printf 'ctrl-a             check all visible rows\n'
   printf 'ctrl-e             expand/collapse this category\n'
@@ -1073,13 +1115,13 @@ print_catalog_preview() {
       printf '%s\n' "$(brew_extra_label "$kind" "$name")"
       if [ "$kind" = 'cask' ] && extra_app="$(app_path_for_cask "$name")"; then
         if [ "$extra_state" = 'on-disk' ]; then
-          printf 'Found at %s — same app as the Homebrew cask, installed some other way (not a second item). aiup will not brew-install over it or delete it.\n' "$extra_app"
+          printf 'Found at %s — already on this Mac, not via Homebrew. Enter lets Homebrew manage it. Notes and settings stay; ~/Library is never deleted.\n' "$extra_app"
         fi
       elif [ "$kind" = 'formula' ] && [ "$extra_state" = 'on-disk' ]; then
-        printf 'A %s command is already on PATH from outside Homebrew (macOS, another package manager, or a manual install). Not missing.\n' "$(formula_cmd_name "$name")"
+        printf 'A %s command is already on PATH from outside Homebrew. Enter installs a Homebrew copy alongside it. The existing command is not uninstalled.\n' "$(formula_cmd_name "$name")"
       fi
       if [ "$kind" = 'cask' ]; then
-        printf 'Casks / formulae / libraries list what Homebrew already put on this Mac. Recommended is a short popular list, not all of Homebrew.\n'
+        printf 'casks / fonts / formulae / libraries = already on this Mac via Homebrew. recommended = a short popular list, not all of Homebrew.\n'
       fi
       printf 'website  https://formulae.brew.sh/%s/%s\n' "$kind" "$name"
       printf 'needs: brew\n'
@@ -1501,6 +1543,66 @@ enter_action_for() {
   esac
 }
 
+# Switch an existing .app to Homebrew without touching settings.
+# Never --zap. Never delete ~/Library, notes vaults, or preferences.
+# 1) --adopt if the bundle matches what Homebrew would install
+# 2) otherwise replace the .app only (--force), after confirm
+brew_cask_adopt() {
+  local name="$1"
+  local app="${2:-}"
+  command_exists brew || { error "Homebrew required"; return 1; }
+  if brew_cask_installed "$name"; then
+    run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name"
+    return $?
+  fi
+  info "Letting Homebrew manage $name. Notes, settings, and data stay. ~/Library is never deleted."
+  if [ -n "$app" ]; then
+    info "Current app: $app"
+  fi
+  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || [ -c /dev/tty ]; then
+    if ! confirm_tty "Switch $name to Homebrew without losing settings? [y/N] "; then
+      info "Left $name as-is (still not Homebrew-managed)"
+      return 0
+    fi
+  fi
+  if run_with_heartbeat "brew install --cask --adopt $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --adopt "$name"; then
+    info "Homebrew now manages $name. Settings were not moved or wiped."
+    return 0
+  fi
+  warn "Homebrew could not adopt the existing copy (usually a version mismatch)."
+  warn "Next step replaces the app bundle only. Preferences and documents stay."
+  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || [ -c /dev/tty ]; then
+    if ! confirm_tty "Replace the $name app bundle via Homebrew? Settings stay. [y/N] "; then
+      info "Cancelled. $name is unchanged."
+      return 0
+    fi
+  fi
+  run_with_heartbeat "brew install --cask --force $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --force "$name" || return 1
+  info "Homebrew now manages $name. Settings were not moved or wiped."
+}
+
+# Install a formula next to whatever is already on PATH. Never uninstall
+# Apple's /usr/bin copy or a non-Homebrew binary.
+brew_formula_install_alongside() {
+  local name="$1"
+  command_exists brew || { error "Homebrew required"; return 1; }
+  if brew_formula_installed "$name"; then
+    run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade "$name"
+    return $?
+  fi
+  if formula_present_outside_brew "$name"; then
+    info "$name is already on PATH outside Homebrew. Installing the Homebrew copy alongside it."
+    info "The existing command is not uninstalled (system tools and settings stay)."
+    if [ "${AIUP_KEEP_UI:-0}" = 1 ] || [ -c /dev/tty ]; then
+      if ! confirm_tty "Install Homebrew $name alongside the copy already on PATH? [y/N] "; then
+        info "Left $name as-is"
+        return 0
+      fi
+    fi
+  fi
+  run_with_heartbeat "brew install $name" env HOMEBREW_NO_ENV_HINTS=1 brew install "$name"
+}
+
 apply_brew_extras() {
   local action="$1"
   shift
@@ -1523,14 +1625,14 @@ apply_brew_extras() {
             if brew_cask_installed "$name"; then
               run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name" || true
             else
-              warn "$name is on this Mac outside Homebrew; skip brew upgrade"
+              warn "$name is on this Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew (settings stay)."
             fi
             ;;
           *)
             if brew_cask_installed "$name"; then
               run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name" || true
             elif app="$(app_path_for_cask "$name")"; then
-              warn "$name is already at $app (not via Homebrew). Skipping brew install so we do not create a second copy."
+              brew_cask_adopt "$name" "$app" || true
             else
               run_with_heartbeat "brew install --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask "$name" || true
             fi
@@ -1551,17 +1653,11 @@ apply_brew_extras() {
             if brew_formula_installed "$name"; then
               run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade "$name" || true
             else
-              warn "$name is on PATH outside Homebrew; skip brew upgrade"
+              warn "$name is on PATH outside Homebrew; skip brew upgrade. Press enter to install a Homebrew copy alongside it."
             fi
             ;;
           *)
-            if brew_formula_installed "$name"; then
-              run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade "$name" || true
-            elif formula_present_outside_brew "$name"; then
-              warn "$name is already on PATH outside Homebrew. Skipping brew install so we do not shadow it."
-            else
-              run_with_heartbeat "brew install $name" env HOMEBREW_NO_ENV_HINTS=1 brew install "$name" || true
-            fi
+            brew_formula_install_alongside "$name" || true
             ;;
         esac
         ;;
@@ -2997,11 +3093,15 @@ update_by_kind() {
       else
         local app
         app="$(catalog_app_path "$tool")"
-        if [ -n "$app" ] && [ -d "$app" ] && [ "$NO_INSTALL" -eq 1 ]; then
-          warn "$tool is installed as an app but not Homebrew-managed; skip (use aiup only $tool to adopt via cask)"
-          return 0
+        if [ -n "$app" ] && [ -d "$app" ]; then
+          if [ "$NO_INSTALL" -eq 1 ]; then
+            warn "$tool is installed as an app but not Homebrew-managed; skip (enter or aiup only $tool to switch to Homebrew — settings stay)"
+            return 0
+          fi
+          brew_cask_adopt "$cask" "$app" || return 1
+        else
+          run_with_heartbeat "brew install --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask "$cask" || return 1
         fi
-        run_with_heartbeat "brew install --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask "$cask" || return 1
       fi
       set_state_method "$tool" brew-cask
       ;;
@@ -3290,6 +3390,107 @@ print_list() {
       printf '%-18s %-10s %s\n' "$tool" 'absent' "$(catalog_label "$tool")"
     done < <(awk -F '\t' -v c="$cat" '$1==c && $2=="absent" {print $3}' "$CATALOG_INDEX" | LC_ALL=C sort)
   done
+}
+
+# Catalog definition only — no scan of this Mac. Used by the public site/README.
+print_catalog_definition() {
+  local mode="${1:---json}"
+  local tmp tool cat rec
+  tmp="$(mktemp "${TMPDIR:-/tmp}/aiup-catdef.XXXXXX")"
+  {
+    printf 'VERSION\t%s\n' "$AIUP_VERSION"
+    for cat in "${CATEGORY_ORDER[@]}"; do
+      printf 'CAT\t%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "$cat")" "$(catalog_category_blurb "$cat")"
+    done
+    for cat in "${HOMEBREW_CHILD_ORDER[@]}"; do
+      printf 'CAT\thomebrew/%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "homebrew/${cat}")" "$(catalog_category_blurb "homebrew/${cat}")"
+    done
+    for tool in "${TOOLS_CATALOG[@]}"; do
+      printf 'TOOL\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$tool" \
+        "$(catalog_category "$tool")" \
+        "$(catalog_kind "$tool")" \
+        "$(catalog_lifecycle "$tool")" \
+        "$(catalog_docs_url "$tool")" \
+        "$(catalog_label "$tool")"
+    done
+    for rec in "${HOMEBREW_RECOMMENDED_CASKS[@]}"; do
+      printf 'REC\tcask\t%s\t%s\n' "$rec" "$(brew_extra_label cask "$rec")"
+    done
+    for rec in "${HOMEBREW_RECOMMENDED_FORMULAE[@]}"; do
+      printf 'REC\tformula\t%s\t%s\n' "$rec" "$(brew_extra_label formula "$rec")"
+    done
+  } > "$tmp"
+  python3 - "$mode" "$tmp" <<'PY'
+import json, sys
+mode, path = sys.argv[1], sys.argv[2]
+version = ""
+cats = []
+cat_index = {}
+tools = []
+recs = []
+with open(path, encoding="utf-8") as f:
+    for line in f:
+        line = line.rstrip("\n")
+        parts = line.split("\t")
+        kind = parts[0]
+        if kind == "VERSION":
+            version = parts[1]
+        elif kind == "CAT":
+            item = {"id": parts[1], "emoji": parts[2], "blurb": parts[3] if len(parts) > 3 else ""}
+            cats.append(item)
+            cat_index[item["id"]] = item
+            item["tools"] = []
+        elif kind == "TOOL":
+            tool = {
+                "id": parts[1],
+                "category": parts[2],
+                "kind": parts[3],
+                "lifecycle": parts[4],
+                "docs": parts[5],
+                "label": parts[6] if len(parts) > 6 else parts[1],
+            }
+            tools.append(tool)
+            cat_index.setdefault(tool["category"], {"id": tool["category"], "emoji": "", "blurb": "", "tools": []})
+            cat_index[tool["category"]]["tools"].append(tool)
+        elif kind == "REC":
+            recs.append({"kind": parts[1], "id": parts[2], "label": parts[3] if len(parts) > 3 else parts[2]})
+data = {
+    "name": "aiup",
+    "version": version,
+    "categories": cats,
+    "tools": tools,
+    "recommended": recs,
+}
+if mode in ("--markdown", "markdown", "--md"):
+    print(f"# Catalog ({version})\n")
+    print("Generated from `macos/aiup` via `aiup catalog --markdown`.\n")
+    for cat in cats:
+        if cat["id"].startswith("homebrew/"):
+            continue
+        emoji = cat.get("emoji") or ""
+        print(f"## {emoji} {cat['id']}\n")
+        print(f"{cat.get('blurb','')}\n")
+        if cat["id"] == "homebrew":
+            print("| Child | What |\n|---|---|")
+            for child in cats:
+                if child["id"].startswith("homebrew/"):
+                    print(f"| `{child['id'].split('/',1)[1]}` | {child.get('blurb','')} |")
+            print("\nRecommended extras:\n")
+            print("| Type | Id | Label |\n|---|---|---|")
+            for rec in recs:
+                print(f"| {rec['kind']} | `{rec['id']}` | {rec['label']} |")
+            print()
+            continue
+        print("| Id | Label |\n|---|---|")
+        for t in cat.get("tools") or []:
+            print(f"| `{t['id']}` | {t['label']} |")
+        print()
+else:
+    json.dump(data, sys.stdout, indent=2, ensure_ascii=False)
+    sys.stdout.write("\n")
+PY
+  rm -f "$tmp"
 }
 
 remove_dir_if_exists() {
@@ -3896,6 +4097,8 @@ Usage:
   aiup doctor              Print diagnostics for the catalog
   aiup list                Interactive catalog (install/update/uninstall/docs)
   aiup list --plain        Print the categorized table only
+  aiup catalog             Print the catalog definition as JSON (no scan)
+  aiup catalog --markdown  Print the catalog definition as Markdown
   aiup version             Print aiup version
   aiup help                Show this help
 
@@ -4061,6 +4264,9 @@ parse_args() {
       ;;
     doctor)
       print_doctor
+      ;;
+    catalog)
+      print_catalog_definition "${args[1]:---json}"
       ;;
     list)
       if [ "${args[1]:-}" = '--plain' ] || [ ! -c /dev/tty ]; then

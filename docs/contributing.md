@@ -1,13 +1,12 @@
 # Contributing
 
-Default use is local and private. You do not need to fork, sign in, or run an AI.
+Default use is local. You do not need to fork, sign in, or run an AI.
 
-If you **do** fork to add tools or port Linux/Windows:
+If you add tools or categories:
 
-1. Keep catalog ids stable (`grok`, `hermes-desktop`, `mlx-lm`, …).
-2. Never add telemetry.
-3. Never `sudo`.
-4. Detect installs via PATH, app bundles, and package managers — not by assuming Homebrew is the only way an app exists.
-5. Document new tools in `docs/catalog.md`.
-
-macOS implementation: `macos/aiup` (bash).
+1. Edit `macos/aiup` (`TOOLS_CATALOG`, `catalog_category`, `catalog_label`, install/remove).
+2. Run `scripts/sync-public-docs` so README, `docs/catalog.md`, and `site/catalog.json` match the script.
+3. Keep catalog ids stable.
+4. Never add telemetry. Never `sudo`.
+5. Detect PATH, app bundles, *and* package managers — Homebrew is not the only way an app exists.
+6. Switching an existing app to Homebrew must keep settings (`--adopt`, never `--zap`).
