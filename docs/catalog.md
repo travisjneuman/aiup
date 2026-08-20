@@ -1,4 +1,4 @@
-# Catalog (2026.08.20-23)
+# Catalog (2026.08.20-24)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -112,7 +112,7 @@ Models, capture, and engines that run on your Mac
 | `mlx-lm` | mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX |
 | `ollama-app` | Ollama desktop app (Homebrew cask) |
 | `macwhisper` | MacWhisper — local speech-to-text |
-| `screenpipe` | screenpipe — local screen/audio capture (app, no Homebrew cask) |
+| `screenpipe` | screenpipe — local screen/audio capture (official stable DMG updater) |
 
 ## 🔧 llm-utils
 

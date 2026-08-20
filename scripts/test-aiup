@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aiup-test.XXXXXX")"
+trap 'rm -rf "$TEST_DIR"' EXIT
+
+bash -n "$AIUP"
+
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" catalog --json > "$TEST_DIR/catalog.json"
+python3 - "$TEST_DIR/catalog.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+tools = data["tools"]
+assert tools, "catalog is empty"
+assert all(tool["kind"] != "unknown" for tool in tools), "catalog contains an unknown installer kind"
+screenpipe = next(tool for tool in tools if tool["id"] == "screenpipe")
+assert screenpipe["kind"] == "app"
+assert screenpipe["docs"] == "https://github.com/screenpipe/screenpipe"
+assert "updater" in screenpipe["label"]
+PY
+
+grep -q '^catalog_validate()' "$AIUP"
+grep -q '^brew_review_installed_taps()' "$AIUP"
+grep -q '^update_screenpipe()' "$AIUP"
+grep -q 'brew trust --tap' "$AIUP"
+
+printf 'aiup tests: ok (%s catalog tools)\n' "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["tools"]))' "$TEST_DIR/catalog.json")"

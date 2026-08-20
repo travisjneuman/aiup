@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.08.20-23",
+  "version": "2026.08.20-24",
   "categories": [
     {
       "id": "infra",
@@ -550,8 +550,8 @@
           "category": "local-ai",
           "kind": "app",
           "lifecycle": "active",
-          "docs": "https://github.com/mediar-ai/screenpipe",
-          "label": "screenpipe — local screen/audio capture (app, no Homebrew cask)"
+          "docs": "https://github.com/screenpipe/screenpipe",
+          "label": "screenpipe — local screen/audio capture (official stable DMG updater)"
         }
       ]
     },
@@ -1188,8 +1188,8 @@
       "category": "local-ai",
       "kind": "app",
       "lifecycle": "active",
-      "docs": "https://github.com/mediar-ai/screenpipe",
-      "label": "screenpipe — local screen/audio capture (app, no Homebrew cask)"
+      "docs": "https://github.com/screenpipe/screenpipe",
+      "label": "screenpipe — local screen/audio capture (official stable DMG updater)"
     },
     {
       "id": "n8n",

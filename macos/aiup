@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-23"
+AIUP_VERSION="2026.08.20-24"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -27,6 +27,7 @@ KIRO_INSTALL_URL="https://cli.kiro.dev/install"
 KIMI_INSTALL_URL="https://code.kimi.com/kimi-code/install.sh"
 OPENCLAW_INSTALL_URL="https://openclaw.ai/install.sh"
 HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
 CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters homebrew)
@@ -519,10 +520,155 @@ progress_end() {
 
 brew_update_once() {
   command_exists brew || return 1
+  brew_review_installed_taps || return 1
   if [ -z "${_AIUP_BREW_UPDATED:-}" ]; then
     run_with_heartbeat "brew update" env HOMEBREW_NO_ENV_HINTS=1 brew update || return 1
     _AIUP_BREW_UPDATED=1
   fi
+}
+
+brew_untrusted_installed_taps() {
+  command_exists brew || return 0
+  brew tap-info --installed --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    taps = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for tap in taps:
+    if tap.get("installed") and not tap.get("trusted"):
+        print(tap.get("name", ""))
+' 2>/dev/null | awk 'NF'
+}
+
+brew_tap_remote() {
+  local tap="$1"
+  brew tap-info --json "$tap" 2>/dev/null | python3 -c '
+import json, sys
+try:
+    items = json.load(sys.stdin)
+    print((items[0] if items else {}).get("remote", ""))
+except Exception:
+    pass
+' 2>/dev/null | first_line
+}
+
+brew_review_installed_taps() {
+  command_exists brew || return 0
+  case "${_AIUP_BREW_TRUST_REVIEWED:-}" in
+    1) return 0 ;;
+  esac
+
+  local taps tap remote
+  taps="$(brew_untrusted_installed_taps)"
+  _AIUP_BREW_TRUST_REVIEWED=1
+  [ -n "$taps" ] || return 0
+
+  if [ "$DRY_RUN" -eq 1 ]; then
+    while IFS= read -r tap; do
+      [ -n "$tap" ] || continue
+      warn "DRY-RUN: would ask whether to trust installed Homebrew tap $tap"
+    done <<< "$taps"
+    return 0
+  fi
+
+  if [ ! -c /dev/tty ]; then
+    error "Homebrew has installed but untrusted tap(s): $(printf '%s' "$taps" | tr '\n' ' ')"
+    error "Run aiup from a terminal and confirm each tap before Homebrew tools can be updated."
+    return 1
+  fi
+
+  while IFS= read -r tap; do
+    [ -n "$tap" ] || continue
+    remote="$(brew_tap_remote "$tap")"
+    warn "Homebrew tap $tap is installed but untrusted."
+    [ -n "$remote" ] && warn "Tap remote: $remote"
+    if confirm_tty "Trust installed Homebrew tap $tap so aiup can use its tools? [y/N] "; then
+      run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap" || return 1
+      info "Trusted installed Homebrew tap: $tap"
+    else
+      warn "Left Homebrew tap $tap untrusted; aiup will not rely on tools from it."
+    fi
+  done <<< "$taps"
+  return 0
+}
+
+brew_tap_installed() {
+  local tap="$1"
+  command_exists brew || return 1
+  brew tap 2>/dev/null | awk -v wanted="$tap" '$0 == wanted {found=1} END {exit found ? 0 : 1}'
+}
+
+brew_tap_trusted() {
+  local tap="$1"
+  brew tap-info --json "$tap" 2>/dev/null | python3 -c '
+import json, sys
+try:
+    items = json.load(sys.stdin)
+    raise SystemExit(0 if items and items[0].get("trusted") else 1)
+except Exception:
+    raise SystemExit(1)
+' 2>/dev/null
+}
+
+catalog_brew_tap() {
+  case "$1" in
+    # Add a fully-qualified third-party tap here when a catalog item requires
+    # one. The installer will ask before adding or trusting it.
+    *) printf '\n' ;;
+  esac
+}
+
+brew_target_tap() {
+  local tool="$1"
+  local target="$2"
+  local target_kind="$3"
+  local explicit
+  explicit="$(catalog_brew_tap "$tool")"
+  if [ -n "$explicit" ]; then
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+  case "$target" in
+    */*/*) printf '%s/%s\n' "$(printf '%s' "$target" | cut -d/ -f1)" "$(printf '%s' "$target" | cut -d/ -f2)"; return 0 ;;
+  esac
+  if [ "$target_kind" = 'formula' ]; then
+    brew info --json=v2 --formula "$target" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); f=d.get("formulae") or []; print((f[0] if f else {}).get("tap", ""))' 2>/dev/null | first_line
+  else
+    brew info --json=v2 --cask "$target" 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); c=d.get("casks") or []; print((c[0] if c else {}).get("tap", ""))' 2>/dev/null | first_line
+  fi
+}
+
+brew_ensure_target_tap() {
+  local tool="$1"
+  local target="$2"
+  local target_kind="$3"
+  local tap remote
+  tap="$(brew_target_tap "$tool" "$target" "$target_kind")"
+  case "$tap" in
+    ''|homebrew/core|homebrew/cask|homebrew/bundle|homebrew/services) return 0 ;;
+  esac
+  remote="$(brew_tap_remote "$tap")"
+  if ! brew_tap_installed "$tap"; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      warn "DRY-RUN: would ask whether to add and trust Homebrew tap $tap"
+      return 0
+    fi
+    [ -c /dev/tty ] || { error "Homebrew tap $tap is required for $target but is not installed; run aiup from a terminal to approve it"; return 1; }
+    [ -n "$remote" ] && warn "Required tap remote: $remote"
+    confirm_tty "Add and trust Homebrew tap $tap for $target? [y/N] " || { error "Declined required Homebrew tap $tap"; return 1; }
+    run_with_heartbeat "brew tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew tap "$tap" || return 1
+    run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap" || return 1
+    return 0
+  fi
+  if brew_tap_trusted "$tap"; then
+    return 0
+  fi
+  [ "$DRY_RUN" -eq 1 ] && { warn "DRY-RUN: would ask whether to trust installed Homebrew tap $tap"; return 0; }
+  [ -c /dev/tty ] || { error "Homebrew tap $tap is required for $target but is untrusted; run aiup from a terminal to approve it"; return 1; }
+  [ -n "$remote" ] && warn "Required tap remote: $remote"
+  confirm_tty "Trust installed Homebrew tap $tap for $target? [y/N] " || { error "Declined required Homebrew tap $tap"; return 1; }
+  run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap"
 }
 
 brew_node_stable_version() {
@@ -698,7 +844,7 @@ catalog_kind() {
     screenpipe) printf 'app\n' ;;
     interpreter) printf 'uv-tool\n' ;;
     sgpt) printf 'uv-tool\n' ;;
-    *) printf 'special\n' ;;
+    *) printf 'unknown\n' ;;
   esac
 }
 
@@ -915,6 +1061,83 @@ catalog_app_path() {
   esac
 }
 
+catalog_validate() {
+  local tool kind category
+  local failures=0
+  for tool in "${TOOLS_CATALOG[@]}"; do
+    kind="$(catalog_kind "$tool")"
+    category="$(catalog_category "$tool")"
+    case " ${CATEGORY_ORDER[*]} " in
+      *" $category "*) ;;
+      *)
+        error "Catalog entry '$tool' has no valid category '$category'"
+        failures=$((failures + 1))
+        ;;
+    esac
+    if [ -z "$(catalog_label "$tool")" ]; then
+      error "Catalog entry '$tool' has no label"
+      failures=$((failures + 1))
+    fi
+    if [ -z "$(catalog_docs_url "$tool")" ]; then
+      error "Catalog entry '$tool' has no documentation URL"
+      failures=$((failures + 1))
+    fi
+
+    case "$kind" in
+      aiup-npm)
+        if [ -z "$(catalog_npm_pkg "$tool")" ]; then
+          error "Catalog entry '$tool' has no npm package"
+          failures=$((failures + 1))
+        fi
+        ;;
+      brew-formula)
+        if [ -z "$(catalog_brew_formula "$tool")" ]; then
+          error "Catalog entry '$tool' has no Homebrew formula"
+          failures=$((failures + 1))
+        fi
+        ;;
+      brew-cask)
+        if [ -z "$(catalog_brew_cask "$tool")" ]; then
+          error "Catalog entry '$tool' has no Homebrew cask"
+          failures=$((failures + 1))
+        fi
+        ;;
+      curl-installer)
+        if [ -z "$(catalog_curl_url "$tool")" ]; then
+          error "Catalog entry '$tool' has no installer URL"
+          failures=$((failures + 1))
+        fi
+        ;;
+      uv-tool)
+        if [ -z "$(catalog_uv_pkg "$tool")" ]; then
+          error "Catalog entry '$tool' has no uv package"
+          failures=$((failures + 1))
+        fi
+        ;;
+      app|special)
+        if ! type "update_$tool" >/dev/null 2>&1; then
+          error "Catalog entry '$tool' has no dedicated updater"
+          failures=$((failures + 1))
+        fi
+        ;;
+      unknown)
+        error "Catalog entry '$tool' has unsupported installer kind '$kind'"
+        failures=$((failures + 1))
+        ;;
+    esac
+
+    case "$kind" in
+      special|unknown)
+        if ! type "remove_$tool" >/dev/null 2>&1; then
+          error "Catalog entry '$tool' has no dedicated remover"
+          failures=$((failures + 1))
+        fi
+        ;;
+    esac
+  done
+  [ "$failures" -eq 0 ]
+}
+
 catalog_label() {
   case "$1" in
     brew) printf 'Homebrew — required for formulae, casks, and Node/npm on this system (not removable)\n' ;;
@@ -982,7 +1205,7 @@ catalog_label() {
     antigravity-ide) printf 'Google Antigravity IDE\n' ;;
     perplexity) printf 'Perplexity desktop (Personal Computer agent)\n' ;;
     macwhisper) printf 'MacWhisper — local speech-to-text\n' ;;
-    screenpipe) printf 'screenpipe — local screen/audio capture (app, no Homebrew cask)\n' ;;
+    screenpipe) printf 'screenpipe — local screen/audio capture (official stable DMG updater)\n' ;;
     warp-app) printf 'Warp terminal (desktop; distinct from Warp Agent CLI)\n' ;;
     ghostty) printf 'Ghostty terminal\n' ;;
     iterm2) printf 'iTerm2 terminal\n' ;;
@@ -1053,7 +1276,7 @@ catalog_docs_url() {
     antigravity-ide) printf 'https://antigravity.google/product/antigravity-ide\n' ;;
     perplexity) printf 'https://www.perplexity.ai/personal-computer\n' ;;
     macwhisper) printf 'https://goodsnooze.gumroad.com/l/macwhisper\n' ;;
-    screenpipe) printf 'https://github.com/mediar-ai/screenpipe\n' ;;
+    screenpipe) printf 'https://github.com/screenpipe/screenpipe\n' ;;
     warp-app) printf 'https://www.warp.dev/terminal\n' ;;
     ghostty) printf 'https://github.com/ghostty-org/ghostty\n' ;;
     iterm2) printf 'https://iterm2.com/\n' ;;
@@ -1585,6 +1808,7 @@ brew_cask_adopt() {
   local name="$1"
   local app="${2:-}"
   command_exists brew || { error "Homebrew required"; return 1; }
+  brew_ensure_target_tap "" "$name" cask || return 1
   if brew_cask_installed "$name"; then
     run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"
     return $?
@@ -1620,6 +1844,7 @@ brew_cask_adopt() {
 brew_formula_install_alongside() {
   local name="$1"
   command_exists brew || { error "Homebrew required"; return 1; }
+  brew_ensure_target_tap "" "$name" formula || return 1
   if brew_formula_installed "$name"; then
     run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$name"
     return $?
@@ -1657,6 +1882,7 @@ apply_brew_extras() {
             ;;
           update)
             if brew_cask_installed "$name"; then
+              brew_ensure_target_tap "" "$name" cask || return 1
               run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
             else
               warn "$name is on your Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew (settings stay)."
@@ -1685,6 +1911,7 @@ apply_brew_extras() {
             ;;
           update)
             if brew_formula_installed "$name"; then
+              brew_ensure_target_tap "" "$name" formula || return 1
               run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$name" || true
             else
               warn "$name is on PATH outside Homebrew; skip brew upgrade. Press enter to install a Homebrew copy alongside it."
@@ -1768,6 +1995,12 @@ version_of_path() {
   "$path" --version </dev/null 2>&1 | first_line
 }
 
+app_bundle_version() {
+  local app="$1"
+  [ -f "$app/Contents/Info.plist" ] || return 1
+  /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null | first_line
+}
+
 version_of_tool() {
   local tool="$1"
   local kind cask app formula bin cmd expected
@@ -1789,6 +2022,13 @@ version_of_tool() {
     app="$(catalog_app_path "$tool")"
     if [ -n "$app" ] && [ -d "$app" ]; then
       printf 'app present\n'
+      return 0
+    fi
+  fi
+  if [ "$kind" = 'app' ]; then
+    app="$(catalog_app_path "$tool")"
+    if [ -n "$app" ] && [ -d "$app" ]; then
+      app_bundle_version "$app" || printf 'app present\n'
       return 0
     fi
   fi
@@ -2210,6 +2450,7 @@ preferred_method_of() {
     gsd2) printf 'aiup-npm\n' ;;
     hermes) printf 'installer\n' ;;
     pi) printf 'aiup-npm\n' ;;
+    screenpipe) printf 'official-dmg\n' ;;
     omp) printf 'installer\n' ;;
     warp) printf 'installer\n' ;;
     crush|cline|continue|pi-acp) printf 'aiup-npm\n' ;;
@@ -2499,6 +2740,15 @@ status_of() {
     return 0
   fi
 
+  if [ "$(catalog_kind "$tool")" = 'app' ]; then
+    if { [ "$method" = "$preferred" ] || [ "$method" = 'app' ]; } && [ -d "$(catalog_app_path "$tool")" ] && [ "$ver" != 'app present' ]; then
+      printf 'GOOD\n'
+    else
+      printf 'WARN\n'
+    fi
+    return 0
+  fi
+
   case "$tool" in
     fzf|npm|claude|codex|antigravity|gemini|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|pi-acp|uv|gh|wrangler|deno|llm|mods|aichat|fabric|sgpt|ollama|chatgpt|cursor-ide|zed|cmux|ollama-app)
       if [ "$method" = "$preferred" ] && [ "$duplicates" = 'no' ] && [ "$path_active" = 'yes' ] && [ "$persistent" != 'no' ]; then
@@ -2540,6 +2790,7 @@ notes_of() {
     goose) printf 'Block Goose CLI. Preferred: Homebrew formula block-goose-cli.\n' ;;
     cursor) printf 'Cursor Agent CLI via cursor.com/install. Binary is cursor-agent.\n' ;;
     qwen) printf 'Qwen Code via aiup npm prefix (@qwen-code/qwen-code).\n' ;;
+    screenpipe) printf 'Official Screenpipe stable DMG from screenpipe.com, architecture-selected and verified before the app bundle is replaced. Settings and capture data stay outside the app bundle.\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -2555,6 +2806,7 @@ update_brew() {
   fi
   if [ -n "$brew_bin" ]; then
     info "Homebrew at $brew_bin"
+    brew_review_installed_taps || return 1
     if [ -z "${_AIUP_BREW_UPDATED:-}" ]; then
       run_with_heartbeat "brew update" env HOMEBREW_NO_ENV_HINTS=1 "$brew_bin" update || return 1
       _AIUP_BREW_UPDATED=1
@@ -2595,6 +2847,7 @@ update_npm() {
   brew_update_once || return 1
   if ! brew_formula_installed node; then
     info "Installing Homebrew formula node (provides npm)"
+    brew_ensure_target_tap npm node formula || return 1
     run_with_heartbeat "brew install node" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes node || return 1
     brew_cache_invalidate
     hash_refresh
@@ -2607,6 +2860,7 @@ update_npm() {
   info "Current npm: $(npm --version 2>/dev/null || printf 'unknown') at $(command_path npm)"
   info "Current npm prefix: $(npm config get prefix 2>/dev/null || printf 'unknown')"
   info "Homebrew node stable: $(brew_node_stable_version)"
+  brew_ensure_target_tap npm node formula || return 1
 
   if ! run_with_heartbeat "brew upgrade node" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes node; then
     if command_exists node && command_exists npm && ! brew_node_outdated; then
@@ -3006,6 +3260,7 @@ update_warp() {
   case "$method" in
     brew-cask)
       brew_update_once || return 1
+      brew_ensure_target_tap warp warp-agent-cli cask || return 1
       run_with_heartbeat "brew upgrade --cask warp-agent-cli" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes warp-agent-cli || return 1
       ;;
     *)
@@ -3075,6 +3330,7 @@ update_goose() {
   info "Goose detected install method: $method"
   if command_exists brew; then
     brew_update_once || return 1
+    brew_ensure_target_tap goose block-goose-cli formula || return 1
     if brew_formula_installed block-goose-cli; then
       run_with_heartbeat "brew upgrade block-goose-cli" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes block-goose-cli || return 1
     else
@@ -3101,6 +3357,156 @@ update_cursor() {
   set_state_method cursor installer
 }
 
+version_is_greater() {
+  python3 - "$1" "$2" <<'PY'
+import re
+import sys
+
+def parts(value):
+    return tuple(int(part) for part in re.findall(r"\d+", value or ""))
+
+left, right = parts(sys.argv[1]), parts(sys.argv[2])
+width = max(len(left), len(right))
+print("yes" if left + (0,) * (width - len(left)) > right + (0,) * (width - len(right)) else "no")
+PY
+}
+
+screenpipe_detach_mount() {
+  local mountpoint="$1"
+  [ -d "$mountpoint" ] || return 0
+  hdiutil detach "$mountpoint" >/dev/null 2>&1 || true
+}
+
+update_screenpipe() {
+  local app current_version arch platform download_dir dmg mountpoint staged_dir staged_app source_app
+  local new_version bundle_id running backup_dir backup_app url
+  app="$(catalog_app_path screenpipe)"
+  current_version=""
+  [ -d "$app" ] && current_version="$(app_bundle_version "$app" || true)"
+
+  if [ "$DRY_RUN" -eq 1 ]; then
+    info "DRY-RUN: download and verify the latest official Screenpipe stable DMG for this Mac"
+    return 0
+  fi
+  case "$(uname -m)" in
+    arm64) platform='macos-arm' ;;
+    x86_64) platform='macos-intel' ;;
+    *) error "Screenpipe has no supported macOS artifact for $(uname -m)"; return 1 ;;
+  esac
+  command_exists curl || { error "curl is required to update Screenpipe"; return 1; }
+  command_exists hdiutil || { error "hdiutil is required to update Screenpipe"; return 1; }
+  command_exists ditto || { error "ditto is required to update Screenpipe"; return 1; }
+
+  download_dir="$STATE_DIR/downloads/screenpipe"
+  ensure_dir "$download_dir" || return 1
+  ensure_dir "$STATE_DIR/backups/screenpipe" || return 1
+  dmg="$download_dir/screenpipe-$platform-$$.dmg"
+  mountpoint="$download_dir/mount-$$"
+  staged_dir="$download_dir/staged-$$"
+  staged_app="$staged_dir/screenpipe.app"
+  url="$SCREENPIPE_DOWNLOAD_URL?platform=$platform&channel=stable"
+  mkdir -p "$mountpoint" "$staged_dir" || return 1
+
+  info "Screenpipe detected install method: official-dmg"
+  run_with_heartbeat "download Screenpipe stable DMG" curl -fsSL --retry 2 --connect-timeout 10 --max-time 900 -L "$url" -o "$dmg" || {
+    rm -rf "$mountpoint" "$staged_dir"
+    rm -f "$dmg"
+    return 1
+  }
+  run_with_heartbeat "mount Screenpipe stable DMG" hdiutil attach -nobrowse -readonly -mountpoint "$mountpoint" "$dmg" || {
+    rm -rf "$mountpoint" "$staged_dir"
+    rm -f "$dmg"
+    return 1
+  }
+
+  source_app="$(find "$mountpoint" -type d -name '*.app' -print -quit 2>/dev/null || true)"
+  if [ -z "$source_app" ]; then
+    error "Screenpipe DMG did not contain an app bundle"
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    return 1
+  fi
+  new_version="$(app_bundle_version "$source_app" || true)"
+  bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$source_app/Contents/Info.plist" 2>/dev/null || true)"
+  if [ -z "$new_version" ] || [ "$bundle_id" != 'screenpi.pe' ]; then
+    error "Screenpipe DMG failed bundle identity/version validation"
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    return 1
+  fi
+  if ! codesign --verify --deep --strict "$source_app" >/dev/null 2>&1; then
+    error "Screenpipe DMG app failed code-signature validation"
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    return 1
+  fi
+  if command_exists spctl && ! spctl --assess --type execute --context context:primary-signature "$source_app" >/dev/null 2>&1; then
+    error "Screenpipe DMG app failed Gatekeeper validation"
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    return 1
+  fi
+  if [ -n "$current_version" ] && [ "$new_version" = "$current_version" ]; then
+    info "Screenpipe $current_version is already current"
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    set_state_method screenpipe official-dmg
+    return 0
+  fi
+  if [ -n "$current_version" ] && [ "$(version_is_greater "$new_version" "$current_version")" != 'yes' ]; then
+    error "Screenpipe stable DMG $new_version is not newer than installed $current_version; refusing downgrade"
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    return 1
+  fi
+
+  run_with_heartbeat "stage Screenpipe $new_version" ditto "$source_app" "$staged_app" || {
+    screenpipe_detach_mount "$mountpoint"
+    rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    return 1
+  }
+  screenpipe_detach_mount "$mountpoint"
+  rm -rf "$mountpoint" "$dmg"
+
+  running=0
+  if pgrep -f "$app/Contents/MacOS/" >/dev/null 2>&1; then
+    running=1
+    osascript -e 'tell application id "screenpi.pe" to quit' >/dev/null 2>&1 || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      pgrep -f "$app/Contents/MacOS/" >/dev/null 2>&1 || break
+      sleep 1
+    done
+    if pgrep -f "$app/Contents/MacOS/" >/dev/null 2>&1; then
+      error "Screenpipe is still running; refusing to replace its app bundle"
+      rm -rf "$staged_dir"
+      return 1
+    fi
+  fi
+
+  backup_app=""
+  if [ -d "$app" ]; then
+    backup_dir="$STATE_DIR/backups/screenpipe"
+    backup_app="$backup_dir/screenpipe-${current_version:-unknown}-$(date +%Y%m%d%H%M%S).app"
+    mv "$app" "$backup_app" || {
+      error "Could not stage the existing Screenpipe app for rollback"
+      rm -rf "$staged_dir"
+      return 1
+    }
+  fi
+  if ! mv "$staged_app" "$app"; then
+    error "Could not activate Screenpipe $new_version"
+    [ -n "$backup_app" ] && mv "$backup_app" "$app" || true
+    rm -rf "$staged_dir"
+    return 1
+  fi
+  rm -rf "$staged_dir"
+  if [ "$running" -eq 1 ]; then
+    open "$app" >/dev/null 2>&1 || warn "Screenpipe updated but could not be relaunched"
+  fi
+  info "Updated Screenpipe: ${current_version:-not installed} -> $new_version"
+  set_state_method screenpipe official-dmg
+}
+
 update_by_kind() {
   local tool="$1"
   local kind pkg formula cask url uvpkg
@@ -3122,6 +3528,7 @@ update_by_kind() {
       [ -n "$formula" ] || { error "No brew formula for $tool"; return 1; }
       command_exists brew || { error "Homebrew required for $tool"; return 1; }
       brew_update_once || return 1
+      brew_ensure_target_tap "$tool" "$formula" formula || return 1
       if brew_formula_installed "$formula"; then
         run_with_heartbeat "brew upgrade $formula" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$formula" || return 1
       else
@@ -3133,6 +3540,7 @@ update_by_kind() {
       [ -n "$cask" ] || { error "No brew cask for $tool"; return 1; }
       command_exists brew || { error "Homebrew required for $tool"; return 1; }
       brew_update_once || return 1
+      brew_ensure_target_tap "$tool" "$cask" cask || return 1
       if brew_cask_installed "$cask"; then
         run_with_heartbeat "brew upgrade --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$cask" || return 1
       else
@@ -3171,7 +3579,7 @@ update_by_kind() {
       set_state_method "$tool" uv-tool
       ;;
     app)
-      error "$tool is a downloaded app with no Homebrew/npm installer. Remove via aiup remove if the app bundle exists."
+      error "$tool is a downloaded app without a dedicated updater"
       return 1
       ;;
     *)
@@ -3233,10 +3641,6 @@ remove_by_kind() {
 
 run_tool_update() {
   local tool="$1"
-  if [ "$(catalog_kind "$tool")" = 'app' ] && [ "$NO_INSTALL" -eq 1 ]; then
-    warn "$tool is installed as a downloaded app with no supported aiup updater; skip"
-    return 0
-  fi
   info "========== TOOL START: $tool =========="
   if type "update_$tool" >/dev/null 2>&1; then
     if "update_$tool"; then
@@ -3299,6 +3703,7 @@ print_doctor() {
   printf 'Homebrew node installed: %s\n' "$brew_node_versions"
   printf 'Homebrew node stable: %s\n' "${brew_node_stable:-unknown}"
   printf 'Homebrew node outdated: %s\n' "$brew_node_outdated_status"
+  printf 'Untrusted installed Homebrew taps: %s\n' "$(brew_untrusted_installed_taps | tr '\n' ' ' | sed 's/[[:space:]]*$//' || true)"
   printf 'System npm prefix: %s\n' "${sys_npm_prefix:-unknown}"
   printf 'System npm bin: %s\n' "${sys_npm_bin:-unknown}"
   printf 'AIUP npm prefix: %s\n' "$AIUP_NPM_PREFIX"
@@ -4222,6 +4627,8 @@ parse_args() {
         ;;
     esac
   done
+
+  catalog_validate || return 1
 
   if [ "${#args[@]}" -eq 0 ]; then
     ensure_required_tools_present || return 1

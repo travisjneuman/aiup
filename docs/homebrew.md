@@ -2,6 +2,12 @@
 
 Homebrew is how many catalog items land on a Mac. It is not the whole catalog.
 
+## Tap trust
+
+Before its first Homebrew operation, aiup checks installed taps using Homebrew's trust metadata. An installed but untrusted tap is shown with its remote and requires an explicit `y` confirmation before aiup runs `brew trust --tap`. A declined tap remains untrusted and aiup will not rely on tools from it.
+
+If a future catalog item requires a tap that is not installed, its installer must identify that tap and ask before adding or trusting it. aiup never silently trusts a newly introduced tap.
+
 ## Child lists
 
 | Child | What you see |
