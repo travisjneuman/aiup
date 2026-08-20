@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-16
+
+- Public site is a poster: full-bleed catalog film, two lines of copy, GitHub. Install and how-to stay in the repo.
+
 ## 2026.08.20-14
 
 - Site rebuilt from the Grok `frontend-design` skill: the page is the catalog (expandable rows from `catalog.json`), not a dark-mode marketing template.
