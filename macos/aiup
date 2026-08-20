@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-24"
+AIUP_VERSION="2026.08.20-25"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -567,28 +567,18 @@ brew_review_installed_taps() {
   if [ "$DRY_RUN" -eq 1 ]; then
     while IFS= read -r tap; do
       [ -n "$tap" ] || continue
-      warn "DRY-RUN: would ask whether to trust installed Homebrew tap $tap"
+      warn "DRY-RUN: would trust already-installed Homebrew tap $tap"
     done <<< "$taps"
     return 0
-  fi
-
-  if [ ! -c /dev/tty ]; then
-    error "Homebrew has installed but untrusted tap(s): $(printf '%s' "$taps" | tr '\n' ' ')"
-    error "Run aiup from a terminal and confirm each tap before Homebrew tools can be updated."
-    return 1
   fi
 
   while IFS= read -r tap; do
     [ -n "$tap" ] || continue
     remote="$(brew_tap_remote "$tap")"
-    warn "Homebrew tap $tap is installed but untrusted."
-    [ -n "$remote" ] && warn "Tap remote: $remote"
-    if confirm_tty "Trust installed Homebrew tap $tap so aiup can use its tools? [y/N] "; then
-      run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap" || return 1
-      info "Trusted installed Homebrew tap: $tap"
-    else
-      warn "Left Homebrew tap $tap untrusted; aiup will not rely on tools from it."
-    fi
+    info "Trusting already-installed Homebrew tap $tap as prior user approval"
+    [ -n "$remote" ] && info "Tap remote: $remote"
+    run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap" || return 1
+    info "Trusted installed Homebrew tap: $tap"
   done <<< "$taps"
   return 0
 }
@@ -664,10 +654,12 @@ brew_ensure_target_tap() {
   if brew_tap_trusted "$tap"; then
     return 0
   fi
-  [ "$DRY_RUN" -eq 1 ] && { warn "DRY-RUN: would ask whether to trust installed Homebrew tap $tap"; return 0; }
-  [ -c /dev/tty ] || { error "Homebrew tap $tap is required for $target but is untrusted; run aiup from a terminal to approve it"; return 1; }
-  [ -n "$remote" ] && warn "Required tap remote: $remote"
-  confirm_tty "Trust installed Homebrew tap $tap for $target? [y/N] " || { error "Declined required Homebrew tap $tap"; return 1; }
+  if [ "$DRY_RUN" -eq 1 ]; then
+    warn "DRY-RUN: would trust already-installed Homebrew tap $tap"
+    return 0
+  fi
+  [ -n "$remote" ] && info "Tap remote: $remote"
+  info "Trusting already-installed Homebrew tap $tap as prior user approval"
   run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap"
 }
 

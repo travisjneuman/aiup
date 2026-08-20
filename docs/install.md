@@ -44,7 +44,7 @@ The installed `aiup` command is a small launcher. On this machine, every invocat
 
 For users without a local checkout, the launcher falls back to fetching the public `main/macos/aiup` runtime and caches it under `~/.local/share/aiup/aiup-live`. If that fallback fetch fails, aiup stops instead of silently running older cached code. `./macos/aiup` runs the copy in a local checkout.
 
-Update runs are unattended: Homebrew upgrade/install confirmations are accepted automatically, and version checks receive no terminal input. Installed but untrusted Homebrew taps require an explicit trust confirmation; explicit uninstall and on-disk app-switch confirmations also require your approval.
+Update runs are unattended: Homebrew upgrade/install confirmations are accepted automatically, and version checks receive no terminal input. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations still require your approval.
 
 ## First run
 

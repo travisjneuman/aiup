@@ -29,5 +29,12 @@ grep -q '^catalog_validate()' "$AIUP"
 grep -q '^brew_review_installed_taps()' "$AIUP"
 grep -q '^update_screenpipe()' "$AIUP"
 grep -q 'brew trust --tap' "$AIUP"
+grep -q 'would trust already-installed Homebrew tap' "$AIUP"
+grep -q 'Trusting already-installed Homebrew tap.*prior user approval' "$AIUP"
+grep -q 'would ask whether to add and trust Homebrew tap' "$AIUP"
+if grep -q 'would ask whether to trust installed Homebrew tap' "$AIUP"; then
+  echo 'aiup tests: installed taps must not prompt' >&2
+  exit 1
+fi
 
 printf 'aiup tests: ok (%s catalog tools)\n' "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["tools"]))' "$TEST_DIR/catalog.json")"

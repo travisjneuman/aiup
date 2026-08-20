@@ -11,4 +11,4 @@ If you add tools or categories:
 5. Detect PATH, app bundles, *and* package managers — Homebrew is not the only way an app exists.
 6. Every catalog entry must have a complete updater/install path and a remover. Dedicated app updaters must verify the vendor artifact before replacing the bundle.
 7. Switching an existing app to Homebrew must keep settings (`--adopt`, never `--zap`).
-8. If Homebrew reports an installed tap as untrusted, aiup must prompt before trusting it. Never silently trust a newly added tap.
+8. An installed Homebrew tap represents prior user approval, so aiup must trust it automatically without prompting. If a required tap is not installed, aiup must prompt before adding and trusting it. Never silently add or trust a newly introduced tap.

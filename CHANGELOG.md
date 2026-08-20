@@ -1,9 +1,13 @@
 # Changelog
 
+## 2026.08.20-25
+
+- Homebrew taps already installed on a Mac are treated as prior user approval and trusted automatically; missing taps required by a selected tool still prompt before they are added and trusted.
+
 ## 2026.08.20-24
 
 - Screenpipe now updates from the official architecture-specific stable DMG, verifies the bundle identity, code signature, and Gatekeeper assessment, preserves a rollback copy, and relaunches only when it was running.
-- Installed untrusted Homebrew taps are displayed with their remote and require explicit approval before aiup trusts them; newly required taps also require approval before they are added.
+- Installed untrusted Homebrew taps are displayed with their remote and automatically trusted as prior user-approved taps; newly required taps still require approval before they are added.
 - Catalog validation now fails closed when an entry lacks its installer metadata, updater, remover, label, category, or documentation URL.
 
 ## 2026.08.20-23

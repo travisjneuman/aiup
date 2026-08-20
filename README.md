@@ -56,7 +56,7 @@ aiup list
 
 The installed `aiup` command runs the canonical `~/web-dev/aiup/macos/aiup` checkout on every invocation, so local testing starts with the latest local script—even before a push. `AIUP_SOURCE_PATH` can point to another checkout's `macos/aiup` script. GitHub is only a fallback for users without a local checkout.
 
-Update runs are unattended: Homebrew upgrade/install confirmations are accepted automatically, and version checks cannot wait for terminal input. Installed but untrusted Homebrew taps require an explicit trust confirmation; explicit uninstall and on-disk app-switch confirmations also require your approval.
+Update runs are unattended: Homebrew upgrade/install confirmations are accepted automatically, and version checks cannot wait for terminal input. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations still require your approval.
 
 ## ✨ Why people keep it
 
@@ -135,7 +135,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.20-24** · **69** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.20-25** · **69** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
