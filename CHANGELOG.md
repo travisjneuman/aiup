@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-22
+
+- Installed `aiup` now uses the canonical local `~/web-dev/aiup/macos/aiup` checkout first, so local testing needs no GitHub access and sees unpublished local changes immediately. GitHub remains a fallback for installations without a local checkout.
+
 ## 2026.08.20-21
 
 - Installed `aiup` now uses a live-sync launcher that fetches and validates the current public `main` runtime on every invocation, failing closed when it cannot refresh.

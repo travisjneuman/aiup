@@ -40,9 +40,9 @@ aiup does not invoke `sudo` itself. Homebrew's official installer may request ma
 
 ## Live public version
 
-The installed `aiup` command is a small launcher. Every invocation fetches the current `main/macos/aiup` script from the public repository, syntax-checks it, and atomically activates it under `~/.local/share/aiup/aiup-live` before running it. If the public fetch fails, aiup stops instead of silently running an older cached version.
+The installed `aiup` command is a small launcher. On this machine, every invocation first runs the canonical `~/web-dev/aiup/macos/aiup` checkout directly, so no network access is needed and local changes are immediately testable. Set `AIUP_SOURCE_PATH` to another checkout's `macos/aiup` script when needed.
 
-This means `aiup` runs the pushed public version immediately. `./macos/aiup` runs the copy in a local checkout and is useful when developing before a push. `AIUP_UPSTREAM_URL` can point the launcher at a different source for controlled testing.
+For users without a local checkout, the launcher falls back to fetching the public `main/macos/aiup` runtime and caches it under `~/.local/share/aiup/aiup-live`. If that fallback fetch fails, aiup stops instead of silently running older cached code. `./macos/aiup` runs the copy in a local checkout.
 
 ## First run
 

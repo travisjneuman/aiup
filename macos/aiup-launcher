@@ -2,9 +2,10 @@
 set -u
 set -o pipefail
 
-# Keep the installed command on the public repository's live main branch.
+# Keep the installed command on this machine's canonical checkout first.
 # The launcher is intentionally small so it can remain stable while the
 # runtime script changes.
+AIUP_SOURCE_PATH="${AIUP_SOURCE_PATH:-$HOME/web-dev/aiup/macos/aiup}"
 AIUP_UPSTREAM_URL="${AIUP_UPSTREAM_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup}"
 AIUP_STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
 AIUP_RUNTIME_PATH="${AIUP_RUNTIME_PATH:-$AIUP_STATE_DIR/aiup-live}"
@@ -13,6 +14,22 @@ die() {
   printf 'aiup: %s\n' "$*" >&2
   exit 1
 }
+
+validate_runtime() {
+  local runtime_path="$1"
+  [ -s "$runtime_path" ] || die "the aiup runtime was empty: $runtime_path"
+  head -n 1 "$runtime_path" | grep -q '^#!/usr/bin/env bash$' || \
+    die "the aiup runtime did not look like an aiup script: $runtime_path"
+  grep -Eq '^AIUP_VERSION="[^"]+"$' "$runtime_path" || \
+    die "the aiup runtime did not declare an aiup version: $runtime_path"
+  bash -n "$runtime_path" || die "the aiup runtime failed shell syntax validation: $runtime_path"
+}
+
+if [ -f "$AIUP_SOURCE_PATH" ]; then
+  validate_runtime "$AIUP_SOURCE_PATH"
+  export AIUP_LIVE_SYNCED=1
+  exec bash "$AIUP_SOURCE_PATH" "$@"
+fi
 
 if [ "${AIUP_LIVE_SYNCED:-0}" != 1 ]; then
   command -v curl >/dev/null 2>&1 || die "curl is required to fetch the live public version"
@@ -34,17 +51,13 @@ if [ "${AIUP_LIVE_SYNCED:-0}" != 1 ]; then
     -H 'Cache-Control: no-cache' "$fetch_url" -o "$tmp_path"; then
     die "could not fetch the live public version from $AIUP_UPSTREAM_URL"
   fi
-  [ -s "$tmp_path" ] || die "the live public version was empty"
-  head -n 1 "$tmp_path" | grep -q '^#!/usr/bin/env bash$' || \
-    die "the live public version did not look like an aiup script"
-  grep -Eq '^AIUP_VERSION="[^"]+"$' "$tmp_path" || \
-    die "the live public version did not declare an aiup version"
-  bash -n "$tmp_path" || die "the live public version failed shell syntax validation"
+  validate_runtime "$tmp_path"
 
   chmod 700 "$tmp_path" || die "could not make the live runtime executable"
   mv -f "$tmp_path" "$AIUP_RUNTIME_PATH" || die "could not activate the live runtime"
   trap - EXIT HUP INT TERM
 fi
 
+validate_runtime "$AIUP_RUNTIME_PATH"
 export AIUP_LIVE_SYNCED=1
 exec bash "$AIUP_RUNTIME_PATH" "$@"
