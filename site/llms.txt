@@ -1,0 +1,9 @@
+# aiup
+
+> A local catalog for AI tools on macOS. Scan this Mac, update what is already installed, install or remove from one list. Nothing is uploaded.
+
+- Site: https://aiup.neuman.dev/
+- Source: https://github.com/travisjneuman/aiup
+- License: MIT
+
+Install and how-to live in the GitHub README.

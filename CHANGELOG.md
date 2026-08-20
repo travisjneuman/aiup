@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-18
+
+- Sharing and search: Open Graph + Twitter large image (`og.png` 1200×630), JSON-LD, sitemap, robots.txt, llms.txt. HTML is not long-cached so each deploy is what people see.
+
 ## 2026.08.20-17
 
 - Brand lockup on the site (navy, magenta–cyan–mint). Original logo lives in `site/brand/original/`; favicon, Apple touch, and OG images in `site/brand/derived/`. Product stills in `site/media/`.

@@ -3,29 +3,90 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>aiup</title>
-  <meta name="description" content="The catalog of AI tools on this Mac." />
+  <title>aiup — the catalog of AI tools on this Mac</title>
+  <meta name="description" content="aiup is a local catalog for AI tools on macOS. Scan this Mac, update what you already have, install or remove from one list. Nothing is uploaded." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="author" content="Travis J. Neuman" />
+  <meta name="theme-color" content="#0b0c23" />
+  <meta name="color-scheme" content="dark" />
   <link rel="canonical" href="https://aiup.neuman.dev/" />
-  <link rel="icon" href="brand/derived/favicon.ico" sizes="any" />
+  <link rel="alternate" type="text/plain" href="https://aiup.neuman.dev/llms.txt" title="llms.txt" />
+
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="32x32" href="brand/derived/favicon-32.png" />
   <link rel="apple-touch-icon" href="brand/derived/apple-touch-icon.png" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta property="og:title" content="aiup" />
-  <meta property="og:description" content="The catalog of AI tools on this Mac." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="aiup" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:title" content="aiup — the catalog of AI tools on this Mac" />
+  <meta property="og:description" content="Scan this Mac. Update what you already have. One list. Nothing is uploaded." />
   <meta property="og:url" content="https://aiup.neuman.dev/" />
   <meta property="og:image" content="https://aiup.neuman.dev/brand/derived/og.png" />
-  <meta name="theme-color" content="#0b0c23" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="aiup logo — neon terminal window and wordmark on navy" />
+  <link rel="image_src" href="https://aiup.neuman.dev/brand/derived/og.png" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="aiup — the catalog of AI tools on this Mac" />
+  <meta name="twitter:description" content="Scan this Mac. Update what you already have. One list. Nothing is uploaded." />
+  <meta name="twitter:image" content="https://aiup.neuman.dev/brand/derived/og.png" />
+  <meta name="twitter:image:alt" content="aiup logo — neon terminal window and wordmark on navy" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=18" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://aiup.neuman.dev/#website",
+        "url": "https://aiup.neuman.dev/",
+        "name": "aiup",
+        "description": "The catalog of AI tools on this Mac.",
+        "inLanguage": "en",
+        "publisher": { "@id": "https://aiup.neuman.dev/#software" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://aiup.neuman.dev/#software",
+        "name": "aiup",
+        "url": "https://aiup.neuman.dev/",
+        "image": "https://aiup.neuman.dev/brand/derived/og.png",
+        "description": "A local catalog for AI tools on macOS. Scan this Mac, update what you already have, install or remove from one list.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS",
+        "license": "https://github.com/travisjneuman/aiup/blob/main/LICENSE",
+        "codeRepository": "https://github.com/travisjneuman/aiup",
+        "downloadUrl": "https://github.com/travisjneuman/aiup",
+        "author": {
+          "@type": "Person",
+          "name": "Travis J. Neuman",
+          "url": "https://github.com/travisjneuman"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <a class="skip" href="#reel">Skip to the reel</a>
   <section class="stage">
     <header class="mast">
       <h1>
-        <img class="lockup" src="brand/derived/lockup.png" width="1182" height="464" alt="aiup" />
+        <img class="lockup" src="brand/derived/lockup.png" width="1182" height="464" alt="aiup — the catalog of AI tools on this Mac" />
       </h1>
       <p>The whole stack.<br />One list.</p>
       <a class="go" href="https://github.com/travisjneuman/aiup">GitHub</a>
@@ -35,13 +96,13 @@
 
   <section class="reel" id="reel">
     <figure>
-      <img src="media/aiup-list-collapsed.png" alt="aiup list, categories collapsed" />
+      <img src="media/aiup-list-collapsed.png" alt="aiup list with categories collapsed" />
     </figure>
     <figure>
-      <img src="media/aiup-list-homebrew.png" alt="aiup list, Homebrew recommended" />
+      <img src="media/aiup-list-homebrew.png" alt="aiup list showing Homebrew extras" />
     </figure>
     <figure>
-      <img src="media/aiup-list-adopt.png" alt="aiup list, switch to Homebrew" />
+      <img src="media/aiup-list-adopt.png" alt="aiup list switching an app to Homebrew" />
     </figure>
   </section>
 
