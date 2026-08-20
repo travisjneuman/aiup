@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-20
+
+- fzf is required infrastructure, managed as a Homebrew formula and refreshed during update runs.
+
 ## 2026.08.20-19
 
 - Tab title is `aiup`. Favicon at `/favicon.ico`.

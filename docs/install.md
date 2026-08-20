@@ -20,6 +20,7 @@ Then:
 
 ```bash
 aiup version
+aiup only fzf
 aiup list
 ```
 
@@ -30,16 +31,16 @@ aiup list
 | bash | The script | macOS ships it |
 | python3 | Path helpers | macOS ships it |
 | curl | Vendor installers | macOS ships it |
-| fzf | Full-screen catalog | Numbered prompts work without it. `brew install fzf` is nicer |
-| Homebrew | Only for brew-managed catalog items and extras | Optional until you install those items |
+| fzf | Required full-screen catalog and infrastructure tool | aiup installs/updates the Homebrew formula |
+| Homebrew | Required for fzf and brew-managed catalog items | aiup installs it before fzf when missing |
 | npm / Node | Only for Node-based agents | aiup can install Homebrew Node when a tool needs it |
 | uv | Only for uv-managed tools (shell-gpt, Open Interpreter) | Installed on demand |
 
-aiup never uses `sudo`. It writes to your home directory (`~/.local/bin`, `~/.local/share/aiup`).
+aiup does not invoke `sudo` itself. Homebrew's official installer may request macOS administrator authentication. aiup writes its own files to your home directory (`~/.local/bin`, `~/.local/share/aiup`).
 
 ## First run
 
-`aiup` with no arguments **scans the machine** and updates what it finds. It will not install tools you do not have.
+`aiup` with no arguments first ensures required infrastructure (currently fzf), then **scans the machine** and updates what it finds. It will not install optional tools you do not have.
 
 ```bash
 aiup              # update whatever is already installed

@@ -41,12 +41,13 @@ mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup -o ~/.local/bin/aiup
 chmod +x ~/.local/bin/aiup
 export PATH="$HOME/.local/bin:$PATH"
+aiup only fzf
 aiup list
 ```
 
 | You type | What happens |
 |---|---|
-| `aiup` | 🔍 Scan your Mac → update **installed** tools only |
+| `aiup` | 🔍 Ensure fzf, scan your Mac → update **installed** tools |
 | `aiup list` | 🎛️ Full-screen catalog |
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup doctor` | 🩺 How each tool was detected |
@@ -58,7 +59,7 @@ aiup list
 <td width="50%">
 
 ### 🔍 Scan, don't spray
-Default `aiup` never brings back something you removed. Missing tools return only when you ask.
+Default `aiup` keeps optional tools from coming back, but restores required infrastructure such as fzf.
 
 </td>
 <td width="50%">
@@ -128,11 +129,11 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.20-19** · **68** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.20-20** · **69** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
-| ⚙️ | **infra** | Runtimes and installers other tools need | 6 tools |
+| ⚙️ | **infra** | Runtimes and installers other tools need | 7 tools |
 | 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
 | 🖥️ | **workspaces** | Desktop hubs that drive those agents | 6 tools |
 | ✏️ | **editors** | Places you type code | 5 tools |
@@ -151,8 +152,8 @@ Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/hom
 | Need | Why |
 |---|---|
 | bash · python3 · curl | The script (macOS already has these) |
-| [fzf](https://github.com/junegunn/fzf) | Full-screen list (numbered prompts without it) |
-| Homebrew / Node / uv | Only when a catalog item needs them — installed on demand |
+| [fzf](https://github.com/junegunn/fzf) | Required full-screen catalog and infrastructure tool; aiup installs and updates the Homebrew formula |
+| Homebrew / Node / uv | Homebrew is required for fzf and brew-managed items; Node/uv are installed on demand when needed |
 
 ## 🗺️ Status
 

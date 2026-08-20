@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.08.20-19",
+  "version": "2026.08.20-20",
   "categories": [
     {
       "id": "infra",
@@ -30,6 +30,14 @@
           "lifecycle": "active",
           "docs": "https://github.com/astral-sh/uv",
           "label": "Astral uv/uvx — Python toolchain (also used to install Aider/llm)"
+        },
+        {
+          "id": "fzf",
+          "category": "infra",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/junegunn/fzf",
+          "label": "fzf fuzzy finder — required interactive catalog"
         },
         {
           "id": "gh",
@@ -670,6 +678,14 @@
       "lifecycle": "active",
       "docs": "https://github.com/astral-sh/uv",
       "label": "Astral uv/uvx — Python toolchain (also used to install Aider/llm)"
+    },
+    {
+      "id": "fzf",
+      "category": "infra",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/junegunn/fzf",
+      "label": "fzf fuzzy finder — required interactive catalog"
     },
     {
       "id": "gh",
@@ -1437,11 +1453,6 @@
       "kind": "formula",
       "id": "fd",
       "label": "fd file finder"
-    },
-    {
-      "kind": "formula",
-      "id": "fzf",
-      "label": "fzf fuzzy finder (used by aiup list)"
     },
     {
       "kind": "formula",

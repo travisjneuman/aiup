@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-19"
+AIUP_VERSION="2026.08.20-20"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -28,7 +28,7 @@ KIMI_INSTALL_URL="https://code.kimi.com/kimi-code/install.sh"
 OPENCLAW_INSTALL_URL="https://openclaw.ai/install.sh"
 HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
-# Default `aiup` still only updates what is present. Grouped by category in `list`.
+# Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
 CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters homebrew)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
@@ -44,12 +44,14 @@ HOMEBREW_RECOMMENDED_CASKS=(
 )
 HOMEBREW_RECOMMENDED_FORMULAE=(
   jq neovim go cmake ninja tree watch wget curl
-  ripgrep fd fzf tmux starship eza bat git-delta
+  ripgrep fd tmux starship eza bat git-delta
   gh git lazygit helix mise direnv just pnpm yarn
   podman kubectl helm terraform
 )
+AIUP_REQUIRED_TOOLS=(fzf)
+AIUP_REQUIRED_UPDATED="|"
 TOOLS_CATALOG=(
-  brew npm uv gh wrangler deno
+  brew npm uv fzf gh wrangler deno
   claude copilot codex antigravity grok gemini pi kilo gsd2 opencode hermes omp warp aider goose cursor qwen crush amp kiro droid kimi openclaw plandex cline continue
   pi-acp
   llm mods aichat fabric sgpt
@@ -596,7 +598,7 @@ binary_of_tool() {
 
 catalog_category() {
   case "$1" in
-    brew|npm|uv|gh|wrangler|deno) printf 'infra\n' ;;
+    brew|npm|uv|fzf|gh|wrangler|deno) printf 'infra\n' ;;
     claude|copilot|codex|antigravity|grok|gemini|pi|kilo|gsd2|opencode|hermes|omp|warp|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter) printf 'coding-agents\n' ;;
     t3-code|t3-nightly|grokbot|opencode-desktop|hermes-desktop|n8n) printf 'workspaces\n' ;;
     vscode|vscode-insiders|cursor-ide|zed|antigravity-ide) printf 'editors\n' ;;
@@ -691,7 +693,7 @@ catalog_kind() {
     crush|cline|continue|pi-acp|qwen) printf 'aiup-npm\n' ;;
     amp|droid|plandex|uv) printf 'curl-installer\n' ;;
     kiro) printf 'brew-cask\n' ;;
-    kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|n8n|mlx|mlx-lm) printf 'brew-formula\n' ;;
+    fzf|kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|n8n|mlx|mlx-lm) printf 'brew-formula\n' ;;
     chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
     screenpipe) printf 'app\n' ;;
     interpreter) printf 'uv-tool\n' ;;
@@ -763,6 +765,35 @@ ensure_catalog_deps() {
   return 0
 }
 
+ensure_required_tools_present() {
+  local saved_no_install="${NO_INSTALL:-0}"
+  local required
+  for required in "${AIUP_REQUIRED_TOOLS[@]}"; do
+    case "$AIUP_REQUIRED_UPDATED" in
+      *"|$required|"*) continue ;;
+    esac
+    if [ "${NO_INSTALL_EXPLICIT:-0}" -eq 1 ]; then
+      NO_INSTALL="$saved_no_install"
+    else
+      NO_INSTALL=0
+    fi
+    ensure_catalog_deps "$required" || { NO_INSTALL="$saved_no_install"; return 1; }
+    if ! tool_is_present "$required"; then
+      if [ "${NO_INSTALL_EXPLICIT:-0}" -eq 1 ]; then
+        error "Required infrastructure '$required' is missing. Re-run without --no-install, or: aiup only $required"
+        NO_INSTALL="$saved_no_install"
+        return 1
+      fi
+      info "Required infrastructure missing: $required"
+    fi
+    run_tool_update "$required" || { NO_INSTALL="$saved_no_install"; return 1; }
+    AIUP_REQUIRED_UPDATED="${AIUP_REQUIRED_UPDATED}${required}|"
+    brew_cache_invalidate
+  done
+  NO_INSTALL="$saved_no_install"
+  return 0
+}
+
 catalog_npm_pkg() {
   case "$1" in
     crush) printf '@charmland/crush\n' ;;
@@ -777,6 +808,7 @@ catalog_npm_pkg() {
 
 catalog_brew_formula() {
   case "$1" in
+    fzf) printf 'fzf\n' ;;
     kimi) printf 'kimi-code\n' ;;
     openclaw) printf 'openclaw-cli\n' ;;
     gh) printf 'gh\n' ;;
@@ -888,6 +920,7 @@ catalog_label() {
     brew) printf 'Homebrew — required for formulae, casks, and Node/npm on this system (not removable)\n' ;;
     npm) printf 'Node/npm via Homebrew (infrastructure; update-only, not removable)\n' ;;
     uv) printf 'Astral uv/uvx — Python toolchain (also used to install Aider/llm)\n' ;;
+    fzf) printf 'fzf fuzzy finder — required interactive catalog\n' ;;
     gh) printf 'GitHub CLI\n' ;;
     wrangler) printf 'Cloudflare Workers CLI (cloudflare-wrangler)\n' ;;
     deno) printf 'Deno runtime\n' ;;
@@ -937,7 +970,7 @@ catalog_label() {
     jan) printf 'Jan — local ChatGPT-style app\n' ;;
     gpt4all) printf 'GPT4All — local LLM desktop app\n' ;;
     anythingllm) printf 'AnythingLLM — private local RAG/chat app\n' ;;
-    mlx) printf 'MLX — Apple Silicon engine for running local AI\n' ;;
+    mlx) printf 'MLX — Apple Silicon engine for running local AI (not a chat app)\n' ;;
     mlx-lm) printf 'mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX\n' ;;
     n8n) printf 'n8n — workflow automation (often used with local LLMs)\n' ;;
     interpreter) printf 'Open Interpreter — natural-language computer-use agent\n' ;;
@@ -963,6 +996,7 @@ catalog_docs_url() {
     brew) printf 'https://github.com/Homebrew/brew\n' ;;
     npm) printf 'https://github.com/nodejs/node\n' ;;
     uv) printf 'https://github.com/astral-sh/uv\n' ;;
+    fzf) printf 'https://github.com/junegunn/fzf\n' ;;
     gh) printf 'https://github.com/cli/cli\n' ;;
     wrangler) printf 'https://github.com/cloudflare/workers-sdk\n' ;;
     deno) printf 'https://github.com/denoland/deno\n' ;;
@@ -1438,7 +1472,7 @@ brew_extra_label() {
     git) printf 'git\n' ;;
     ripgrep) printf 'ripgrep (rg)\n' ;;
     fd) printf 'fd file finder\n' ;;
-    fzf) printf 'fzf fuzzy finder (used by aiup list)\n' ;;
+    fzf) printf 'fzf fuzzy finder — required interactive catalog\n' ;;
     tmux) printf 'tmux\n' ;;
     starship) printf 'Starship prompt\n' ;;
     eza) printf 'eza (ls)\n' ;;
@@ -2165,6 +2199,7 @@ preferred_method_of() {
   case "$1" in
     brew) printf 'installer\n' ;;
     npm) printf 'homebrew-node\n' ;;
+    fzf) printf 'brew-formula\n' ;;
     claude) printf 'native\n' ;;
     codex) printf 'aiup-npm\n' ;;
     antigravity) printf 'installer\n' ;;
@@ -2266,6 +2301,10 @@ source_count_of() {
   local tool="$1"
   local count=0
   case "$tool" in
+    fzf)
+      brew_formula_installed fzf && count=$((count+1))
+      command_exists fzf && ! brew_formula_installed fzf && count=$((count+1))
+      ;;
     npm)
       brew_formula_installed node && count=$((count+1))
       ;;
@@ -2461,7 +2500,7 @@ status_of() {
   fi
 
   case "$tool" in
-    npm|claude|codex|antigravity|gemini|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|pi-acp|uv|gh|wrangler|deno|llm|mods|aichat|fabric|sgpt|ollama|chatgpt|cursor-ide|zed|cmux|ollama-app)
+    fzf|npm|claude|codex|antigravity|gemini|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|pi-acp|uv|gh|wrangler|deno|llm|mods|aichat|fabric|sgpt|ollama|chatgpt|cursor-ide|zed|cmux|ollama-app)
       if [ "$method" = "$preferred" ] && [ "$duplicates" = 'no' ] && [ "$path_active" = 'yes' ] && [ "$persistent" != 'no' ]; then
         printf 'GOOD\n'
       elif [ "$method" = 'missing' ]; then
@@ -2479,6 +2518,7 @@ status_of() {
 notes_of() {
   local tool="$1"
   case "$tool" in
+    fzf) printf 'Required interactive picker. Homebrew owns the active formula and aiup refreshes it with brew update/upgrade.\n' ;;
     npm) printf 'Homebrew-managed Node owns the active npm; update Node through Homebrew so node, npm, and npx stay coherent.\n' ;;
     claude) printf 'Anthropic native install at ~/.local/bin is the preferred path on macOS and avoids conflicting npm/Homebrew installs.\n' ;;
     codex) printf 'aiup-managed npm prefix tracks the official npm latest channel and avoids Homebrew cask lag/sync issues.\n' ;;
@@ -3847,53 +3887,8 @@ pick_catalog_tools() {
     key="$(printf '%s\n' "$selected" | awk 'NR==1{print; exit}')"
     selected="$(printf '%s\n' "$selected" | awk 'NR>1')"
   else
-    local answer="" tid
-    while true; do
-      local i=1
-      {
-        printf '\nCatalog (%s). Numbers install/update. d N uninstall. r N update. o N docs.\n' "$mode"
-        printf 'Empty cancels.\n'
-        for r in "${rows[@]}"; do
-          tid="$(printf '%s\n' "$r" | cut -f1)"
-          printf '  %2d) %s\n      %s\n' "$i" "$(printf '%s\n' "$r" | cut -f2)" "$(catalog_docs_url "$tid")"
-          i=$((i+1))
-        done
-      } >/dev/tty
-      read -r -p '> ' answer </dev/tty || true
-      [ -z "$answer" ] && return 1
-      case "$answer" in
-        o\ *|O\ *)
-          local idx="${answer#*[oO] }"
-          if [ "$idx" -ge 1 ] && [ "$idx" -le "${#rows[@]}" ] 2>/dev/null; then
-            tid="$(printf '%s\n' "${rows[$((idx-1))]}" | cut -f1)"
-            cmd_docs "$tid" || true
-          else
-            error "Not a valid number: $idx"
-          fi
-          continue
-          ;;
-        d\ *|D\ *)
-          key='ctrl-d'
-          answer="${answer#*[dD] }"
-          ;;
-        r\ *|R\ *)
-          key='ctrl-r'
-          answer="${answer#*[rR] }"
-          ;;
-        *)
-          key='enter'
-          ;;
-      esac
-      break
-    done
-    local -a nums=()
-    IFS=', ' read -r -a nums <<< "$answer"
-    local n
-    for n in "${nums[@]}"; do
-      if [ "$n" -ge 1 ] && [ "$n" -le "${#rows[@]}" ] 2>/dev/null; then
-        selected+="${rows[$((n-1))]}"$'\n'
-      fi
-    done
+    error "fzf is required for aiup $mode. Re-run without --no-install, or: aiup only fzf"
+    return 1
   fi
 
   if [ -z "$selected" ]; then
@@ -4027,6 +4022,7 @@ apply_catalog_action() {
 }
 
 cmd_install_interactive() {
+  ensure_required_tools_present || return 1
   collapse_all_categories
   PICK_ACTION=""
   PICK_TOOLS=()
@@ -4036,6 +4032,7 @@ cmd_install_interactive() {
 }
 
 cmd_remove_interactive() {
+  ensure_required_tools_present || return 1
   collapse_all_categories
   PICK_ACTION=""
   PICK_TOOLS=()
@@ -4045,6 +4042,7 @@ cmd_remove_interactive() {
 }
 
 cmd_catalog_browse() {
+  ensure_required_tools_present || return 1
   AIUP_KEEP_UI=1
   collapse_all_categories
   while true; do
@@ -4103,17 +4101,18 @@ Usage:
   aiup help                Show this help
 
 Scan is local-only (PATH, app bundles, Homebrew inventory). Nothing is
-uploaded. Default update never installs a missing tool. Use \`aiup install\`
-or \`aiup only <tool>\` to add tools. Installing a tool that needs brew, npm,
-or uv will install those missing dependencies first (brew → npm/uv → tool).
+uploaded. Update/install runs ensure required infrastructure (currently
+fzf), then updates installed tools. Optional missing tools are only added by
+\`aiup install\` or \`aiup only <tool>\`. Installing a tool that needs brew,
+npm, or uv installs those missing dependencies first (brew → npm/uv → tool).
 
-aiup itself needs bash, python3, and curl. Interactive \`aiup list\` is
-better with fzf (falls back to numbered prompts). Homebrew is optional
-until you install a brew-managed catalog item.
+aiup itself needs bash, python3, curl, and fzf. Interactive \`aiup list\`
+requires fzf. Homebrew is installed first when fzf or another brew-managed
+catalog item is missing.
 
 Options:
   --dry-run                Print actions without executing them
-  --no-install             Default for scan. Kept for compatibility.
+  --no-install             Do not install missing tools; fails if required fzf is absent.
   --heartbeat-seconds N    Override heartbeat interval for this run
 EOF2
 }
@@ -4124,7 +4123,7 @@ resolve_tools() {
   for arg in "$@"; do
     case "$arg" in
       brew|homebrew) out+=("brew") ;;
-      npm|uv|gh|wrangler|deno|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
+      npm|uv|fzf|gh|wrangler|deno|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
       vscode-code|code) out+=("vscode") ;;
       t3) out+=("t3-code") ;;
       grok-bot) out+=("grokbot") ;;
@@ -4157,10 +4156,20 @@ should_skip_install_for_missing() {
 
 main_update() {
   local tools=("$@")
-  local tool
+  local tool required
   ensure_managed_paths
+  ensure_required_tools_present || return 1
+  for required in "${AIUP_REQUIRED_TOOLS[@]}"; do
+    case " ${tools[*]} " in
+      *" $required "*) ;;
+      *) tools=("$required" "${tools[@]}") ;;
+    esac
+  done
   ensure_catalog_deps "${tools[@]}" || return 1
   for tool in "${tools[@]}"; do
+    case "$AIUP_REQUIRED_UPDATED" in
+      *"|$tool|"*) continue ;;
+    esac
     if should_skip_install_for_missing "$tool"; then
       continue
     fi
@@ -4202,6 +4211,7 @@ parse_args() {
   done
 
   if [ "${#args[@]}" -eq 0 ]; then
+    ensure_required_tools_present || return 1
     local -a present=()
     local line
     while IFS= read -r line; do
@@ -4218,6 +4228,7 @@ parse_args() {
 
   case "${args[0]}" in
     full|core)
+      ensure_required_tools_present || return 1
       local -a present=()
       local line
       while IFS= read -r line; do

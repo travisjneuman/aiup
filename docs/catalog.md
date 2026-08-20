@@ -1,4 +1,4 @@
-# Catalog (2026.08.20-19)
+# Catalog (2026.08.20-20)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -11,6 +11,7 @@ Runtimes and installers other tools need
 | `brew` | Homebrew — required for formulae, casks, and Node/npm on this system (not removable) |
 | `npm` | Node/npm via Homebrew (infrastructure; update-only, not removable) |
 | `uv` | Astral uv/uvx — Python toolchain (also used to install Aider/llm) |
+| `fzf` | fzf fuzzy finder — required interactive catalog |
 | `gh` | GitHub CLI |
 | `wrangler` | Cloudflare Workers CLI (cloudflare-wrangler) |
 | `deno` | Deno runtime |
@@ -198,7 +199,6 @@ Recommended extras:
 | formula | `curl` | curl |
 | formula | `ripgrep` | ripgrep (rg) |
 | formula | `fd` | fd file finder |
-| formula | `fzf` | fzf fuzzy finder (used by aiup list) |
 | formula | `tmux` | tmux |
 | formula | `starship` | Starship prompt |
 | formula | `eza` | eza (ls) |
