@@ -144,9 +144,7 @@ _**2026.08.20-19** · **68** tools in the main catalog. Generated from `macos/ai
 | 🍺 | **homebrew** | What Homebrew already put on your Mac, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 
-The table above is generated from `macos/aiup`. When the catalog grows, `scripts/sync-public-docs` refreshes this README, [docs/catalog.md](docs/catalog.md), and [site/catalog.json](site/catalog.json) so the site stays in lockstep.
-
-Full list + recommended extras → **[docs/catalog.md](docs/catalog.md)** · Homebrew semantics → **[docs/homebrew.md](docs/homebrew.md)**
+Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**
 
 ## 🧰 What aiup needs
 

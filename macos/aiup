@@ -937,7 +937,7 @@ catalog_label() {
     jan) printf 'Jan — local ChatGPT-style app\n' ;;
     gpt4all) printf 'GPT4All — local LLM desktop app\n' ;;
     anythingllm) printf 'AnythingLLM — private local RAG/chat app\n' ;;
-    mlx) printf 'MLX — Apple Silicon engine for running local AI (not a chat app)\n' ;;
+    mlx) printf 'MLX — Apple Silicon engine for running local AI\n' ;;
     mlx-lm) printf 'mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX\n' ;;
     n8n) printf 'n8n — workflow automation (often used with local LLMs)\n' ;;
     interpreter) printf 'Open Interpreter — natural-language computer-use agent\n' ;;
@@ -2488,8 +2488,8 @@ notes_of() {
     kilo) printf 'Official npm install anchored to aiup-managed stable prefix avoids brittle global/bin paths.\n' ;;
     gsd2) printf 'GSD2 coding agent. aiup prefers @opengsd/gsd-pi and also recognizes the older gsd-pi package for migration.\n' ;;
     hermes) printf 'Hermes Agent CLI (Nous Research) installs into ~/.hermes via the official curl script and self-updates via "hermes update". Hermes Desktop is a separate catalog item under workspaces.\n' ;;
-    hermes-desktop) printf 'Official Nous GUI for the same Hermes agent as the CLI. Same class as Grok Bot / OpenCode desktop: a workspace, not a local-model runner. Installs as Hermes.app (Homebrew cask hermes-desktop, or the official DMG).\n' ;;
-    mlx) printf 'Apple MLX is the Apple Silicon array/math engine. It is not Ollama or LM Studio. Those apps may use MLX internally; this catalog item is the framework itself (brew formula mlx).\n' ;;
+    hermes-desktop) printf 'Official Nous desktop app for the Hermes agent (same agent as the CLI). Homebrew cask hermes-desktop, or the official DMG.\n' ;;
+    mlx) printf 'Apple Silicon array engine (brew formula mlx).\n' ;;
     mlx-lm) printf 'mlx-lm runs, chats with, and serves local LLMs on Apple Silicon using MLX. Separate from Ollama/LM Studio/Jan. brew install mlx-lm (depends on mlx).\n' ;;
     pi) printf 'Pi coding agent. The current package scope is @earendil-works/pi-coding-agent; aiup also recognizes the older @mariozechner package for migration.\n' ;;
     grok) printf 'Grok CLI is vendor-installed under ~/.grok and updates with "grok update". aiup only refreshes it when the binary is already present.\n' ;;
