@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-13
+
+- Site redesign: product layout, no CRT overlay, no emoji section headers. Catalog still loaded from `catalog.json`.
+
 ## 2026.08.20-12
 
 - Site is Cloudflare Pages from `site/`. No GitHub Actions. No GitHub Pages.
