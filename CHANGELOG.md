@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.20-12
+
+- Site is Cloudflare Pages from `site/`. No GitHub Actions. No GitHub Pages.
+
 ## 2026.08.20-11
 
 - Enter on an **on disk** app lets Homebrew manage it. Settings, notes, and `~/Library` stay (`--adopt`, then replace the `.app` only if versions differ). Never `--zap`.
