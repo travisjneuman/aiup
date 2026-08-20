@@ -44,6 +44,8 @@ The installed `aiup` command is a small launcher. On this machine, every invocat
 
 For users without a local checkout, the launcher falls back to fetching the public `main/macos/aiup` runtime and caches it under `~/.local/share/aiup/aiup-live`. If that fallback fetch fails, aiup stops instead of silently running older cached code. `./macos/aiup` runs the copy in a local checkout.
 
+Update runs are unattended: Homebrew confirmations are accepted automatically, and version checks receive no terminal input. Explicit uninstall and on-disk app-switch confirmations still require your approval.
+
 ## First run
 
 `aiup` with no arguments first ensures required infrastructure (currently fzf), then **scans the machine** and updates what it finds. It will not install optional tools you do not have.

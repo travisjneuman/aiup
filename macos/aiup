@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-22"
+AIUP_VERSION="2026.08.20-23"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -140,7 +140,7 @@ run_with_heartbeat() {
   local start_ts pid rc elapsed hb_pid
   start_ts="$(date +%s)"
   info "START: $label"
-  "$@" &
+  "$@" </dev/null &
   pid=$!
 
   (
@@ -514,7 +514,7 @@ progress_tick() {
 progress_end() {
   [ "${PROGRESS_N:-0}" -gt 0 ] || return 0
   PROGRESS_N=0
-  printf '\r\033[K\033[?25h' >/dev/tty
+  printf '\r\033[K\033[?25h\n' >/dev/tty
 }
 
 brew_update_once() {
@@ -1586,7 +1586,7 @@ brew_cask_adopt() {
   local app="${2:-}"
   command_exists brew || { error "Homebrew required"; return 1; }
   if brew_cask_installed "$name"; then
-    run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name"
+    run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"
     return $?
   fi
   info "Letting Homebrew manage $name. Notes, settings, and data stay. ~/Library is never deleted."
@@ -1599,7 +1599,7 @@ brew_cask_adopt() {
       return 0
     fi
   fi
-  if run_with_heartbeat "brew install --cask --adopt $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --adopt "$name"; then
+  if run_with_heartbeat "brew install --cask --adopt $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --adopt --yes "$name"; then
     info "Homebrew now manages $name. Settings were not moved or wiped."
     return 0
   fi
@@ -1611,7 +1611,7 @@ brew_cask_adopt() {
       return 0
     fi
   fi
-  run_with_heartbeat "brew install --cask --force $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --force "$name" || return 1
+  run_with_heartbeat "brew install --cask --force $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --force --yes "$name" || return 1
   info "Homebrew now manages $name. Settings were not moved or wiped."
 }
 
@@ -1621,7 +1621,7 @@ brew_formula_install_alongside() {
   local name="$1"
   command_exists brew || { error "Homebrew required"; return 1; }
   if brew_formula_installed "$name"; then
-    run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade "$name"
+    run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$name"
     return $?
   fi
   if formula_present_outside_brew "$name"; then
@@ -1634,7 +1634,7 @@ brew_formula_install_alongside() {
       fi
     fi
   fi
-  run_with_heartbeat "brew install $name" env HOMEBREW_NO_ENV_HINTS=1 brew install "$name"
+  run_with_heartbeat "brew install $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes "$name"
 }
 
 apply_brew_extras() {
@@ -1657,18 +1657,18 @@ apply_brew_extras() {
             ;;
           update)
             if brew_cask_installed "$name"; then
-              run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name" || true
+              run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
             else
               warn "$name is on your Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew (settings stay)."
             fi
             ;;
           *)
             if brew_cask_installed "$name"; then
-              run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$name" || true
+              run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
             elif app="$(app_path_for_cask "$name")"; then
               brew_cask_adopt "$name" "$app" || true
             else
-              run_with_heartbeat "brew install --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask "$name" || true
+              run_with_heartbeat "brew install --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --yes "$name" || true
             fi
             ;;
         esac
@@ -1685,7 +1685,7 @@ apply_brew_extras() {
             ;;
           update)
             if brew_formula_installed "$name"; then
-              run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade "$name" || true
+              run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$name" || true
             else
               warn "$name is on PATH outside Homebrew; skip brew upgrade. Press enter to install a Homebrew copy alongside it."
             fi
@@ -1765,7 +1765,7 @@ cmd_docs() {
 version_of_path() {
   local path="$1"
   [ -x "$path" ] || return 1
-  "$path" --version 2>&1 | first_line
+  "$path" --version </dev/null 2>&1 | first_line
 }
 
 version_of_tool() {
@@ -1773,7 +1773,7 @@ version_of_tool() {
   local kind cask app formula bin cmd expected
   if [ "$tool" = 'npm' ]; then
     if command_exists npm; then
-      npm --version 2>&1 | first_line
+      npm --version </dev/null 2>&1 | first_line
     else
       printf 'not installed\n'
     fi
@@ -1802,12 +1802,12 @@ version_of_tool() {
   bin="$(binary_of_tool "$tool")"
   cmd="$(command_path "$bin")"
   if [ -n "$cmd" ] && [ -x "$cmd" ]; then
-    "$bin" --version 2>&1 | first_line
+    "$bin" --version </dev/null 2>&1 | first_line
     return 0
   fi
   expected="$(expected_direct_path "$tool")"
   if [ -n "$expected" ] && [ -x "$expected" ]; then
-    "$expected" --version 2>&1 | first_line
+    "$expected" --version </dev/null 2>&1 | first_line
     return 0
   fi
   printf 'not installed\n'
@@ -2555,7 +2555,12 @@ update_brew() {
   fi
   if [ -n "$brew_bin" ]; then
     info "Homebrew at $brew_bin"
-    run_with_heartbeat "brew update" env HOMEBREW_NO_ENV_HINTS=1 "$brew_bin" update || return 1
+    if [ -z "${_AIUP_BREW_UPDATED:-}" ]; then
+      run_with_heartbeat "brew update" env HOMEBREW_NO_ENV_HINTS=1 "$brew_bin" update || return 1
+      _AIUP_BREW_UPDATED=1
+    else
+      info "Homebrew already refreshed during this run"
+    fi
     hash_refresh
     set_state_method brew installer
     return 0
@@ -2590,7 +2595,7 @@ update_npm() {
   brew_update_once || return 1
   if ! brew_formula_installed node; then
     info "Installing Homebrew formula node (provides npm)"
-    run_with_heartbeat "brew install node" env HOMEBREW_NO_ENV_HINTS=1 brew install node || return 1
+    run_with_heartbeat "brew install node" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes node || return 1
     brew_cache_invalidate
     hash_refresh
     set_state_method npm homebrew-node
@@ -2603,7 +2608,7 @@ update_npm() {
   info "Current npm prefix: $(npm config get prefix 2>/dev/null || printf 'unknown')"
   info "Homebrew node stable: $(brew_node_stable_version)"
 
-  if ! run_with_heartbeat "brew upgrade node" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade node; then
+  if ! run_with_heartbeat "brew upgrade node" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes node; then
     if command_exists node && command_exists npm && ! brew_node_outdated; then
       warn "brew upgrade node exited nonzero, but Homebrew reports node is current and node/npm are available"
     else
@@ -3001,7 +3006,7 @@ update_warp() {
   case "$method" in
     brew-cask)
       brew_update_once || return 1
-      run_with_heartbeat "brew upgrade --cask warp-agent-cli" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask warp-agent-cli || return 1
+      run_with_heartbeat "brew upgrade --cask warp-agent-cli" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes warp-agent-cli || return 1
       ;;
     *)
       info "Refreshing Warp Agent CLI via the official installer"
@@ -3071,9 +3076,9 @@ update_goose() {
   if command_exists brew; then
     brew_update_once || return 1
     if brew_formula_installed block-goose-cli; then
-      run_with_heartbeat "brew upgrade block-goose-cli" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade block-goose-cli || return 1
+      run_with_heartbeat "brew upgrade block-goose-cli" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes block-goose-cli || return 1
     else
-      run_with_heartbeat "brew install block-goose-cli" env HOMEBREW_NO_ENV_HINTS=1 brew install block-goose-cli || return 1
+      run_with_heartbeat "brew install block-goose-cli" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes block-goose-cli || return 1
     fi
   else
     run_shell_with_heartbeat "curl -fsSL $GOOSE_INSTALL_URL | bash" || return 1
@@ -3118,9 +3123,9 @@ update_by_kind() {
       command_exists brew || { error "Homebrew required for $tool"; return 1; }
       brew_update_once || return 1
       if brew_formula_installed "$formula"; then
-        run_with_heartbeat "brew upgrade $formula" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade "$formula" || return 1
+        run_with_heartbeat "brew upgrade $formula" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$formula" || return 1
       else
-        run_with_heartbeat "brew install $formula" env HOMEBREW_NO_ENV_HINTS=1 brew install "$formula" || return 1
+        run_with_heartbeat "brew install $formula" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes "$formula" || return 1
       fi
       set_state_method "$tool" brew-formula
       ;;
@@ -3129,7 +3134,7 @@ update_by_kind() {
       command_exists brew || { error "Homebrew required for $tool"; return 1; }
       brew_update_once || return 1
       if brew_cask_installed "$cask"; then
-        run_with_heartbeat "brew upgrade --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask "$cask" || return 1
+        run_with_heartbeat "brew upgrade --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$cask" || return 1
       else
         local app
         app="$(catalog_app_path "$tool")"
@@ -3140,7 +3145,7 @@ update_by_kind() {
           fi
           brew_cask_adopt "$cask" "$app" || return 1
         else
-          run_with_heartbeat "brew install --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask "$cask" || return 1
+          run_with_heartbeat "brew install --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --yes "$cask" || return 1
         fi
       fi
       set_state_method "$tool" brew-cask
@@ -3228,6 +3233,10 @@ remove_by_kind() {
 
 run_tool_update() {
   local tool="$1"
+  if [ "$(catalog_kind "$tool")" = 'app' ] && [ "$NO_INSTALL" -eq 1 ]; then
+    warn "$tool is installed as a downloaded app with no supported aiup updater; skip"
+    return 0
+  fi
   info "========== TOOL START: $tool =========="
   if type "update_$tool" >/dev/null 2>&1; then
     if "update_$tool"; then
@@ -3244,11 +3253,13 @@ run_tool_update() {
 }
 
 print_summary_versions() {
-  local tool
+  local tool version
   printf '\n=== Detected tool versions ===\n'
   for tool in "${TOOLS_CATALOG[@]}"; do
     if tool_is_present "$tool"; then
-      printf '%-12s %s\n' "$tool" "$(version_of_tool "$tool")"
+      version="$(version_of_tool "$tool")"
+      [ -n "$version" ] || version='version unavailable'
+      printf '%-12s %s\n' "$tool" "$version"
     fi
   done
 }
@@ -4101,8 +4112,9 @@ Usage:
   aiup help                Show this help
 
 Scan is local-only (PATH, app bundles, Homebrew inventory). Nothing is
-uploaded. Update/install runs ensure required infrastructure (currently
-fzf), then updates installed tools. Optional missing tools are only added by
+uploaded. Update/install runs are unattended: Homebrew confirmations are
+accepted and update subprocesses receive no terminal input. They ensure
+required infrastructure (currently fzf), then update installed tools. Optional missing tools are only added by
 \`aiup install\` or \`aiup only <tool>\`. Installing a tool that needs brew,
 npm, or uv installs those missing dependencies first (brew → npm/uv → tool).
 
@@ -4183,6 +4195,7 @@ main_update() {
     printf '\nFailed tools: %s\n' "${FAILED_TOOLS[*]}" >&2
     return 1
   fi
+  info "========== AIUP COMPLETE =========="
   return 0
 }
 

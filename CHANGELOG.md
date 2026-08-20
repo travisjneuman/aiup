@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.08.20-23
+
+- Update/install runs are now unattended: Homebrew receives `--yes`, child processes receive no terminal input, and duplicate Homebrew refreshes are skipped.
+- Version summaries close stdin so terminal-oriented tools such as `pi-acp` cannot block aiup; unsupported downloaded apps are skipped during the default scan.
+
 ## 2026.08.20-22
 
 - Installed `aiup` now uses the canonical local `~/web-dev/aiup/macos/aiup` checkout first, so local testing needs no GitHub access and sees unpublished local changes immediately. GitHub remains a fallback for installations without a local checkout.
