@@ -45,7 +45,7 @@ PY
 
 test -s "$TEST_DIR/state/inventory-cache.meta"
 ! grep -q '^== detected ==' "$TEST_DIR/managed.txt"
-grep -q '^id ' "$TEST_DIR/detected.txt"
+grep -q '^item .*found via .*location' "$TEST_DIR/detected.txt"
 
 grep -q '^catalog_validate()' "$AIUP"
 grep -q '^brew_review_installed_taps()' "$AIUP"
@@ -62,6 +62,8 @@ grep -q '^catalog_dependency_preview()' "$AIUP"
 grep -q '^emit_brew_available_rows()' "$AIUP"
 grep -q '^print_result_summary()' "$AIUP"
 grep -q 'LIST_VIEW_MODE' "$AIUP"
+grep -q 'CATEGORY_ORDER=.*homebrew detected' "$AIUP"
+grep -q 'detected-only' "$AIUP"
 grep -q 'detected) printf' "$AIUP"
 grep -q 'aiup inventory' "$AIUP"
 grep -q '^refresh_fzf_listfile()' "$AIUP"

@@ -3,7 +3,7 @@
 This is the review log for expanding aiup's managed catalog. The catalog is deliberately split into two evidence lanes:
 
 - **Managed** entries have an official macOS installation/update path that aiup can execute and validate.
-- **Detected** entries are discovered from the local Mac but remain read-only until their owning distribution method is reviewed.
+- **Detected** entries are discovered from the local Mac but remain detected-only until their owning distribution method and update/removal contract are reviewed.
 
 aiup does not turn a repository name into an updater automatically. A new managed entry must have a stable identifier, category, lifecycle, official documentation, dependency declaration, installer/updater, and remover. Package-manager entries inherit dependency resolution from Homebrew, npm, or uv; aiup does not attempt to reproduce those package managers' dependency solvers.
 

@@ -18,10 +18,10 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 | Need a focused view | `aiup list --category CAT` focuses a managed category, `detected`, `homebrew`, or `homebrew/available`. |
 | Need a compact maintenance view | `--view installed` hides absent rows; `--view managed`, `--view detected`, and `--view available` isolate the corresponding evidence lane. |
 | Need to find one item | fzf's query searches the visible rows; the focused Homebrew view is generated from the user's local taps. |
-| Unknown local software | A `detected` category shows app, npm, uv, and PATH evidence as read-only rows. |
+| Unknown local software | A final `detected` category shows app, npm, uv, and PATH evidence as detected-only rows with source, version, and location. |
 | Need context without leaving the list | The preview pane shows official docs for managed entries and source/version/path for detections. `ctrl-/` toggles the preview. |
-| Risk of an accidental mutation | Detected rows never enter an update/remove action. Their preview explicitly says aiup will not guess an owner or updater. |
-| Need to know what Enter will do | Rows show action badges such as `install`, `update`, `switch to Homebrew`, `sunset`, or `read-only`; previews show dependency readiness. |
+| Risk of an accidental mutation | Detected rows never enter an update/remove action because aiup has no verified owner/updater contract for them yet. |
+| Need to know what Enter will do | Rows show action badges such as `install`, `update`, `switch to Homebrew`, `sunset`, or `detected-only`; previews show dependency readiness. |
 
 ## Implemented improvements
 
@@ -39,7 +39,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 ### Explainable maintenance
 
-- Visible action badges distinguish `update`, `install`, `switch to Homebrew`, `read-only`, and lifecycle warnings.
+- Visible action badges distinguish `update`, `install`, `switch to Homebrew`, `detected-only`, and lifecycle warnings.
 - Previews show dependency closure and whether each prerequisite is ready or missing.
 - Update runs summarize completed, removed, skipped, detected-only, failed, and cancelled work.
 

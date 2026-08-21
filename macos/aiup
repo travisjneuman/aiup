@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.21-04"
+AIUP_VERSION="2026.08.21-05"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -31,7 +31,7 @@ HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/in
 SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
-CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters detected homebrew)
+CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters homebrew detected)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
@@ -869,7 +869,7 @@ catalog_category_blurb() {
     local-ai) printf 'Models, capture, and engines that run on your Mac\n' ;;
     llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
     adapters) printf 'Glue between agents and editors\n' ;;
-    detected) printf 'Programs found on this Mac that aiup does not yet manage\n' ;;
+    detected) printf 'Software detected on this Mac, not managed by aiup yet\n' ;;
     homebrew) printf 'What Homebrew already put on your Mac, plus a short recommended list\n' ;;
     homebrew/casks) printf 'GUI apps Homebrew already installed on your Mac\n' ;;
     homebrew/fonts) printf 'Fonts Homebrew already installed on your Mac\n' ;;
@@ -1517,12 +1517,12 @@ print_catalog_preview() {
       record="$(inventory_record "$tool" || true)"
       [ -n "$record" ] || { error "Detected inventory row is not available: $tool"; return 1; }
       IFS=$'\t' read -r inv_category inv_state inv_id inv_label inv_version inv_source inv_path <<< "$record"
-      printf '%s · detected · read-only\n' "$inv_id"
-      printf '%s\n' "$inv_label"
+      printf '%s · detected-only · not managed by aiup\n' "$inv_id"
+      printf 'item     %s\n' "$(inventory_item_name "$inv_label")"
       printf 'version  %s\n' "${inv_version:-unknown}"
-      printf 'source   %s\n' "$inv_source"
-      printf 'path     %s\n' "$inv_path"
-      printf 'aiup does not guess an updater or remover for detected tools. Use the owning package manager or add a reviewed managed entry.\n'
+      printf 'found via %s\n' "$inv_source"
+      printf 'location %s\n' "$inv_path"
+      printf 'why      aiup has no verified updater/remover contract for this item yet, so it will not change it.\n'
       printf '\n'
       catalog_hotkey_help
       return 0
@@ -1582,7 +1582,7 @@ catalog_action_for_state() {
   local tool="$1"
   local state="$2"
   case "$state" in
-    detected) printf 'read-only\n' ;;
+    detected) printf 'detected-only\n' ;;
     on-disk) printf 'switch to Homebrew\n' ;;
     absent) printf 'install\n' ;;
     installed)
@@ -1663,19 +1663,30 @@ format_catalog_display() {
   printf '%s %s %s %s %s%s' "$bar" "$cat_txt" "$state_txt" "$id_txt" "$tag" "$(catalog_label "$tool")"
 }
 
+inventory_item_name() {
+  local label="$1"
+  case "$label" in
+    \[*\]\ *) printf '%s\n' "${label#*] }" ;;
+    *) printf '%s\n' "$label" ;;
+  esac
+}
+
 format_inventory_display() {
   local id="$1"
   local state="$2"
   local label="$3"
   local version="$4"
   local source="$5"
-  local reset bar state_txt id_txt version_txt
+  local path="$6"
+  local reset bar state_txt name_txt version_txt source_txt path_txt
   reset=$'\033[0m'
   bar="$(catalog_ansi detected)▌${reset}"
-  state_txt=$'\033[38;5;250m'"$(printf '%-10s' 'detected · read-only')""${reset}"
-  id_txt="$(printf '%-28s' "$id")"
+  state_txt=$'\033[38;5;250m'"$(printf '%-14s' 'detected-only')""${reset}"
+  name_txt="$(printf '%-26s' "$(inventory_item_name "$label")")"
   version_txt="$(printf '%-12s' "${version:-unknown}")"
-  printf '%s %s %s %s %s %s' "$bar" "$state_txt" "$id_txt" "$version_txt" "$source" "$label"
+  source_txt="$(printf '%-18s' "$source")"
+  path_txt="$(printf '%s' "$path")"
+  printf '%s %s %s %s %s %s' "$bar" "$state_txt" "$name_txt" "$version_txt" "$source_txt" "$path_txt"
 }
 
 category_expanded() {
@@ -1854,7 +1865,7 @@ format_category_header() {
   fi
   case "$cat" in
     detected)
-      extra="${n_inst} found on this Mac / read-only"
+      extra="${n_inst} detected on this Mac / not managed by aiup"
       ;;
     homebrew)
       extra="${n_inst} on your Mac / ${n_abs} you can add"
@@ -2999,7 +3010,7 @@ inventory_scan_apps() {
       [ -n "$bundle_id" ] || bundle_id="name:$(basename "$app" .app | tr ' ' '-')"
       id="di:app:$bundle_id"
       label="[app] $name"
-      inventory_append detected apps "$id" "$label" "$version" "$app"
+      inventory_append detected "app bundle" "$id" "$label" "$version" "$app"
     done
   done
 }
@@ -3031,15 +3042,16 @@ for name, meta in sorted((data.get("dependencies") or {}).items()):
 }
 
 inventory_scan_uv() {
-  local row package version
+  local row package version tool_dir
   command_exists uv || return 0
+  tool_dir="$(uv tool dir 2>/dev/null || printf 'uv tool directory unavailable')"
   while IFS= read -r row; do
     case "$row" in
       *' v'*)
         package="${row%% v*}"
         version="${row#* v}"
         [ -n "$package" ] || continue
-        inventory_append detected uv "di:uv:$package" "[uv] $package" "${version%% *}" "uv tool"
+        inventory_append detected "uv tool" "di:uv:$package" "[uv] $package" "${version%% *}" "$tool_dir"
         ;;
     esac
   done < <(uv tool list 2>/dev/null || true)
@@ -3063,7 +3075,7 @@ inventory_scan_path_bins() {
       [ -f "$path" ] && [ -x "$path" ] || continue
       binary="$(basename "$path")"
       inventory_managed_binary "$binary" && continue
-      inventory_append detected path "di:path:$binary" "[path] $binary" unknown "$path" "$path"
+      inventory_append detected "PATH executable" "di:path:$binary" "[path] $binary" unknown "$path"
     done
   done
 }
@@ -4464,7 +4476,9 @@ print_list() {
       [ "$n_inst" -eq 0 ] && [ "$n_abs" -eq 0 ] && continue
     fi
     printf '\n== %s ==\n' "$cat"
-    printf '%-18s %-18s %s\n' 'tool' 'state/action' 'label'
+    if [ "$cat" != 'detected' ]; then
+      printf '%-18s %-18s %s\n' 'tool' 'state/action' 'label'
+    fi
     if [ "$cat" = 'homebrew' ]; then
       printf '%s\n' "casks/fonts/formulae/libraries = already on your Mac via Homebrew (not all of Homebrew)."
       printf '%s\n' "recommended = a short popular list. on-disk = same app/command, installed some other way."
@@ -4494,11 +4508,11 @@ print_list() {
       continue
     fi
     if [ "$cat" = 'detected' ]; then
-      printf '%s\n' "Detected items are informational only; aiup will not guess an updater or remover."
-      printf '%-28s %-12s %-16s %s\n' 'id' 'version' 'source' 'label'
+      printf '%s\n' "Detected-only inventory · aiup will not change these without a verified updater/remover contract."
+      printf '%-26s %-12s %-18s %s\n' 'item' 'version' 'found via' 'location'
       while IFS=$'\t' read -r _ state id label version source path; do
         [ -n "$id" ] || continue
-        printf '%-28s %-12s %-16s %s\n' "$id" "${version:-unknown}" "$source" "$label"
+        printf '%-26s %-12s %-18s %s\n' "$(inventory_item_name "$label")" "${version:-unknown}" "$source" "$path"
       done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
       continue
     fi
@@ -4519,10 +4533,10 @@ print_inventory_definition() {
   local mode="${1:---json}"
   scan_inventory_index || return 1
   if [ "$mode" = '--plain' ] || [ "$mode" = 'plain' ]; then
-    printf '%-28s %-12s %-16s %s\n' 'id' 'version' 'source' 'label'
+    printf '%-26s %-12s %-18s %s\n' 'item' 'version' 'found via' 'location'
     while IFS=$'\t' read -r _ state id label version source path; do
       [ -n "$id" ] || continue
-      printf '%-28s %-12s %-16s %s\n' "$id" "${version:-unknown}" "$source" "$label"
+      printf '%-26s %-12s %-18s %s\n' "$(inventory_item_name "$label")" "${version:-unknown}" "$source" "$path"
     done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
     return 0
   fi
@@ -4946,7 +4960,7 @@ emit_fzf_rows_from_index() {
       if [ "$cat" = 'detected' ]; then
         while IFS=$'\t' read -r _ state id label version source path; do
           [ -n "$id" ] || continue
-          printf '%s\t%s\n' "$id" "$(format_inventory_display "$id" "$state" "$label" "$version" "$source")"
+          printf '%s\t%s\n' "$id" "$(format_inventory_display "$id" "$state" "$label" "$version" "$source" "$path")"
         done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
         continue
       fi
@@ -5067,7 +5081,7 @@ pick_catalog_tools() {
       --no-height \
       --print-query \
       --prompt "aiup ${mode}> " \
-      --header "type to search · enter install/expand · left/right collapse/expand · pgup/pgdn category · ctrl-g jump · detected = read-only · ctrl-/ preview · esc" \
+      --header "type to search · enter install/expand · left/right collapse/expand · pgup/pgdn category · ctrl-g jump · detected-only = no aiup updater · ctrl-/ preview · esc" \
       --preview "$self preview {1}" \
       --preview-window "down:$(catalog_preview_height):wrap" \
       --bind 'space:toggle' \

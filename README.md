@@ -93,7 +93,7 @@ PATH, app bundles, `brew list`. No telemetry. [Privacy →](docs/privacy.md)
 
 ### 🔎 Your Mac, not a hardcoded demo
 
-The managed catalog is curated for safe install/update/remove actions. The picker also discovers app bundles, global npm packages, uv tools, and user-facing PATH binaries that are not yet managed. Those detections are clearly marked read-only, so another user's Mac can appear in the list without aiup guessing how to modify it.
+The managed catalog is curated for safe install/update/remove actions. The picker also discovers app bundles, global npm packages, uv tools, and user-facing PATH binaries that are not yet managed. Those detections are clearly marked detected-only: aiup has not verified an updater/remover contract for them yet, so another user's Mac can appear in the list without aiup guessing how to modify it.
 
 <p align="center">
   <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Collapsed catalog" />
@@ -116,7 +116,7 @@ The managed catalog is curated for safe install/update/remove actions. The picke
 | <kbd>ctrl</kbd>+<kbd>/</kbd> | Toggle the preview pane |
 | <kbd>esc</kbd> | Leave |
 
-Type to search the visible rows. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, and path in the preview, but never install, update, or remove anything.
+Type to search the visible rows. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the final category: it is an inventory of software found on this Mac, not a managed update list. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, and path in the preview, but never install, update, or remove anything.
 
 Use `--view installed` for a compact maintenance view, `--view managed` to hide local detections/Homebrew extras, `--view detected` for only software found on this Mac, or `--view available` for Homebrew's available packages. Use `--sort label` when scanning a category alphabetically; the default `--sort id` preserves manifest order. `aiup inventory` uses a five-minute source-aware cache; add `--refresh` after installing or removing software outside aiup.
 
@@ -149,7 +149,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.21-04** · **83** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.21-05** · **83** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
