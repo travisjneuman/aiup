@@ -1,4 +1,4 @@
-# Catalog (2026.08.21-02)
+# Catalog (2026.08.21-03)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -15,6 +15,15 @@ Runtimes and installers other tools need
 | `gh` | GitHub CLI |
 | `wrangler` | Cloudflare Workers CLI (cloudflare-wrangler) |
 | `deno` | Deno runtime |
+| `bun` | Bun JavaScript runtime, bundler, test runner, and package manager |
+| `pnpm` | pnpm fast, disk-efficient JavaScript package manager |
+| `jq` | jq command-line JSON processor |
+| `yq` | yq command-line YAML, JSON, XML, CSV, and properties processor |
+| `ripgrep` | ripgrep fast recursive search (rg) |
+| `fd` | fd fast, user-friendly find replacement |
+| `just` | just project command runner |
+| `shellcheck` | ShellCheck shell-script static analyzer |
+| `actionlint` | actionlint GitHub Actions workflow checker |
 
 ## 🤖 coding-agents
 
@@ -49,6 +58,8 @@ Agents that write and edit code in the terminal
 | `cline` | Cline CLI — npm cline |
 | `continue` | [SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only |
 | `interpreter` | Open Interpreter — natural-language computer-use agent |
+| `vibe` | Mistral Vibe — open-source CLI coding assistant |
+| `openhands` | [SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained |
 
 ## 🖥️ workspaces
 
@@ -113,6 +124,9 @@ Models, capture, and engines that run on your Mac
 | `ollama-app` | Ollama desktop app (Homebrew cask) |
 | `macwhisper` | MacWhisper — local speech-to-text |
 | `screenpipe` | screenpipe — local screen/audio capture (official stable DMG updater) |
+| `llama-cpp` | llama.cpp — local LLM inference engine and server |
+| `llama-app` | Llama — official local LLM menu-bar app |
+| `whisper-cpp` | whisper.cpp local speech-to-text engine (model files are separate) |
 
 ## 🔧 llm-utils
 
@@ -145,6 +159,7 @@ What Homebrew already put on your Mac, plus a short recommended list
 | `formulae` | CLI formulae Homebrew already installed on your Mac |
 | `libraries` | Libraries Homebrew already installed on your Mac |
 | `recommended` | Popular extras you can add — or switch to Homebrew without losing settings |
+| `available` | All other formulae and casks currently available from your installed Homebrew taps |
 
 Recommended extras:
 

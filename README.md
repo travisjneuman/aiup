@@ -91,6 +91,10 @@ PATH, app bundles, `brew list`. No telemetry. [Privacy →](docs/privacy.md)
 </tr>
 </table>
 
+### 🔎 Your Mac, not a hardcoded demo
+
+The managed catalog is curated for safe install/update/remove actions. The picker also discovers app bundles, global npm packages, uv tools, and user-facing PATH binaries that are not yet managed. Those detections are clearly marked read-only, so another user's Mac can appear in the list without aiup guessing how to modify it.
+
 <p align="center">
   <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Collapsed catalog" />
   <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Homebrew recommended" />
@@ -103,10 +107,17 @@ PATH, app bundles, `brew list`. No telemetry. [Privacy →](docs/privacy.md)
 | <kbd>enter</kbd> | Expand a category, install/update a tool, or **switch an on-disk app to Homebrew** |
 | <kbd>tab</kbd> / <kbd>space</kbd> | Check / uncheck |
 | <kbd>ctrl</kbd>+<kbd>e</kbd> | Toggle this category |
+| <kbd>←</kbd> / <kbd>→</kbd> | Collapse / expand this category |
+| <kbd>pgup</kbd> / <kbd>pgdn</kbd> | Jump to the previous / next category |
 | <kbd>alt</kbd>+<kbd>e</kbd> / <kbd>alt</kbd>+<kbd>c</kbd> | Expand / collapse all |
 | <kbd>ctrl</kbd>+<kbd>d</kbd> | Uninstall |
 | <kbd>ctrl</kbd>+<kbd>o</kbd> | Open GitHub or the product site |
+| <kbd>ctrl</kbd>+<kbd>/</kbd> | Toggle the preview pane |
 | <kbd>esc</kbd> | Leave |
+
+Type to search the visible rows. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, and path in the preview, but never install, update, or remove anything.
+
+For a full package-manager-backed catalog, use `aiup list --category homebrew/available`. That view is generated from the Homebrew taps already on the Mac and delegates dependency resolution back to Homebrew.
 
 Installed rows glow **neon green**. Each category has a color bar. Categories start collapsed.
 
@@ -135,23 +146,25 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.21-02** · **69** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.21-03** · **83** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
-| ⚙️ | **infra** | Runtimes and installers other tools need | 7 tools |
-| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
+| ⚙️ | **infra** | Runtimes and installers other tools need | 16 tools |
+| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 29 tools |
 | 🖥️ | **workspaces** | Desktop hubs that drive those agents | 6 tools |
 | ✏️ | **editors** | Places you type code | 5 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
 | 💬 | **chat** | Cloud chat apps | 4 tools |
-| 🧠 | **local-ai** | Models, capture, and engines that run on your Mac | 10 tools |
+| 🧠 | **local-ai** | Models, capture, and engines that run on your Mac | 13 tools |
 | 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
 | 🔌 | **adapters** | Glue between agents and editors | 1 tool |
 | 🍺 | **homebrew** | What Homebrew already put on your Mac, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 
 Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**
+
+Research notes → **[catalog research](docs/catalog-research.md)** · TUI review → **[navigation research](docs/tui-research.md)**
 
 ## 🧰 What aiup needs
 

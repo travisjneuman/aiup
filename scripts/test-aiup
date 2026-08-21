@@ -9,6 +9,7 @@ trap 'rm -rf "$TEST_DIR"' EXIT
 bash -n "$AIUP"
 
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" catalog --json > "$TEST_DIR/catalog.json"
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" inventory --json > "$TEST_DIR/inventory.json"
 python3 - "$TEST_DIR/catalog.json" <<'PY'
 import json
 import sys
@@ -23,12 +24,32 @@ screenpipe = next(tool for tool in tools if tool["id"] == "screenpipe")
 assert screenpipe["kind"] == "app"
 assert screenpipe["docs"] == "https://github.com/screenpipe/screenpipe"
 assert "updater" in screenpipe["label"]
+assert next(tool for tool in tools if tool["id"] == "vibe")["kind"] == "uv-tool"
+assert next(tool for tool in tools if tool["id"] == "llama-cpp")["kind"] == "brew-formula"
+for tool_id in ("bun", "pnpm", "jq", "yq", "ripgrep", "fd", "just", "shellcheck", "actionlint", "whisper-cpp"):
+    tool = next(tool for tool in tools if tool["id"] == tool_id)
+    assert tool["kind"] == "brew-formula"
+PY
+
+python3 - "$TEST_DIR/inventory.json" <<'PY'
+import json, sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    data = json.load(handle)
+
+assert "items" in data
+assert all(item["id"].startswith("di:") for item in data["items"])
 PY
 
 grep -q '^catalog_validate()' "$AIUP"
 grep -q '^brew_review_installed_taps()' "$AIUP"
 grep -q '^catalog_brew_index_init()' "$AIUP"
 grep -q '^category_nav_action()' "$AIUP"
+grep -q '^catalog_manifest_load()' "$AIUP"
+grep -q '^scan_inventory_index()' "$AIUP"
+grep -q '^print_inventory_definition()' "$AIUP"
+grep -q 'detected) printf' "$AIUP"
+grep -q 'aiup inventory' "$AIUP"
 grep -q '^refresh_fzf_listfile()' "$AIUP"
 grep -q 'left:execute-silent.*__cat-collapse' "$AIUP"
 grep -q 'right:execute-silent.*__cat-expand' "$AIUP"

@@ -2,8 +2,9 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.21-02"
+AIUP_VERSION="2026.08.21-03"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
+AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
 AIUP_NPM_PREFIX="${AIUP_NPM_PREFIX:-$STATE_DIR/npm}"
@@ -30,13 +31,19 @@ HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/in
 SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
-CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters homebrew)
+CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters detected homebrew)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
+CATALOG_MANIFEST="${AIUP_CATALOG_MANIFEST:-$AIUP_SCRIPT_DIR/catalog/manifest.tsv}"
+INVENTORY_INDEX="${AIUP_INVENTORY_INDEX:-$STATE_DIR/inventory-index.tsv}"
+INVENTORY_SEEN_IDS='|'
+INVENTORY_MANAGED_BINARIES='|'
+INVENTORY_MANAGED_APPS='|'
+INVENTORY_INDEX_READY=0
 BREW_CATALOG_NAMES="|"
 AIUP_BREW_CATALOG_INDEX_READY=0
-HOMEBREW_CHILD_ORDER=(casks fonts formulae libraries recommended)
+HOMEBREW_CHILD_ORDER=(casks fonts formulae libraries recommended available)
 HOMEBREW_RECOMMENDED_CASKS=(
   raycast obsidian docker linear notion windsurf devin-desktop
   copilot-cli cursor-cli claude-code chatgpt-atlas kiro
@@ -53,22 +60,13 @@ HOMEBREW_RECOMMENDED_FORMULAE=(
 )
 AIUP_REQUIRED_TOOLS=(fzf)
 AIUP_REQUIRED_UPDATED="|"
-TOOLS_CATALOG=(
-  brew npm uv fzf gh wrangler deno
-  claude copilot codex antigravity grok gemini pi kilo gsd2 opencode hermes omp warp aider goose cursor qwen crush amp kiro droid kimi openclaw plandex cline continue
-  pi-acp
-  llm mods aichat fabric sgpt
-  ollama lm-studio jan gpt4all anythingllm mlx mlx-lm
-  chatgpt claude-app copilot-app perplexity
-  vscode vscode-insiders cursor-ide zed antigravity-ide
-  t3-code t3-nightly grokbot opencode-desktop hermes-desktop
-  cmux warp-app ghostty iterm2
-  ollama-app macwhisper screenpipe n8n interpreter
-)
+TOOLS_CATALOG=()
+CATALOG_MANIFEST_LOADED=0
 FAILED_TOOLS=()
 DRY_RUN=0
 NO_INSTALL=1
 NO_INSTALL_EXPLICIT=0
+LIST_CATEGORY_FILTER="${AIUP_CATEGORY_FILTER:-}"
 
 if [ -n "${ZSH_VERSION:-}" ]; then
   setopt SH_WORD_SPLIT 2>/dev/null || true
@@ -100,6 +98,15 @@ command_exists() {
 
 command_path() {
   type -P "$1" 2>/dev/null || command -v "$1" 2>/dev/null || true
+}
+
+tty_usable() {
+  [ -c /dev/tty ] || return 1
+  { exec 3<>/dev/tty; } 2>/dev/null || return 1
+  stty -g <&3 >/dev/null 2>&1
+  local rc=$?
+  exec 3>&-
+  return "$rc"
 }
 
 realpath_safe() {
@@ -453,7 +460,7 @@ tty_cols() {
 }
 
 restore_tty() {
-  [ -c /dev/tty ] || return 0
+  tty_usable || return 0
   printf '\033[?25h\033[?1049l\033[0m' >/dev/tty 2>/dev/null || true
   stty sane echo icanon </dev/tty 2>/dev/null || true
 }
@@ -461,7 +468,7 @@ restore_tty() {
 # macOS/BSD stty maps ^O to "discard" and ^Y to "dsusp", so those chords
 # never reach fzf unless we undefine them for the picker.
 prepare_tty_for_fzf() {
-  [ -c /dev/tty ] || return 0
+  tty_usable || return 0
   restore_tty
   stty discard undef dsusp undef </dev/tty 2>/dev/null || true
 }
@@ -480,7 +487,7 @@ progress_start() {
   PROGRESS_N="$1"
   PROGRESS_I=0
   PROGRESS_TITLE="${2:-Looking for tools on your Mac}"
-  if [ ! -c /dev/tty ] || [ "${PROGRESS_N:-0}" -lt 1 ]; then
+  if ! tty_usable || [ "${PROGRESS_N:-0}" -lt 1 ]; then
     PROGRESS_N=0
     return 0
   fi
@@ -646,7 +653,7 @@ brew_ensure_target_tap() {
       warn "DRY-RUN: would ask whether to add and trust Homebrew tap $tap"
       return 0
     fi
-    [ -c /dev/tty ] || { error "Homebrew tap $tap is required for $target but is not installed; run aiup from a terminal to approve it"; return 1; }
+    tty_usable || { error "Homebrew tap $tap is required for $target but is not installed; run aiup from a terminal to approve it"; return 1; }
     [ -n "$remote" ] && warn "Required tap remote: $remote"
     confirm_tty "Add and trust Homebrew tap $tap for $target? [y/N] " || { error "Declined required Homebrew tap $tap"; return 1; }
     run_with_heartbeat "brew tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew tap "$tap" || return 1
@@ -716,6 +723,7 @@ expected_direct_path() {
     warp) printf '%s/warp\n' "$LOCAL_BIN" ;;
     continue) printf '%s/cn\n' "$AIUP_NPM_BIN" ;;
     pi-acp) printf '%s/pi-acp\n' "$AIUP_NPM_BIN" ;;
+    vibe|openhands) printf '%s/%s\n' "$LOCAL_BIN" "$tool" ;;
     uv) printf '%s/uv\n' "$LOCAL_BIN" ;;
     fabric) printf '%s/fabric\n' "$LOCAL_BIN" ;;
     *) printf '\n' ;;
@@ -731,12 +739,47 @@ binary_of_tool() {
     wrangler) printf 'wrangler\n' ;;
     cursor-ide) printf 'cursor\n' ;;
     ollama-app) printf 'ollama\n' ;;
+    llama-cpp) printf 'llama-cli\n' ;;
+    whisper-cpp) printf 'whisper-cli\n' ;;
     chatgpt) printf 'chatgpt\n' ;;
     *) printf '%s\n' "$1" ;;
   esac
 }
 
+# The managed catalog is declarative. Installer actions remain in this file,
+# but ids, categories, lifecycle, labels, and official docs live in the TSV so
+# catalog presentation does not require editing a large switch statement.
+catalog_manifest_load() {
+  [ "${CATALOG_MANIFEST_LOADED:-0}" -eq 1 ] && return 0
+  [ -f "$CATALOG_MANIFEST" ] || {
+    error "Catalog manifest not found: $CATALOG_MANIFEST"
+    return 1
+  }
+  TOOLS_CATALOG=()
+  while IFS=$'\t' read -r id category kind lifecycle label docs target; do
+    case "$id" in
+      ''|'#'*) continue ;;
+    esac
+    [ -n "$category" ] && [ -n "$kind" ] && [ -n "$label" ] && [ -n "$docs" ] || {
+      error "Invalid catalog manifest row for '$id'"
+      return 1
+    }
+    TOOLS_CATALOG+=("$id")
+  done < "$CATALOG_MANIFEST"
+  CATALOG_MANIFEST_LOADED=1
+}
+
+catalog_manifest_field() {
+  local id="$1"
+  local field="$2"
+  catalog_manifest_load || return 1
+  awk -F '\t' -v id="$id" -v field="$field" '$1==id {print $field; exit}' "$CATALOG_MANIFEST"
+}
+
 catalog_category() {
+  local manifest_category
+  manifest_category="$(catalog_manifest_field "$1" 2 2>/dev/null || true)"
+  [ -n "$manifest_category" ] && { printf '%s\n' "$manifest_category"; return 0; }
   case "$1" in
     brew|npm|uv|fzf|gh|wrangler|deno) printf 'infra\n' ;;
     claude|copilot|codex|antigravity|grok|gemini|pi|kilo|gsd2|opencode|hermes|omp|warp|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter) printf 'coding-agents\n' ;;
@@ -758,6 +801,7 @@ catalog_category() {
           fi
           ;;
         __cat:*) printf '%s\n' "${1#__cat:}" ;;
+        di:*) printf 'detected\n' ;;
         *) printf 'coding-agents\n' ;;
       esac
       ;;
@@ -775,12 +819,14 @@ catalog_category_blurb() {
     local-ai) printf 'Models, capture, and engines that run on your Mac\n' ;;
     llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
     adapters) printf 'Glue between agents and editors\n' ;;
+    detected) printf 'Programs found on this Mac that aiup does not yet manage\n' ;;
     homebrew) printf 'What Homebrew already put on your Mac, plus a short recommended list\n' ;;
     homebrew/casks) printf 'GUI apps Homebrew already installed on your Mac\n' ;;
     homebrew/fonts) printf 'Fonts Homebrew already installed on your Mac\n' ;;
     homebrew/formulae) printf 'CLI formulae Homebrew already installed on your Mac\n' ;;
     homebrew/libraries) printf 'Libraries Homebrew already installed on your Mac\n' ;;
     homebrew/recommended) printf 'Popular extras you can add — or switch to Homebrew without losing settings\n' ;;
+    homebrew/available) printf 'All other formulae and casks currently available from your installed Homebrew taps\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -796,17 +842,31 @@ catalog_category_emoji() {
     local-ai) printf '🧠\n' ;;
     llm-utils) printf '🔧\n' ;;
     adapters) printf '🔌\n' ;;
+    detected) printf '🔎\n' ;;
     homebrew) printf '🍺\n' ;;
     homebrew/casks) printf '📦\n' ;;
     homebrew/fonts) printf '🔤\n' ;;
     homebrew/formulae) printf '🛠️\n' ;;
     homebrew/libraries) printf '📚\n' ;;
     homebrew/recommended) printf '⭐\n' ;;
+    homebrew/available) printf '🗂️\n' ;;
     *) printf '•\n' ;;
   esac
 }
 
+category_visible() {
+  local cat="$1"
+  [ -z "$LIST_CATEGORY_FILTER" ] && return 0
+  if [ "$LIST_CATEGORY_FILTER" = 'homebrew' ] || [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]]; then
+    case "$cat" in homebrew|homebrew/*) return 0 ;; esac
+  fi
+  [ "$cat" = "$LIST_CATEGORY_FILTER" ]
+}
+
 catalog_lifecycle() {
+  local manifest_lifecycle
+  manifest_lifecycle="$(catalog_manifest_field "$1" 4 2>/dev/null || true)"
+  [ -n "$manifest_lifecycle" ] && { printf '%s\n' "$manifest_lifecycle"; return 0; }
   case "$1" in
     continue) printf 'sunset\n' ;;
     gemini) printf 'sunset\n' ;;
@@ -821,12 +881,16 @@ catalog_lifecycle_note() {
     continue) printf 'Acquired by Cursor (Jun 2026). Product shut down; GitHub repo is read-only. Prefer Cursor Agent CLI or Cursor IDE.\n' ;;
     gemini) printf 'Google points Individual/Pro users at Antigravity (agy) instead of Gemini CLI.\n' ;;
     mods) printf 'Charm archived the mods repository. Still installable via Homebrew.\n' ;;
+    openhands) printf 'The official OpenHands CLI repository says this CLI is no longer actively maintained and points users toward Agent Canvas.\n' ;;
     plandex) printf 'Upstream quieter since late 2025; treat as maintenance-mode.\n' ;;
     *) printf '\n' ;;
   esac
 }
 
 catalog_kind() {
+  local manifest_kind
+  manifest_kind="$(catalog_manifest_field "$1" 3 2>/dev/null || true)"
+  [ -n "$manifest_kind" ] && { printf '%s\n' "$manifest_kind"; return 0; }
   case "$1" in
     brew|npm) printf 'special\n' ;;
     claude|codex|antigravity|grok|gemini|opencode|kilo|gsd2|hermes|pi|omp|warp|copilot|aider|goose|cursor|qwen) printf 'special\n' ;;
@@ -942,7 +1006,7 @@ catalog_npm_pkg() {
     pi-acp) printf 'pi-acp\n' ;;
     copilot) printf '@github/copilot\n' ;;
     qwen) printf '@qwen-code/qwen-code\n' ;;
-    *) printf '\n' ;;
+    *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
 
@@ -962,10 +1026,11 @@ catalog_brew_formula() {
     n8n) printf 'n8n\n' ;;
     mlx) printf 'mlx\n' ;;
     mlx-lm) printf 'mlx-lm\n' ;;
+    llama-cpp) printf 'llama.cpp\n' ;;
     uv) printf 'uv\n' ;;
     goose) printf 'block-goose-cli\n' ;;
     cline) printf 'cline\n' ;;
-    *) printf '\n' ;;
+    *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
 
@@ -997,7 +1062,8 @@ catalog_brew_cask() {
     jan) printf 'jan\n' ;;
     gpt4all) printf 'gpt4all\n' ;;
     anythingllm) printf 'anythingllm\n' ;;
-    *) printf '\n' ;;
+    llama-app) printf 'llama-app\n' ;;
+    *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
 
@@ -1020,7 +1086,9 @@ catalog_uv_pkg() {
     sgpt) printf 'shell-gpt\n' ;;
     interpreter) printf 'open-interpreter\n' ;;
     llm) printf 'llm\n' ;;
-    *) printf '\n' ;;
+    vibe) printf 'mistral-vibe\n' ;;
+    openhands) printf 'openhands\n' ;;
+    *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
 
@@ -1051,6 +1119,7 @@ catalog_app_path() {
     jan) printf '/Applications/Jan.app\n' ;;
     gpt4all) printf '/Applications/GPT4All.app\n' ;;
     anythingllm) printf '/Applications/AnythingLLM.app\n' ;;
+    llama-app) printf '/Applications/Llama.app\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -1058,6 +1127,7 @@ catalog_app_path() {
 catalog_validate() {
   local tool kind category
   local failures=0
+  catalog_manifest_load || return 1
   for tool in "${TOOLS_CATALOG[@]}"; do
     kind="$(catalog_kind "$tool")"
     category="$(catalog_category "$tool")"
@@ -1133,6 +1203,9 @@ catalog_validate() {
 }
 
 catalog_label() {
+  local manifest_label
+  manifest_label="$(catalog_manifest_field "$1" 5 2>/dev/null || true)"
+  [ -n "$manifest_label" ] && { printf '%s\n' "$manifest_label"; return 0; }
   case "$1" in
     brew) printf 'Homebrew — required for formulae, casks, and Node/npm on this system (not removable)\n' ;;
     npm) printf 'Node/npm via Homebrew (infrastructure; update-only, not removable)\n' ;;
@@ -1209,6 +1282,9 @@ catalog_label() {
 
 # Prefer a public GitHub repo; otherwise the official product site.
 catalog_docs_url() {
+  local manifest_docs
+  manifest_docs="$(catalog_manifest_field "$1" 6 2>/dev/null || true)"
+  [ -n "$manifest_docs" ] && { printf '%s\n' "$manifest_docs"; return 0; }
   case "$1" in
     brew) printf 'https://github.com/Homebrew/brew\n' ;;
     npm) printf 'https://github.com/nodejs/node\n' ;;
@@ -1303,6 +1379,7 @@ catalog_ansi() {
     local-ai) printf '\033[38;5;48m' ;;
     llm-utils) printf '\033[38;5;208m' ;;
     adapters) printf '\033[38;5;220m' ;;
+    detected) printf '\033[38;5;250m' ;;
     homebrew) printf '\033[38;5;214m' ;;
     homebrew/casks) printf '\033[38;5;208m' ;;
     homebrew/fonts) printf '\033[38;5;176m' ;;
@@ -1351,6 +1428,21 @@ print_catalog_preview() {
       printf 'left / right     collapse / expand\n'
       printf 'pgup / pgdn      previous / next category\n'
       printf 'alt-e expand all   alt-c collapse all\n'
+      printf '\n'
+      catalog_hotkey_help
+      return 0
+      ;;
+    di:*)
+      local record inv_category inv_state inv_id inv_label inv_version inv_source inv_path
+      record="$(inventory_record "$tool" || true)"
+      [ -n "$record" ] || { error "Detected inventory row is not available: $tool"; return 1; }
+      IFS=$'\t' read -r inv_category inv_state inv_id inv_label inv_version inv_source inv_path <<< "$record"
+      printf '%s · detected · read-only\n' "$inv_id"
+      printf '%s\n' "$inv_label"
+      printf 'version  %s\n' "${inv_version:-unknown}"
+      printf 'source   %s\n' "$inv_source"
+      printf 'path     %s\n' "$inv_path"
+      printf 'aiup does not guess an updater or remover for detected tools. Use the owning package manager or add a reviewed managed entry.\n'
       printf '\n'
       catalog_hotkey_help
       return 0
@@ -1430,6 +1522,21 @@ format_catalog_display() {
   fi
   id_txt="$(printf '%-18s' "$tool")"
   printf '%s %s %s %s %s%s' "$bar" "$cat_txt" "$state_txt" "$id_txt" "$tag" "$(catalog_label "$tool")"
+}
+
+format_inventory_display() {
+  local id="$1"
+  local state="$2"
+  local label="$3"
+  local version="$4"
+  local source="$5"
+  local reset bar state_txt id_txt version_txt
+  reset=$'\033[0m'
+  bar="$(catalog_ansi detected)▌${reset}"
+  state_txt=$'\033[38;5;250m'"$(printf '%-10s' 'detected')""${reset}"
+  id_txt="$(printf '%-28s' "$id")"
+  version_txt="$(printf '%-12s' "${version:-unknown}")"
+  printf '%s %s %s %s %s %s' "$bar" "$state_txt" "$id_txt" "$version_txt" "$source" "$label"
 }
 
 category_expanded() {
@@ -1562,11 +1669,17 @@ format_category_header() {
     name="$(catalog_ansi "$cat")$(printf '%-16s' "$shown")${reset}"
   fi
   case "$cat" in
+    detected)
+      extra="${n_inst} found on this Mac / read-only"
+      ;;
     homebrew)
       extra="${n_inst} on your Mac / ${n_abs} you can add"
       ;;
     homebrew/recommended)
       extra="${n_inst} already on your Mac / ${n_abs} you can add"
+      ;;
+    homebrew/available)
+      extra="${n_abs} available from Homebrew"
       ;;
     homebrew/*)
       extra="${n_inst} already on your Mac via Homebrew"
@@ -1647,6 +1760,7 @@ formula_cmd_name() {
   case "$1" in
     git-delta) printf 'delta\n' ;;
     ripgrep) printf 'rg\n' ;;
+    whisper-cpp) printf 'whisper-cli\n' ;;
     *) printf '%s\n' "$1" ;;
   esac
 }
@@ -1742,6 +1856,11 @@ brew_extra_label() {
     direnv) printf 'direnv\n' ;;
     just) printf 'just command runner\n' ;;
     pnpm) printf 'pnpm\n' ;;
+    bun) printf 'Bun JavaScript runtime and package manager\n' ;;
+    yq) printf 'yq structured-data processor\n' ;;
+    shellcheck) printf 'ShellCheck shell analyzer\n' ;;
+    actionlint) printf 'actionlint GitHub Actions checker\n' ;;
+    whisper-cpp) printf 'whisper.cpp local speech-to-text engine\n' ;;
     yarn) printf 'yarn\n' ;;
     podman) printf 'Podman\n' ;;
     kubectl) printf 'kubectl\n' ;;
@@ -1820,6 +1939,21 @@ scan_brew_index() {
   local name rec child
   : > "$BREW_INDEX"
   brew_cache_load
+  if [ "${LIST_CATEGORY_FILTER:-}" = 'homebrew/available' ]; then
+    progress_tick "Listing every Homebrew formula available from local taps"
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      catalog_covers_brew "$name" && continue
+      printf 'homebrew/available\tabsent\tbf:%s\t%s\n' "$name" "$(brew_extra_label formula "$name")" >> "$BREW_INDEX"
+    done < <(brew formulae 2>/dev/null || true)
+    progress_tick "Listing every Homebrew cask available from local taps"
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      catalog_covers_brew "$name" && continue
+      printf 'homebrew/available\tabsent\tbc:%s\t%s\n' "$name" "$(brew_extra_label cask "$name")" >> "$BREW_INDEX"
+    done < <(brew casks 2>/dev/null || true)
+    return 0
+  fi
   progress_tick "Listing Homebrew apps you already have"
   for name in $AIUP_BREW_CASKS; do
     [ -n "$name" ] || continue
@@ -1869,6 +2003,9 @@ enter_action_for() {
         printf 'execute-silent(%s __cat-toggle %s)+reload-sync(%s __fzf-rows)+pos({n})\n' "$self" "$id" "$self"
       fi
       ;;
+    di:*)
+      printf 'execute(%s preview %s)+reload-sync(%s __fzf-rows)+pos({n})\n' "$self" "$id" "$self"
+      ;;
     *)
       printf 'accept\n'
       ;;
@@ -1892,7 +2029,7 @@ brew_cask_adopt() {
   if [ -n "$app" ]; then
     info "Current app: $app"
   fi
-  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || [ -c /dev/tty ]; then
+  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
     if ! confirm_tty "Switch $name to Homebrew without losing settings? [y/N] "; then
       info "Left $name as-is (still not Homebrew-managed)"
       return 0
@@ -1904,7 +2041,7 @@ brew_cask_adopt() {
   fi
   warn "Homebrew could not adopt the existing copy (usually a version mismatch)."
   warn "Next step replaces the app bundle only. Preferences and documents stay."
-  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || [ -c /dev/tty ]; then
+  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
     if ! confirm_tty "Replace the $name app bundle via Homebrew? Settings stay. [y/N] "; then
       info "Cancelled. $name is unchanged."
       return 0
@@ -1927,7 +2064,7 @@ brew_formula_install_alongside() {
   if formula_present_outside_brew "$name"; then
     info "$name is already on PATH outside Homebrew. Installing the Homebrew copy alongside it."
     info "The existing command is not uninstalled (system tools and settings stay)."
-    if [ "${AIUP_KEEP_UI:-0}" = 1 ] || [ -c /dev/tty ]; then
+    if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
       if ! confirm_tty "Install Homebrew $name alongside the copy already on PATH? [y/N] "; then
         info "Left $name as-is"
         return 0
@@ -2533,6 +2670,9 @@ preferred_method_of() {
     kiro|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
     kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|n8n|mlx|mlx-lm) printf 'brew-formula\n' ;;
     sgpt|interpreter) printf 'uv-tool\n' ;;
+    vibe|openhands) printf 'uv-tool\n' ;;
+    llama-cpp) printf 'brew-formula\n' ;;
+    llama-app) printf 'brew-cask\n' ;;
     copilot) printf 'aiup-npm\n' ;;
     aider) printf 'installer\n' ;;
     goose) printf 'brew-formula\n' ;;
@@ -2596,6 +2736,169 @@ tool_is_present() {
   app="$(catalog_app_path "$tool")"
   [ -n "$app" ] && [ -d "$app" ] && return 0
   return 1
+}
+inventory_index_init() {
+  [ "${INVENTORY_INDEX_READY:-0}" -eq 1 ] && return 0
+  catalog_manifest_load || return 1
+  local tool binary app
+  for tool in "${TOOLS_CATALOG[@]}"; do
+    binary="$(binary_of_tool "$tool")"
+    [ -n "$binary" ] && INVENTORY_MANAGED_BINARIES="${INVENTORY_MANAGED_BINARIES}${binary}|"
+    app="$(catalog_app_path "$tool")"
+    [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
+  done
+  for tool in "${HOMEBREW_RECOMMENDED_CASKS[@]}"; do
+    app="$(app_path_for_cask "$tool" 2>/dev/null || true)"
+    [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
+  done
+  INVENTORY_INDEX_READY=1
+}
+
+inventory_append() {
+  local category="$1"
+  local source="$2"
+  local id="$3"
+  local label="$4"
+  local version="$5"
+  local path="$6"
+  inventory_index_init || return 1
+  [ -n "$id" ] || return 0
+  label="$(printf '%s' "$label" | tr '\t\r\n' '   ')"
+  version="$(printf '%s' "$version" | tr '\t\r\n' '   ')"
+  source="$(printf '%s' "$source" | tr '\t\r\n' '   ')"
+  path="$(printf '%s' "$path" | tr '\t\r\n' '   ')"
+  case "$INVENTORY_SEEN_IDS" in *"|$id|"*) return 0 ;; esac
+  INVENTORY_SEEN_IDS="${INVENTORY_SEEN_IDS}${id}|"
+  printf '%s\tdetected\t%s\t%s\t%s\t%s\t%s\n' "$category" "$id" "$label" "$version" "$source" "$path" >> "$INVENTORY_INDEX"
+}
+
+inventory_managed_binary() {
+  local binary="$1"
+  inventory_index_init || return 1
+  case "$INVENTORY_MANAGED_BINARIES" in *"|$binary|"*) return 0 ;; esac
+  return 1
+}
+
+inventory_managed_app() {
+  local app="$1"
+  inventory_index_init || return 1
+  case "$INVENTORY_MANAGED_APPS" in *"|$app|"*) return 0 ;; esac
+  return 1
+}
+
+inventory_plist_value() {
+  local key="$1"
+  local plist="$2"
+  if command_exists plutil; then
+    plutil -extract "$key" raw -o - "$plist" 2>/dev/null && return 0
+  fi
+  if [ -x /usr/libexec/PlistBuddy ]; then
+    /usr/libexec/PlistBuddy -c "Print :$key" "$plist" 2>/dev/null | first_line && return 0
+  fi
+  return 1
+}
+
+inventory_scan_apps() {
+  local root app plist bundle_id name version label id
+  for root in /Applications "$HOME/Applications"; do
+    [ -d "$root" ] || continue
+    for app in "$root"/*.app; do
+      [ -d "$app" ] || continue
+      inventory_managed_app "$app" && continue
+      plist="$app/Contents/Info.plist"
+      [ -f "$plist" ] || continue
+      bundle_id="$(inventory_plist_value CFBundleIdentifier "$plist" || true)"
+      name="$(inventory_plist_value CFBundleDisplayName "$plist" || inventory_plist_value CFBundleName "$plist" || true)"
+      version="$(inventory_plist_value CFBundleShortVersionString "$plist" || inventory_plist_value CFBundleVersion "$plist" || printf 'unknown')"
+      [ -n "$name" ] || name="$(basename "$app" .app)"
+      [ -n "$bundle_id" ] || bundle_id="name:$(basename "$app" .app | tr ' ' '-')"
+      id="di:app:$bundle_id"
+      label="[app] $name"
+      inventory_append detected apps "$id" "$label" "$version" "$app"
+    done
+  done
+}
+
+inventory_scan_npm() {
+  local prefix package_rows source suffix
+  local -a prefixes=()
+  [ -d "$AIUP_NPM_NODE_MODULES" ] && prefixes+=("$AIUP_NPM_PREFIX")
+  if [ -n "${SYSTEM_NPM_PREFIX:-}" ] && [ "$SYSTEM_NPM_PREFIX" != "$AIUP_NPM_PREFIX" ] && [ -d "$SYSTEM_NPM_PREFIX/lib/node_modules" ]; then
+    prefixes+=("$SYSTEM_NPM_PREFIX")
+  fi
+  for prefix in "${prefixes[@]}"; do
+    package_rows="$(npm --prefix "$prefix" list --global --depth=0 --json 2>/dev/null | python3 -c 'import json,sys
+try:
+    data=json.load(sys.stdin)
+except Exception:
+    raise SystemExit(0)
+for name, meta in sorted((data.get("dependencies") or {}).items()):
+    print(name + "\t" + str((meta or {}).get("version") or "unknown"))' 2>/dev/null || true)"
+    case "$prefix" in
+      "$AIUP_NPM_PREFIX") source='npm (aiup)' ; suffix=aiup ;;
+      *) source='npm (system)' ; suffix=system ;;
+    esac
+    while IFS=$'\t' read -r package version; do
+      [ -n "$package" ] || continue
+      inventory_append detected npm "di:npm:$package:$suffix" "[npm] $package" "${version:-unknown}" "$prefix"
+    done <<< "$package_rows"
+  done
+}
+
+inventory_scan_uv() {
+  local row package version
+  command_exists uv || return 0
+  while IFS= read -r row; do
+    case "$row" in
+      *' v'*)
+        package="${row%% v*}"
+        version="${row#* v}"
+        [ -n "$package" ] || continue
+        inventory_append detected uv "di:uv:$package" "[uv] $package" "${version%% *}" "uv tool"
+        ;;
+    esac
+  done < <(uv tool list 2>/dev/null || true)
+}
+
+inventory_scan_path_bins() {
+  local dir path binary seen_dirs='|'
+  local -a path_dirs=()
+  local old_ifs="$IFS"
+  IFS=:
+  read -r -a path_dirs <<< "$PATH"
+  IFS="$old_ifs"
+  for dir in "$LOCAL_BIN" "$AIUP_NPM_BIN" "$HOME/.cargo/bin" "$HOME/.grok/bin" /usr/local/bin "${path_dirs[@]}"; do
+    [ -d "$dir" ] || continue
+    case "$seen_dirs" in *"|$dir|"*) continue ;; esac
+    seen_dirs="${seen_dirs}$dir|"
+    case "$dir" in
+      /bin|/sbin|/usr/bin|/usr/sbin|/System/*|/Library/*|/opt/homebrew/*) continue ;;
+    esac
+    for path in "$dir"/*; do
+      [ -f "$path" ] && [ -x "$path" ] || continue
+      binary="$(basename "$path")"
+      inventory_managed_binary "$binary" && continue
+      inventory_append detected path "di:path:$binary" "[path] $binary" unknown "$path" "$path"
+    done
+  done
+}
+
+scan_inventory_index() {
+  ensure_dir "$STATE_DIR"
+  : > "$INVENTORY_INDEX"
+  INVENTORY_SEEN_IDS='|'
+  INVENTORY_INDEX_READY=0
+  catalog_manifest_load || return 1
+  inventory_scan_apps
+  inventory_scan_npm
+  inventory_scan_uv
+  inventory_scan_path_bins
+}
+
+inventory_record() {
+  local id="$1"
+  [ -f "$INVENTORY_INDEX" ] || return 1
+  awk -F '\t' -v id="$id" '$3==id {print; exit}' "$INVENTORY_INDEX"
 }
 
 scan_installed_tools() {
@@ -2866,6 +3169,10 @@ notes_of() {
     cursor) printf 'Cursor Agent CLI via cursor.com/install. Binary is cursor-agent.\n' ;;
     qwen) printf 'Qwen Code via aiup npm prefix (@qwen-code/qwen-code).\n' ;;
     screenpipe) printf 'Official Screenpipe stable DMG from screenpipe.com, architecture-selected and verified before the app bundle is replaced. Settings and capture data stay outside the app bundle.\n' ;;
+    vibe) printf 'Mistral Vibe is installed and upgraded as the uv tool mistral-vibe. First use still requires its own provider setup.\n' ;;
+    openhands) printf 'OpenHands CLI is sunset: its official CLI repository says it is no longer actively maintained. Install only for legacy compatibility.\n' ;;
+    llama-cpp) printf 'llama.cpp is a Homebrew formula; model files are separate and are never downloaded by aiup.\n' ;;
+    llama-app) printf 'Llama is the official ggml local-LLM menu-bar app distributed as the llama-app Homebrew cask.\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -3898,6 +4205,7 @@ print_list() {
   local cat child tool id state label
   scan_catalog_index all
   for cat in "${CATEGORY_ORDER[@]}"; do
+    category_visible "$cat" || continue
     printf '\n== %s ==\n' "$cat"
     printf '%-18s %-10s %s\n' 'tool' 'state' 'label'
     if [ "$cat" = 'homebrew' ]; then
@@ -3912,6 +4220,15 @@ print_list() {
       done
       continue
     fi
+    if [ "$cat" = 'detected' ]; then
+      printf '%s\n' "Detected items are informational only; aiup will not guess an updater or remover."
+      printf '%-28s %-12s %-16s %s\n' 'id' 'version' 'source' 'label'
+      while IFS=$'\t' read -r _ state id label version source path; do
+        [ -n "$id" ] || continue
+        printf '%-28s %-12s %-16s %s\n' "$id" "${version:-unknown}" "$source" "$label"
+      done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
+      continue
+    fi
     while IFS= read -r tool; do
       [ -n "$tool" ] || continue
       printf '%-18s %-10s %s\n' "$tool" 'installed' "$(catalog_label "$tool")"
@@ -3923,6 +4240,40 @@ print_list() {
   done
 }
 
+print_inventory_definition() {
+  local mode="${1:---json}"
+  scan_inventory_index || return 1
+  if [ "$mode" = '--plain' ] || [ "$mode" = 'plain' ]; then
+    printf '%-28s %-12s %-16s %s\n' 'id' 'version' 'source' 'label'
+    while IFS=$'\t' read -r _ state id label version source path; do
+      [ -n "$id" ] || continue
+      printf '%-28s %-12s %-16s %s\n' "$id" "${version:-unknown}" "$source" "$label"
+    done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
+    return 0
+  fi
+  python3 - "$INVENTORY_INDEX" <<'PY'
+import json, sys
+items = []
+with open(sys.argv[1], encoding="utf-8") as handle:
+    for line in handle:
+        parts = line.rstrip("\n").split("\t")
+        if len(parts) < 7:
+            continue
+        category, state, item_id, label, version, source, path = parts[:7]
+        items.append({
+            "category": category,
+            "state": state,
+            "id": item_id,
+            "label": label,
+            "version": version or "unknown",
+            "source": source,
+            "path": path,
+        })
+json.dump({"name": "aiup", "items": items}, sys.stdout, indent=2, ensure_ascii=False)
+sys.stdout.write("\n")
+PY
+}
+
 # Catalog definition only — no scan of your Mac. Used by the public site/README.
 print_catalog_definition() {
   local mode="${1:---json}"
@@ -3931,6 +4282,7 @@ print_catalog_definition() {
   {
     printf 'VERSION\t%s\n' "$AIUP_VERSION"
     for cat in "${CATEGORY_ORDER[@]}"; do
+      [ "$cat" = 'detected' ] && continue
       printf 'CAT\t%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "$cat")" "$(catalog_category_blurb "$cat")"
     done
     for cat in "${HOMEBREW_CHILD_ORDER[@]}"; do
@@ -4195,10 +4547,12 @@ scan_catalog_index() {
   local n="${#TOOLS_CATALOG[@]}"
   ensure_dir "$STATE_DIR"
   : > "$CATALOG_INDEX"
-  progress_start "$((n + 4))" "Looking for tools on your Mac"
+  progress_start "$((n + 5))" "Looking for tools on your Mac"
   progress_tick "Reading your Homebrew inventory"
   brew_cache_load
   for tool in "${TOOLS_CATALOG[@]}"; do
+    cat="$(catalog_category "$tool")"
+    category_visible "$cat" || continue
     progress_tick "Checking $(scan_friendly_name "$tool")"
     if [ "$filter" != 'all' ] && { [ "$tool" = 'npm' ] || [ "$tool" = 'brew' ]; }; then
       continue
@@ -4212,16 +4566,26 @@ scan_catalog_index() {
       absent) [ "$state" = 'absent' ] || continue ;;
       installed) [ "$state" = 'installed' ] && [ "$tool" != 'npm' ] && [ "$tool" != 'brew' ] || continue ;;
     esac
-    cat="$(catalog_category "$tool")"
     printf '%s\t%s\t%s\n' "$cat" "$state" "$tool" >> "$CATALOG_INDEX"
   done
   if [ "$filter" = 'all' ]; then
-    scan_brew_index
+    if [ -z "$LIST_CATEGORY_FILTER" ] || [ "$LIST_CATEGORY_FILTER" = 'homebrew' ] || [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]]; then
+      scan_brew_index
+    else
+      : > "$BREW_INDEX"
+    fi
+    if [ -z "$LIST_CATEGORY_FILTER" ] || [ "$LIST_CATEGORY_FILTER" = 'detected' ]; then
+      progress_tick "Discovering apps and user-installed CLIs"
+      scan_inventory_index
+    else
+      : > "$INVENTORY_INDEX"
+    fi
   else
     progress_tick "Skipping extra Homebrew packages"
     progress_tick "Skipping extra Homebrew packages"
     progress_tick "Skipping extra Homebrew packages"
     : > "$BREW_INDEX"
+    : > "$INVENTORY_INDEX"
   fi
   progress_end
 }
@@ -4229,19 +4593,23 @@ scan_catalog_index() {
 emit_fzf_rows_from_index() {
   local cat n_inst n_abs tool id state label
   for cat in "${CATEGORY_ORDER[@]}"; do
+    category_visible "$cat" || continue
     if [ "$cat" = 'homebrew' ]; then
       n_inst="$(awk -F '\t' '$2=="installed" || $2=="on-disk" {c++} END {print c+0}' "$BREW_INDEX" 2>/dev/null)"
       n_abs="$(awk -F '\t' '$2=="absent" {c++} END {print c+0}' "$BREW_INDEX" 2>/dev/null)"
       format_category_header "$cat" "$n_inst" "$n_abs" 0
       printf '\n'
-      if category_expanded "$cat"; then
+      if category_expanded "$cat" || [ "$LIST_CATEGORY_FILTER" = 'homebrew' ] || [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]]; then
         local child c_inst c_abs
         for child in "${HOMEBREW_CHILD_ORDER[@]}"; do
+          if [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]] && [ "$LIST_CATEGORY_FILTER" != "homebrew/${child}" ]; then
+            continue
+          fi
           c_inst="$(awk -F '\t' -v c="homebrew/${child}" '$1==c && ($2=="installed" || $2=="on-disk") {n++} END {print n+0}' "$BREW_INDEX" 2>/dev/null)"
           c_abs="$(awk -F '\t' -v c="homebrew/${child}" '$1==c && $2=="absent" {n++} END {print n+0}' "$BREW_INDEX" 2>/dev/null)"
           format_category_header "homebrew/${child}" "$c_inst" "$c_abs" 1
           printf '\n'
-          if category_expanded "homebrew/${child}"; then
+          if category_expanded "homebrew/${child}" || [ "$LIST_CATEGORY_FILTER" = "homebrew/${child}" ]; then
             while IFS=$'\t' read -r _ state id label; do
               [ "$state" = 'installed' ] || continue
               printf '%s\t%s\n' "$id" "$(format_brew_extra_display "$id" installed "$label")"
@@ -4259,11 +4627,23 @@ emit_fzf_rows_from_index() {
       fi
       continue
     fi
-    n_inst="$(awk -F '\t' -v c="$cat" '$1==c && $2=="installed" {n++} END {print n+0}' "$CATALOG_INDEX" 2>/dev/null)"
-    n_abs="$(awk -F '\t' -v c="$cat" '$1==c && $2=="absent" {n++} END {print n+0}' "$CATALOG_INDEX" 2>/dev/null)"
+    if [ "$cat" = 'detected' ]; then
+      n_inst="$(awk -F '\t' '$2=="detected" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+      n_abs=0
+    else
+      n_inst="$(awk -F '\t' -v c="$cat" '$1==c && $2=="installed" {n++} END {print n+0}' "$CATALOG_INDEX" 2>/dev/null)"
+      n_abs="$(awk -F '\t' -v c="$cat" '$1==c && $2=="absent" {n++} END {print n+0}' "$CATALOG_INDEX" 2>/dev/null)"
+    fi
     format_category_header "$cat" "$n_inst" "$n_abs"
     printf '\n'
     if category_expanded "$cat"; then
+      if [ "$cat" = 'detected' ]; then
+        while IFS=$'\t' read -r _ state id label version source path; do
+          [ -n "$id" ] || continue
+          printf '%s\t%s\n' "$id" "$(format_inventory_display "$id" "$state" "$label" "$version" "$source")"
+        done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
+        continue
+      fi
       while IFS= read -r tool; do
         [ -n "$tool" ] || continue
         printf '%s\t%s\n' "$tool" "$(format_catalog_display "$tool" installed)"
@@ -4298,6 +4678,7 @@ copy_to_clipboard() {
 confirm_tty() {
   local prompt="$1"
   local answer=""
+  tty_usable || return 1
   printf '%s' "$prompt" >/dev/tty
   read -r answer </dev/tty || return 1
   case "$answer" in
@@ -4309,6 +4690,7 @@ confirm_tty() {
 pick_catalog_tools() {
   local mode="$1"
   local filter="all"
+  export AIUP_CATEGORY_FILTER="$LIST_CATEGORY_FILTER"
   ensure_dir "$STATE_DIR"
   [ -f "$EXPAND_FILE" ] || : > "$EXPAND_FILE"
   case "$mode" in
@@ -4329,7 +4711,7 @@ pick_catalog_tools() {
   # Selection IDs go to stdout (often a pipe). The UI must use /dev/tty.
   # Do not test -t 1 — `aiup install` captures this function via process
   # substitution, so stdout is a pipe even in a real terminal.
-  if [ ! -c /dev/tty ]; then
+  if ! tty_usable; then
     error "aiup $mode needs a controlling terminal (/dev/tty)"
     error "Use: aiup only <tools...> / aiup remove <tools...>"
     return 1
@@ -4352,7 +4734,7 @@ pick_catalog_tools() {
     selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --multi --delimiter=$'\t' --with-nth=2 \
       --no-height \
       --prompt "aiup ${mode}> " \
-      --header "enter expand/install · left/right collapse/expand · pgup/pgdn category · ctrl-e toggle · alt-e/c all · ctrl-d uninstall · ctrl-o docs · esc" \
+      --header "type to search · enter install/expand · left/right collapse/expand · pgup/pgdn category · detected = read-only · ctrl-/ preview · esc" \
       --preview "$self preview {1}" \
       --preview-window "down:$(catalog_preview_height):wrap" \
       --bind 'space:toggle' \
@@ -4432,6 +4814,7 @@ apply_catalog_action() {
         case "$t" in
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$t") ;;
+          di:*) warn "Detected item '$t' is informational only; aiup will not guess how to update or remove it" ;;
           *) catalog_tools+=("$t") ;;
         esac
       done
@@ -4462,6 +4845,7 @@ apply_catalog_action() {
         case "$t" in
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$t") ;;
+          di:*) warn "Detected item '$t' is informational only; use its owning package manager" ;;
           *) catalog_tools+=("$t") ;;
         esac
       done
@@ -4478,6 +4862,7 @@ apply_catalog_action() {
         case "$tool" in
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$tool"); continue ;;
+          di:*) warn "Detected item '$tool' is informational only and cannot be removed by aiup"; continue ;;
         esac
         if [ "$tool" = 'npm' ] || [ "$tool" = 'brew' ]; then
           warn "$tool is not removable via aiup"
@@ -4589,7 +4974,10 @@ Usage:
   npm-update               Convenience wrapper for: aiup only npm
   aiup doctor              Print diagnostics for the catalog
   aiup list                Interactive catalog (install/update/uninstall/docs)
-  aiup list --plain        Print the categorized table only
+  aiup list --plain        Print the categorized table plus local detections
+  aiup list --category CAT Focus the list on one category (or homebrew/detected)
+  aiup inventory            Print every locally detected app/CLI/package as JSON
+  aiup inventory --plain   Print the local inventory as a readable table
   aiup catalog             Print the catalog definition as JSON (no scan)
   aiup catalog --markdown  Print the catalog definition as Markdown
   aiup version             Print aiup version
@@ -4610,6 +4998,7 @@ Options:
   --dry-run                Print actions without executing them
   --no-install             Do not install missing tools; fails if required fzf is absent.
   --heartbeat-seconds N    Override heartbeat interval for this run
+  --category CAT           Limit `aiup list` to one category
 EOF2
 }
 
@@ -4619,7 +5008,7 @@ resolve_tools() {
   for arg in "$@"; do
     case "$arg" in
       brew|homebrew) out+=("brew") ;;
-      npm|uv|fzf|gh|wrangler|deno|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
+      npm|uv|fzf|gh|wrangler|deno|bun|pnpm|jq|yq|ripgrep|fd|just|shellcheck|actionlint|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|vibe|openhands|llama-cpp|llama-app|whisper-cpp|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
       vscode-code|code) out+=("vscode") ;;
       t3) out+=("t3-code") ;;
       grok-bot) out+=("grokbot") ;;
@@ -4700,6 +5089,10 @@ parse_args() {
         HEARTBEAT_SECONDS="$2"
         shift 2
         ;;
+      --category)
+        LIST_CATEGORY_FILTER="$2"
+        shift 2
+        ;;
       *)
         args+=("$1")
         shift
@@ -4708,6 +5101,13 @@ parse_args() {
   done
 
   catalog_validate || return 1
+
+  if [ -n "$LIST_CATEGORY_FILTER" ]; then
+    case " ${CATEGORY_ORDER[*]} homebrew/casks homebrew/fonts homebrew/formulae homebrew/libraries homebrew/recommended homebrew/available " in
+      *" $LIST_CATEGORY_FILTER "*) ;;
+      *) error "Unknown category: $LIST_CATEGORY_FILTER"; return 1 ;;
+    esac
+  fi
 
   if [ "${#args[@]}" -eq 0 ]; then
     ensure_required_tools_present || return 1
@@ -4792,9 +5192,16 @@ parse_args() {
     catalog)
       print_catalog_definition "${args[1]:---json}"
       ;;
+    inventory)
+      print_inventory_definition "${args[1]:---json}"
+      ;;
     list)
-      if [ "${args[1]:-}" = '--plain' ] || [ ! -c /dev/tty ]; then
-        print_list
+      if [ "${args[1]:-}" = '--plain' ] || [ "${args[1]:-}" = '--detected' ] || ! tty_usable; then
+        if [ "${args[1]:-}" = '--detected' ]; then
+          print_inventory_definition --plain
+        else
+          print_list
+        fi
       else
         cmd_catalog_browse
       fi
