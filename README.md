@@ -109,15 +109,18 @@ The managed catalog is curated for safe install/update/remove actions. The picke
 | <kbd>ctrl</kbd>+<kbd>e</kbd> | Toggle this category |
 | <kbd>←</kbd> / <kbd>→</kbd> | Collapse / expand this category |
 | <kbd>pgup</kbd> / <kbd>pgdn</kbd> | Jump to the previous / next category |
+| <kbd>ctrl</kbd>+<kbd>g</kbd> | Open a searchable category-jump palette |
 | <kbd>alt</kbd>+<kbd>e</kbd> / <kbd>alt</kbd>+<kbd>c</kbd> | Expand / collapse all |
 | <kbd>ctrl</kbd>+<kbd>d</kbd> | Uninstall |
 | <kbd>ctrl</kbd>+<kbd>o</kbd> | Open GitHub or the product site |
 | <kbd>ctrl</kbd>+<kbd>/</kbd> | Toggle the preview pane |
 | <kbd>esc</kbd> | Leave |
 
-Type to search the visible rows. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, and path in the preview, but never install, update, or remove anything.
+Type to search the visible rows. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, and path in the preview, but never install, update, or remove anything.
 
-For a full package-manager-backed catalog, use `aiup list --category homebrew/available`. That view is generated from the Homebrew taps already on the Mac and delegates dependency resolution back to Homebrew.
+Use `--view installed` for a compact maintenance view, `--view managed` to hide local detections/Homebrew extras, `--view detected` for only software found on this Mac, or `--view available` for Homebrew's available packages. Use `--sort label` when scanning a category alphabetically; the default `--sort id` preserves manifest order. `aiup inventory` uses a five-minute source-aware cache; add `--refresh` after installing or removing software outside aiup.
+
+For a full package-manager-backed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. That view is generated from the Homebrew taps already on the Mac and delegates dependency resolution back to Homebrew.
 
 Installed rows glow **neon green**. Each category has a color bar. Categories start collapsed.
 
@@ -146,7 +149,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.21-03** · **83** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.21-04** · **83** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

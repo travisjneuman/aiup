@@ -12,7 +12,7 @@ All of this stays on the machine:
 - A few well-known user prefixes used by vendor CLIs (`~/.local/bin`, `~/.grok/bin`, `~/.warp`, `~/.hermes`, `~/.opencode`)
 - aiup's own state under `~/.local/share/aiup`
 
-The interactive catalog also builds a local-only inventory of app bundle identifiers/display names/versions, global npm package names/versions, uv tool names/versions, and executable names/paths in user-facing prefixes. These records are written to `inventory-index.tsv` only to render the picker and `aiup inventory`; they are never uploaded.
+The interactive catalog also builds a local-only inventory of app bundle identifiers/display names/versions, global npm package names/versions, uv tool names/versions, and executable names/paths in user-facing prefixes. These records are written to `inventory-index.tsv` only to render the picker and `aiup inventory`; they are never uploaded. The inventory is cached locally for five minutes and can be rebuilt with `aiup inventory --refresh`.
 
 ## What a scan does not do
 
@@ -34,5 +34,7 @@ The default product does not require an account or a server.
 | `~/.local/share/aiup/catalog-index.tsv` | Last scan of the main catalog |
 | `~/.local/share/aiup/brew-index.tsv` | Last scan of Homebrew extras |
 | `~/.local/share/aiup/inventory-index.tsv` | Last local-only inventory of un-managed apps and CLIs |
+| `~/.local/share/aiup/inventory-cache.meta` | Timestamp and local source fingerprint for the inventory cache |
+| `~/.local/share/aiup/list-query` / `list-category` | Last picker query and selected category, stored locally to resume navigation |
 
 These are local cache, not a cloud profile.

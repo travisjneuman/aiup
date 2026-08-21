@@ -10,6 +10,8 @@ bash -n "$AIUP"
 
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" catalog --json > "$TEST_DIR/catalog.json"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" inventory --json > "$TEST_DIR/inventory.json"
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --sort label --view managed list --plain > "$TEST_DIR/managed.txt"
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --view detected list --plain > "$TEST_DIR/detected.txt"
 python3 - "$TEST_DIR/catalog.json" <<'PY'
 import json
 import sys
@@ -41,13 +43,25 @@ assert "items" in data
 assert all(item["id"].startswith("di:") for item in data["items"])
 PY
 
+test -s "$TEST_DIR/state/inventory-cache.meta"
+! grep -q '^== detected ==' "$TEST_DIR/managed.txt"
+grep -q '^id ' "$TEST_DIR/detected.txt"
+
 grep -q '^catalog_validate()' "$AIUP"
 grep -q '^brew_review_installed_taps()' "$AIUP"
 grep -q '^catalog_brew_index_init()' "$AIUP"
 grep -q '^category_nav_action()' "$AIUP"
 grep -q '^catalog_manifest_load()' "$AIUP"
 grep -q '^scan_inventory_index()' "$AIUP"
+grep -q '^inventory_cache_valid()' "$AIUP"
+grep -q '^inventory_cache_write()' "$AIUP"
 grep -q '^print_inventory_definition()' "$AIUP"
+grep -q '^category_jump_action()' "$AIUP"
+grep -q '^catalog_ui_state_save()' "$AIUP"
+grep -q '^catalog_dependency_preview()' "$AIUP"
+grep -q '^emit_brew_available_rows()' "$AIUP"
+grep -q '^print_result_summary()' "$AIUP"
+grep -q 'LIST_VIEW_MODE' "$AIUP"
 grep -q 'detected) printf' "$AIUP"
 grep -q 'aiup inventory' "$AIUP"
 grep -q '^refresh_fzf_listfile()' "$AIUP"
@@ -55,6 +69,8 @@ grep -q 'left:execute-silent.*__cat-collapse' "$AIUP"
 grep -q 'right:execute-silent.*__cat-expand' "$AIUP"
 grep -q 'pgup:transform.*__cat-nav previous' "$AIUP"
 grep -q 'pgdn:transform.*__cat-nav next' "$AIUP"
+grep -q 'ctrl-g:transform.*__cat-jump' "$AIUP"
+grep -q -- '--print-query' "$AIUP"
 grep -q 'enter_action_for "\${args\[1\]:-}" "\${args\[2\]:-}"' "$AIUP"
 grep -q '^update_screenpipe()' "$AIUP"
 grep -q 'brew trust --tap' "$AIUP"
