@@ -1,4 +1,4 @@
-# Catalog (2026.08.21-05)
+# Catalog (2026.08.21-06)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -150,16 +150,16 @@ Glue between agents and editors
 
 ## 🍺 homebrew
 
-What Homebrew already put on your Mac, plus a short recommended list
+Homebrew extras outside the managed catalog, plus a short recommended list
 
 | Child | What |
 |---|---|
 | `casks` | GUI apps Homebrew already installed on your Mac |
-| `fonts` | Fonts Homebrew already installed on your Mac |
+| `fonts` | Fonts installed via Homebrew, plus available font casks in the full catalog view |
 | `formulae` | CLI formulae Homebrew already installed on your Mac |
 | `libraries` | Libraries Homebrew already installed on your Mac |
 | `recommended` | Popular extras you can add — or switch to Homebrew without losing settings |
-| `available` | All other formulae and casks currently available from your installed Homebrew taps |
+| `available` | Formulae and non-font casks available from your installed Homebrew taps |
 
 Recommended extras:
 

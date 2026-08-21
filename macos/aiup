@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.21-05"
+AIUP_VERSION="2026.08.21-06"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -35,6 +35,7 @@ CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai l
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
+BREW_AVAILABLE_MARKER="${AIUP_BREW_AVAILABLE_MARKER:-$STATE_DIR/brew-available.loaded}"
 CATALOG_MANIFEST="${AIUP_CATALOG_MANIFEST:-$AIUP_SCRIPT_DIR/catalog/manifest.tsv}"
 INVENTORY_INDEX="${AIUP_INVENTORY_INDEX:-$STATE_DIR/inventory-index.tsv}"
 INVENTORY_CACHE_META="${AIUP_INVENTORY_CACHE_META:-$STATE_DIR/inventory-cache.meta}"
@@ -869,14 +870,14 @@ catalog_category_blurb() {
     local-ai) printf 'Models, capture, and engines that run on your Mac\n' ;;
     llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
     adapters) printf 'Glue between agents and editors\n' ;;
-    detected) printf 'Software detected on this Mac, not managed by aiup yet\n' ;;
-    homebrew) printf 'What Homebrew already put on your Mac, plus a short recommended list\n' ;;
+    detected) printf 'Unmanaged software found on this Mac: apps, npm, uv, and PATH executables\n' ;;
+    homebrew) printf 'Homebrew extras outside the managed catalog, plus a short recommended list\n' ;;
     homebrew/casks) printf 'GUI apps Homebrew already installed on your Mac\n' ;;
-    homebrew/fonts) printf 'Fonts Homebrew already installed on your Mac\n' ;;
+    homebrew/fonts) printf 'Fonts installed via Homebrew, plus available font casks in the full catalog view\n' ;;
     homebrew/formulae) printf 'CLI formulae Homebrew already installed on your Mac\n' ;;
     homebrew/libraries) printf 'Libraries Homebrew already installed on your Mac\n' ;;
     homebrew/recommended) printf 'Popular extras you can add — or switch to Homebrew without losing settings\n' ;;
-    homebrew/available) printf 'All other formulae and casks currently available from your installed Homebrew taps\n' ;;
+    homebrew/available) printf 'Formulae and non-font casks available from your installed Homebrew taps\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -914,7 +915,7 @@ category_visible() {
       [ "$cat" = 'detected' ] || return 1
       ;;
     available)
-      case "$cat" in homebrew|homebrew/available) ;; *) return 1 ;; esac
+      case "$cat" in homebrew|homebrew/fonts|homebrew/available) ;; *) return 1 ;; esac
       ;;
     installed)
       [ "$cat" = 'homebrew/available' ] && return 1
@@ -930,7 +931,13 @@ category_visible() {
 }
 
 homebrew_available_mode() {
-  [ "$LIST_CATEGORY_FILTER" = 'homebrew/available' ] || [ "$LIST_VIEW_MODE" = 'available' ]
+  [ "$LIST_CATEGORY_FILTER" = 'homebrew/available' ] ||
+    [ "$LIST_CATEGORY_FILTER" = 'homebrew/fonts' ] ||
+    [ "$LIST_VIEW_MODE" = 'available' ]
+}
+
+homebrew_available_loaded() {
+  [ -f "$BREW_AVAILABLE_MARKER" ]
 }
 
 row_visible_state() {
@@ -1439,11 +1446,41 @@ catalog_docs_url() {
 
 catalog_docs_kind() {
   local url
+  case "$1" in
+    di:*) printf 'Google search\n'; return 0 ;;
+  esac
   url="$(catalog_docs_url "$1")"
   case "$url" in
     https://github.com/*) printf 'GitHub\n' ;;
     *) printf 'website\n' ;;
   esac
+}
+
+detected_search_url() {
+  local id="$1" record label version source path name query encoded
+  record="$(inventory_record "$id" 2>/dev/null || true)"
+  if [ -z "$record" ]; then
+    scan_inventory_index >/dev/null 2>&1 || true
+    record="$(inventory_record "$id" 2>/dev/null || true)"
+  fi
+  if [ -n "$record" ]; then
+    IFS=$'\t' read -r _ _ _ label version source path <<< "$record"
+    name="$(inventory_item_name "$label")"
+  else
+    name="$id"
+    version=''
+    source='detected software'
+    path=''
+  fi
+  case "$source" in
+    app\ bundle) query="$name ${version:-unknown} macOS app" ;;
+    npm\ \(*) query="$name npm package ${version:-unknown}" ;;
+    uv\ tool) query="$name uv tool ${version:-unknown}" ;;
+    PATH\ executable) query="$name macOS command ${version:-unknown}" ;;
+    *) query="$name ${version:-unknown} $source $path" ;;
+  esac
+  encoded="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote_plus(sys.argv[1]))' "$query")"
+  printf 'https://www.google.com/search?q=%s\n' "$encoded"
 }
 
 catalog_ansi() {
@@ -1482,9 +1519,9 @@ catalog_hotkey_help() {
   printf 'ctrl-g             jump to a category\n'
   printf 'alt-e              expand all categories\n'
   printf 'alt-c              collapse all categories\n'
-  printf 'ctrl-d             uninstall (installed items; not brew/npm)\n'
+  printf 'ctrl-d             uninstall managed items; detected apps preview cleanup\n'
   printf 'ctrl-r             update only\n'
-  printf 'ctrl-o  f3  alt-o  open GitHub or website\n'
+  printf 'ctrl-o  f3  alt-o  open docs or a Google search\n'
   printf 'ctrl-y             copy that URL\n'
   printf 'esc                leave\n'
 }
@@ -1522,7 +1559,11 @@ print_catalog_preview() {
       printf 'version  %s\n' "${inv_version:-unknown}"
       printf 'found via %s\n' "$inv_source"
       printf 'location %s\n' "$inv_path"
+      printf 'search   %s\n' "$(detected_search_url "$tool")"
       printf 'why      aiup has no verified updater/remover contract for this item yet, so it will not change it.\n'
+      if [[ "$tool" == di:app:* ]]; then
+        printf 'cleanup  aiup cleanup %s --apply (preview first; moves exact candidates to Trash)\n' "$tool"
+      fi
       printf '\n'
       catalog_hotkey_help
       return 0
@@ -1857,6 +1898,7 @@ format_category_header() {
   fi
   bar="$(catalog_ansi "$cat")▌${reset}"
   shown="${cat##*/}"
+  [ "$cat" = 'detected' ] && shown='detected software'
   if [ "$indent" -gt 0 ]; then
     pad="$(printf '%*s' $((indent * 4)) '')"
     name="$(catalog_ansi "$cat")${pad}$(printf '%-14s' "$shown")${reset}"
@@ -1865,16 +1907,31 @@ format_category_header() {
   fi
   case "$cat" in
     detected)
-      extra="${n_inst} detected on this Mac / not managed by aiup"
+      extra="$(detected_source_summary)"
       ;;
     homebrew)
-      extra="${n_inst} on your Mac / ${n_abs} you can add"
+      if homebrew_available_loaded; then
+        extra="${n_inst} extra rows / ${n_abs} available Homebrew extras"
+      else
+        extra="${n_inst} extra rows / ${n_abs} curated recommendations"
+      fi
       ;;
     homebrew/recommended)
-      extra="${n_inst} already on your Mac / ${n_abs} you can add"
+      extra="${n_inst} already on your Mac / ${n_abs} curated recommendations"
+      ;;
+    homebrew/fonts)
+      if homebrew_available_loaded; then
+        extra="${n_inst} installed via Homebrew / ${n_abs} available font casks"
+      else
+        extra="${n_inst} installed via Homebrew / full font catalog in --view available"
+      fi
       ;;
     homebrew/available)
-      extra="${n_abs} available from Homebrew"
+      if homebrew_available_loaded; then
+        extra="${n_abs} non-managed Homebrew extras (excluding font casks)"
+      else
+        extra="full Homebrew catalog not loaded · use --view available"
+      fi
       ;;
     homebrew/*)
       extra="${n_inst} already on your Mac via Homebrew"
@@ -1884,6 +1941,16 @@ format_category_header() {
       ;;
   esac
   printf '%s\t%s %s %s  %s' "__cat:${cat}" "$bar" "$arrow" "$name" "$extra"
+}
+
+detected_source_summary() {
+  local total apps npm uv path
+  total="$(awk -F '\t' '$2=="detected" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+  apps="$(awk -F '\t' '$2=="detected" && $6=="app bundle" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+  npm="$(awk -F '\t' '$2=="detected" && $6 ~ /^npm / {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+  uv="$(awk -F '\t' '$2=="detected" && $6=="uv tool" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+  path="$(awk -F '\t' '$2=="detected" && $6=="PATH executable" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+  printf '%s detected software · %s apps · %s npm · %s uv · %s PATH' "$total" "$apps" "$npm" "$uv" "$path"
 }
 
 brew_is_library() {
@@ -2136,6 +2203,8 @@ scan_brew_index() {
   : > "$BREW_INDEX"
   brew_cache_load
   if homebrew_available_mode; then
+    ensure_dir "$STATE_DIR"
+    : > "$BREW_AVAILABLE_MARKER"
     progress_tick "Listing every Homebrew formula available from local taps"
     brew formulae 2>/dev/null | awk -v catalog="$BREW_CATALOG_NAMES" '
       NF && index(catalog, "|" $0 "|") == 0 {
@@ -2145,11 +2214,13 @@ scan_brew_index() {
     progress_tick "Listing every Homebrew cask available from local taps"
     brew casks 2>/dev/null | awk -v catalog="$BREW_CATALOG_NAMES" '
       NF && index(catalog, "|" $0 "|") == 0 {
-        printf "homebrew/available\tabsent\tbc:%s\tHomebrew cask %s\n", $0, $0
+        child = ($0 ~ /^font-/ ? "homebrew/fonts" : "homebrew/available")
+        printf "%s\tabsent\tbc:%s\tHomebrew cask %s\n", child, $0, $0
       }
     ' >> "$BREW_INDEX" || true
     return 0
   fi
+  rm -f "$BREW_AVAILABLE_MARKER"
   progress_tick "Listing Homebrew apps you already have"
   for name in $AIUP_BREW_CASKS; do
     [ -n "$name" ] || continue
@@ -2367,6 +2438,13 @@ cmd_docs() {
   local resolved url
   case "$tool" in
     __cat:*) return 0 ;;
+    di:*)
+      url="$(detected_search_url "$tool")"
+      if [ "$print_only" -eq 1 ]; then printf '%s\n' "$url"; return 0; fi
+      printf 'Opened Google search: %s\n' "$url" >/dev/tty
+      open_url "$url"
+      return 0
+      ;;
     bc:*)
       url="https://formulae.brew.sh/cask/${tool#bc:}"
       if [ "$print_only" -eq 1 ]; then printf '%s\n' "$url"; return 0; fi
@@ -4459,7 +4537,7 @@ print_doctor() {
 }
 
 print_list() {
-  local cat child tool id state label n_inst n_abs extra_kind extra_name
+  local cat child tool id state label n_inst n_abs extra_kind extra_name display_cat
   scan_catalog_index all
   for cat in "${CATEGORY_ORDER[@]}"; do
     category_visible "$cat" || continue
@@ -4475,23 +4553,32 @@ print_list() {
       [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$n_inst" -eq 0 ] && continue
       [ "$n_inst" -eq 0 ] && [ "$n_abs" -eq 0 ] && continue
     fi
-    printf '\n== %s ==\n' "$cat"
+    display_cat="$cat"
+    [ "$cat" = 'detected' ] && display_cat='detected software'
+    printf '\n== %s ==\n' "$display_cat"
     if [ "$cat" != 'detected' ]; then
       printf '%-18s %-18s %s\n' 'tool' 'state/action' 'label'
     fi
     if [ "$cat" = 'homebrew' ]; then
-      printf '%s\n' "casks/fonts/formulae/libraries = already on your Mac via Homebrew (not all of Homebrew)."
-      printf '%s\n' "recommended = a short popular list. on-disk = same app/command, installed some other way."
+      printf '%s\n' "casks/fonts/formulae/libraries = Homebrew extras outside the managed catalog; available = non-managed items from local taps, loaded only when requested."
+      printf '%s\n' "recommended = a short popular list, not all of Homebrew. on-disk = the same app/command installed some other way."
       for child in "${HOMEBREW_CHILD_ORDER[@]}"; do
-        if [ "$LIST_VIEW_MODE" = 'available' ] && [ "$child" != 'available' ]; then
+        if [ "$LIST_VIEW_MODE" = 'available' ] && [ "$child" != 'available' ] && [ "$child" != 'fonts' ]; then
           continue
         fi
         if [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$child" = 'available' ]; then
           continue
         fi
         printf '\n-- homebrew/%s --\n' "$child"
+        if [ "$child" = 'fonts' ] && ! homebrew_available_loaded; then
+          printf '%s\n' "Installed font casks are shown here. Full available font catalog loads with: aiup list --view available"
+        fi
         if [ "$child" = 'available' ]; then
-          awk -F '\t' '$1=="homebrew/available" {printf "%-18s %-18s %s\n", $3, "install", $4}' "$BREW_INDEX"
+          if homebrew_available_loaded; then
+            awk -F '\t' '$1=="homebrew/available" {printf "%-18s %-18s %s\n", $3, "install", $4}' "$BREW_INDEX"
+          else
+            printf '%s\n' "Full Homebrew formula/cask catalog not loaded in overview. Run: aiup list --view available"
+          fi
           continue
         fi
         while IFS=$'\t' read -r _ state id label; do
@@ -4508,7 +4595,8 @@ print_list() {
       continue
     fi
     if [ "$cat" = 'detected' ]; then
-      printf '%s\n' "Detected-only inventory · aiup will not change these without a verified updater/remover contract."
+      printf '%s\n' "Detected-only inventory · $(detected_source_summary)."
+      printf '%s\n' "aiup will not change these without a verified updater/remover contract; use ctrl-o or aiup docs for a web search."
       printf '%-26s %-12s %-18s %s\n' 'item' 'version' 'found via' 'location'
       while IFS=$'\t' read -r _ state id label version source path; do
         [ -n "$id" ] || continue
@@ -4542,6 +4630,7 @@ print_inventory_definition() {
   fi
   python3 - "$INVENTORY_INDEX" <<'PY'
 import json, sys
+from urllib.parse import quote_plus
 items = []
 with open(sys.argv[1], encoding="utf-8") as handle:
     for line in handle:
@@ -4549,14 +4638,27 @@ with open(sys.argv[1], encoding="utf-8") as handle:
         if len(parts) < 7:
             continue
         category, state, item_id, label, version, source, path = parts[:7]
+        name = label.split("] ", 1)[-1] if "] " in label else label
+        version = version or "unknown"
+        if source == "app bundle":
+            query = f"{name} {version} macOS app"
+        elif source.startswith("npm "):
+            query = f"{name} npm package {version}"
+        elif source == "uv tool":
+            query = f"{name} uv tool {version}"
+        elif source == "PATH executable":
+            query = f"{name} macOS command {version}"
+        else:
+            query = f"{name} {version} {source} {path}"
         items.append({
             "category": category,
             "state": state,
             "id": item_id,
             "label": label,
-            "version": version or "unknown",
+            "version": version,
             "source": source,
             "path": path,
+            "search": "https://www.google.com/search?q=" + quote_plus(query),
         })
 json.dump({"name": "aiup", "items": items}, sys.stdout, indent=2, ensure_ascii=False)
 sys.stdout.write("\n")
@@ -4691,6 +4793,121 @@ remove_file_if_exists() {
       fi
     fi
   done
+}
+
+DETECTED_CLEANUP_SEEN='|'
+
+detected_cleanup_add() {
+  local path="$1"
+  [ -e "$path" ] || [ -L "$path" ] || return 0
+  case "$DETECTED_CLEANUP_SEEN" in
+    *"|$path|"*) return 0 ;;
+  esac
+  DETECTED_CLEANUP_SEEN="${DETECTED_CLEANUP_SEEN}${path}|"
+  printf '%s\n' "$path"
+}
+
+detected_cleanup_paths() {
+  local id="$1" record label app bundle_id app_leaf
+  local support_name
+  record="$(inventory_record "$id" 2>/dev/null || true)"
+  [ -n "$record" ] || return 1
+  IFS=$'\t' read -r _ _ _ label _ _ app <<< "$record"
+  case "$id" in
+    di:app:*) bundle_id="${id#di:app:}" ;;
+    *) return 1 ;;
+  esac
+  case "$app" in
+    /Applications/*.app|"$HOME"/Applications/*.app) ;;
+    *) return 1 ;;
+  esac
+  [ -d "$app" ] || return 1
+  app_leaf="$(basename "$app" .app)"
+  DETECTED_CLEANUP_SEEN='|'
+  detected_cleanup_add "$app"
+  for support_name in "$app_leaf" "$(inventory_item_name "$label")"; do
+    [ -n "$support_name" ] || continue
+    detected_cleanup_add "$HOME/Library/Application Support/$support_name"
+    detected_cleanup_add "$HOME/Library/Caches/$support_name"
+    detected_cleanup_add "$HOME/Library/Logs/$support_name"
+  done
+  detected_cleanup_add "$HOME/Library/Application Support/$bundle_id"
+  detected_cleanup_add "$HOME/Library/Caches/$bundle_id"
+  detected_cleanup_add "$HOME/Library/Logs/$bundle_id"
+  detected_cleanup_add "$HOME/Library/Preferences/$bundle_id.plist"
+  detected_cleanup_add "$HOME/Library/Saved Application State/$bundle_id.savedState"
+  detected_cleanup_add "$HOME/Library/Containers/$bundle_id"
+}
+
+cmd_cleanup() {
+  local id="${1:-}" apply="${2:-0}" record label version source app name path leaf target
+  local -a paths=()
+  if [ -z "$id" ]; then
+    error "usage: aiup cleanup <detected-app-id> [--apply]"
+    return 1
+  fi
+  case "$id" in
+    di:app:*) ;;
+    di:*)
+      scan_inventory_index >/dev/null 2>&1 || true
+      record="$(inventory_record "$id" 2>/dev/null || true)"
+      if [ -n "$record" ]; then
+        IFS=$'\t' read -r _ _ _ label version source app <<< "$record"
+        printf '%s is detected via %s, but aiup has no safe generic remover for it.\n' "$(inventory_item_name "$label")" "$source"
+        printf 'Use ctrl-o in aiup list or: aiup docs --print %s\n' "$id"
+        return 0
+      fi
+      error "Detected inventory row is not available: $id"
+      return 1
+      ;;
+    *)
+      error "cleanup accepts a detected app id such as di:app:com.example.App"
+      return 1
+      ;;
+  esac
+  scan_inventory_index >/dev/null 2>&1 || true
+  record="$(inventory_record "$id" 2>/dev/null || true)"
+  [ -n "$record" ] || { error "Detected inventory row is not available: $id"; return 1; }
+  IFS=$'\t' read -r _ _ _ label version source app <<< "$record"
+  name="$(inventory_item_name "$label")"
+  while IFS= read -r path; do
+    [ -n "$path" ] && paths+=("$path")
+  done < <(detected_cleanup_paths "$id")
+  printf 'Cleanup preview: %s (%s, %s)\n' "$name" "${version:-unknown}" "$id"
+  printf 'Only exact paths associated with this app bundle are candidates; group containers and unrelated files are excluded.\n'
+  if [ "${#paths[@]}" -eq 0 ]; then
+    printf 'No cleanup candidates found. Nothing changed.\n'
+    return 0
+  fi
+  for path in "${paths[@]}"; do
+    printf '  %s\t%s\n' "$(du -sh "$path" 2>/dev/null | awk '{print $1}' || printf '?')" "$path"
+  done
+  if [ "$apply" -ne 1 ]; then
+    printf 'Nothing changed. Re-run with: aiup cleanup %s --apply\n' "$id"
+    return 0
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf 'DRY-RUN: these paths would be moved to %s\n' "$HOME/.Trash"
+    return 0
+  fi
+  confirm_tty "Move these ${#paths[@]} exact paths to Trash? [y/N] " || {
+    info "Cleanup cancelled"
+    return 0
+  }
+  ensure_dir "$HOME/.Trash"
+  for path in "${paths[@]}"; do
+    leaf="$(basename "$path")"
+    target="$HOME/.Trash/aiup-$(date +%Y%m%d%H%M%S)-$leaf"
+    while [ -e "$target" ] || [ -L "$target" ]; do
+      target="$HOME/.Trash/aiup-$(date +%Y%m%d%H%M%S)-$$-$leaf"
+    done
+    if mv "$path" "$target"; then
+      info "Moved to Trash: $path"
+    else
+      error "Could not move to Trash: $path"
+    fi
+  done
+  printf 'Cleanup complete. Files remain recoverable in %s.\n' "$HOME/.Trash"
 }
 
 remove_aiup_npm_pkg() {
@@ -4875,8 +5092,9 @@ scan_catalog_index() {
 }
 
 emit_brew_available_rows() {
-  awk -F '\t' '
-    $1 == "homebrew/available" {
+  local child="${1:-available}"
+  awk -F '\t' -v wanted="homebrew/${child}" '
+    $1 == wanted {
       id = $3
       if (substr(id, 1, 3) == "bc:") {
         kind = "cask"
@@ -4888,7 +5106,7 @@ emit_brew_available_rows() {
       color = "\033[38;5;250m"
       reset = "\033[0m"
       state = "\033[38;5;245m" sprintf("%-10s", "absent · install") reset
-      category = color sprintf("%-16s", "available") reset
+      category = color sprintf("%-16s", (wanted == "homebrew/fonts" ? "fonts" : "available")) reset
       printf "%s\t%s %s %s %s %s%s\n", id, color "▌" reset, category, state, sprintf("%-18s", kind ":" name), $4, ""
     }
   ' "$BREW_INDEX"
@@ -4911,7 +5129,7 @@ emit_fzf_rows_from_index() {
           if [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]] && [ "$LIST_CATEGORY_FILTER" != "homebrew/${child}" ]; then
             continue
           fi
-          if [ "$LIST_VIEW_MODE" = 'available' ] && [ "$child" != 'available' ]; then
+          if [ "$LIST_VIEW_MODE" = 'available' ] && [ "$child" != 'available' ] && [ "$child" != 'fonts' ]; then
             continue
           fi
           c_inst="$(awk -F '\t' -v c="homebrew/${child}" '$1==c && ($2=="installed" || $2=="on-disk") {n++} END {print n+0}' "$BREW_INDEX" 2>/dev/null)"
@@ -4921,8 +5139,10 @@ emit_fzf_rows_from_index() {
           format_category_header "homebrew/${child}" "$c_inst" "$c_abs" 1
           printf '\n'
           if category_expanded "homebrew/${child}" || [ "$LIST_CATEGORY_FILTER" = "homebrew/${child}" ]; then
-            if [ "$child" = 'available' ]; then
-              emit_brew_available_rows
+            if [ "$child" = 'available' ] || [ "$child" = 'fonts' ]; then
+              if homebrew_available_loaded; then
+                emit_brew_available_rows "$child"
+              fi
               continue
             fi
             while IFS=$'\t' read -r _ state id label; do
@@ -5175,7 +5395,7 @@ apply_catalog_action() {
         case "$t" in
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$t") ;;
-          di:*) warn "Detected item '$t' is informational only; aiup will not guess how to update or remove it"; result_record detected "$t" ;;
+          di:*) warn "Detected-only item '$t' has no verified updater/remover contract; aiup will not guess how to change it"; result_record detected "$t" ;;
           *) catalog_tools+=("$t") ;;
         esac
       done
@@ -5206,7 +5426,7 @@ apply_catalog_action() {
         case "$t" in
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$t") ;;
-          di:*) warn "Detected item '$t' is informational only; use its owning package manager"; result_record detected "$t" ;;
+          di:*) warn "Detected-only item '$t' has no verified updater contract; use its owning package manager"; result_record detected "$t" ;;
           *) catalog_tools+=("$t") ;;
         esac
       done
@@ -5223,7 +5443,8 @@ apply_catalog_action() {
         case "$tool" in
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$tool"); continue ;;
-          di:*) warn "Detected item '$tool' is informational only and cannot be removed by aiup"; result_record detected "$tool"; continue ;;
+          di:app:*) cmd_cleanup "$tool" 1 || true; result_record detected "$tool"; continue ;;
+          di:*) warn "Detected item '$tool' has no safe generic remover; use ctrl-o or its owning package manager"; result_record detected "$tool"; continue ;;
         esac
         if [ "$tool" = 'npm' ] || [ "$tool" = 'brew' ]; then
           warn "$tool is not removable via aiup"
@@ -5331,6 +5552,8 @@ Usage:
   aiup install             Interactive checkbox list — pick catalog tools to install
   aiup remove              Interactive checkbox list — pick installed tools to uninstall
   aiup remove <tools...>   Uninstall named catalog tools
+  aiup cleanup <detected-app-id>  Preview app-bundle leftovers (no changes)
+  aiup cleanup <detected-app-id> --apply  Move exact candidates to Trash after confirmation
   aiup docs <tool>         Open the official GitHub repo (or website) in a browser
   aiup docs --print <tool> Print that URL
   aiup preview <tool>      Print the picker preview (name, category, docs URL)
@@ -5590,6 +5813,11 @@ parse_args() {
       ;;
     inventory)
       print_inventory_definition "${args[1]:---json}"
+      ;;
+    cleanup)
+      local cleanup_apply=0
+      [ "${args[2]:-}" = '--apply' ] && cleanup_apply=1
+      cmd_cleanup "${args[1]:-}" "$cleanup_apply"
       ;;
     list)
       if [ "${args[1]:-}" = '--plain' ] || [ "${args[1]:-}" = '--detected' ] || ! tty_usable; then

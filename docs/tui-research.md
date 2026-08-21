@@ -18,9 +18,9 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 | Need a focused view | `aiup list --category CAT` focuses a managed category, `detected`, `homebrew`, or `homebrew/available`. |
 | Need a compact maintenance view | `--view installed` hides absent rows; `--view managed`, `--view detected`, and `--view available` isolate the corresponding evidence lane. |
 | Need to find one item | fzf's query searches the visible rows; the focused Homebrew view is generated from the user's local taps. |
-| Unknown local software | A final `detected` category shows app, npm, uv, and PATH evidence as detected-only rows with source, version, and location. |
-| Need context without leaving the list | The preview pane shows official docs for managed entries and source/version/path for detections. `ctrl-/` toggles the preview. |
-| Risk of an accidental mutation | Detected rows never enter an update/remove action because aiup has no verified owner/updater contract for them yet. |
+| Unknown local software | A final `detected` category shows app, npm, uv, and PATH evidence as detected-only rows with source, version, location, and source subtotals. |
+| Need context without leaving the list | The preview pane shows official docs for managed entries and source/version/path plus a Google search for detections. `ctrl-/` toggles the preview. |
+| Risk of an accidental mutation | Detected rows never enter an update action because aiup has no verified owner/updater contract. Detected app rows expose an exact-path cleanup preview and require `--apply` plus confirmation to move candidates to Trash. |
 | Need to know what Enter will do | Rows show action badges such as `install`, `update`, `switch to Homebrew`, `sunset`, or `detected-only`; previews show dependency readiness. |
 
 ## Implemented improvements
@@ -35,12 +35,12 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 - `ctrl-g` opens a searchable category palette.
 - Explicit view modes now separate `managed`, `detected`, `available`, `installed`, and `overview`.
-- Homebrew available rows remain lazy and load only when the available view is focused.
+- Homebrew available rows remain lazy and load only when the available view is focused. The overview says “full Homebrew catalog not loaded” rather than presenting zero; the explicit view separates 2,000+ `font-*` casks into `homebrew/fonts` and labels the remaining rows as non-managed Homebrew extras.
 
 ### Explainable maintenance
 
 - Visible action badges distinguish `update`, `install`, `switch to Homebrew`, `detected-only`, and lifecycle warnings.
-- Previews show dependency closure and whether each prerequisite is ready or missing.
+- Previews show dependency closure and whether each prerequisite is ready or missing. Detected previews show a Google search URL and, for app bundles, the cleanup command.
 - Update runs summarize completed, removed, skipped, detected-only, failed, and cancelled work.
 
 ## Remaining improvements

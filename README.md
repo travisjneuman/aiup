@@ -93,7 +93,7 @@ PATH, app bundles, `brew list`. No telemetry. [Privacy →](docs/privacy.md)
 
 ### 🔎 Your Mac, not a hardcoded demo
 
-The managed catalog is curated for safe install/update/remove actions. The picker also discovers app bundles, global npm packages, uv tools, and user-facing PATH binaries that are not yet managed. Those detections are clearly marked detected-only: aiup has not verified an updater/remover contract for them yet, so another user's Mac can appear in the list without aiup guessing how to modify it.
+The managed catalog is curated for safe install/update/remove actions. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
 
 <p align="center">
   <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Collapsed catalog" />
@@ -111,16 +111,16 @@ The managed catalog is curated for safe install/update/remove actions. The picke
 | <kbd>pgup</kbd> / <kbd>pgdn</kbd> | Jump to the previous / next category |
 | <kbd>ctrl</kbd>+<kbd>g</kbd> | Open a searchable category-jump palette |
 | <kbd>alt</kbd>+<kbd>e</kbd> / <kbd>alt</kbd>+<kbd>c</kbd> | Expand / collapse all |
-| <kbd>ctrl</kbd>+<kbd>d</kbd> | Uninstall |
-| <kbd>ctrl</kbd>+<kbd>o</kbd> | Open GitHub or the product site |
+| <kbd>ctrl</kbd>+<kbd>d</kbd> | Uninstall managed items; preview cleanup for detected apps |
+| <kbd>ctrl</kbd>+<kbd>o</kbd> | Open GitHub, the product site, or a Google search for detected software |
 | <kbd>ctrl</kbd>+<kbd>/</kbd> | Toggle the preview pane |
 | <kbd>esc</kbd> | Leave |
 
-Type to search the visible rows. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the final category: it is an inventory of software found on this Mac, not a managed update list. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, and path in the preview, but never install, update, or remove anything.
+Type to search the visible rows. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the final category: it is a cross-source inventory of software found on this Mac, not a managed update list or an Applications-only list. Its header shows the total plus app/npm/uv/PATH subtotals. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, path, and web-search link in the preview. App-bundle rows also support an AppCleaner-style cleanup preview; `aiup cleanup <detected-app-id>` lists exact candidates without changing anything, and `--apply` moves confirmed candidates to Trash.
 
 Use `--view installed` for a compact maintenance view, `--view managed` to hide local detections/Homebrew extras, `--view detected` for only software found on this Mac, or `--view available` for Homebrew's available packages. Use `--sort label` when scanning a category alphabetically; the default `--sort id` preserves manifest order. `aiup inventory` uses a five-minute source-aware cache; add `--refresh` after installing or removing software outside aiup.
 
-For a full package-manager-backed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. That view is generated from the Homebrew taps already on the Mac and delegates dependency resolution back to Homebrew.
+For Homebrew extras outside the managed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. The overview intentionally does not load thousands of Homebrew rows: it says “not loaded” rather than showing a misleading zero. The full view is generated from the Homebrew taps already on the Mac, places `font-*` casks under `Homebrew > fonts`, and delegates dependency resolution back to Homebrew; managed catalog items remain in their normal categories.
 
 Installed rows glow **neon green**. Each category has a color bar. Categories start collapsed.
 
@@ -149,7 +149,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.21-05** · **83** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.21-06** · **83** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -162,7 +162,7 @@ _**2026.08.21-05** · **83** tools in the main catalog. Generated from `macos/ai
 | 🧠 | **local-ai** | Models, capture, and engines that run on your Mac | 13 tools |
 | 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
 | 🔌 | **adapters** | Glue between agents and editors | 1 tool |
-| 🍺 | **homebrew** | What Homebrew already put on your Mac, plus a short recommended list | your Mac + recommended |
+| 🍺 | **homebrew** | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 
 Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**

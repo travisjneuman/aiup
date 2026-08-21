@@ -41,6 +41,7 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 
 assert "items" in data
 assert all(item["id"].startswith("di:") for item in data["items"])
+assert all(item["search"].startswith("https://www.google.com/search?q=") for item in data["items"])
 PY
 
 test -s "$TEST_DIR/state/inventory-cache.meta"
@@ -60,6 +61,11 @@ grep -q '^category_jump_action()' "$AIUP"
 grep -q '^catalog_ui_state_save()' "$AIUP"
 grep -q '^catalog_dependency_preview()' "$AIUP"
 grep -q '^emit_brew_available_rows()' "$AIUP"
+grep -q '^detected_search_url()' "$AIUP"
+grep -q '^detected_cleanup_paths()' "$AIUP"
+grep -q '^cmd_cleanup()' "$AIUP"
+grep -q 'full Homebrew catalog not loaded' "$AIUP"
+grep -q 'available font casks' "$AIUP"
 grep -q '^print_result_summary()' "$AIUP"
 grep -q 'LIST_VIEW_MODE' "$AIUP"
 grep -q 'CATEGORY_ORDER=.*homebrew detected' "$AIUP"

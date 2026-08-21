@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.08.21-05",
+  "version": "2026.08.21-06",
   "categories": [
     {
       "id": "infra",
@@ -732,7 +732,7 @@
     {
       "id": "homebrew",
       "emoji": "🍺",
-      "blurb": "What Homebrew already put on your Mac, plus a short recommended list",
+      "blurb": "Homebrew extras outside the managed catalog, plus a short recommended list",
       "tools": []
     },
     {
@@ -744,7 +744,7 @@
     {
       "id": "homebrew/fonts",
       "emoji": "🔤",
-      "blurb": "Fonts Homebrew already installed on your Mac",
+      "blurb": "Fonts installed via Homebrew, plus available font casks in the full catalog view",
       "tools": []
     },
     {
@@ -768,7 +768,7 @@
     {
       "id": "homebrew/available",
       "emoji": "🗂️",
-      "blurb": "All other formulae and casks currently available from your installed Homebrew taps",
+      "blurb": "Formulae and non-font casks available from your installed Homebrew taps",
       "tools": []
     }
   ],
