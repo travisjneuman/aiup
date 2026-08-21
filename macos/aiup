@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.20-25"
+AIUP_VERSION="2026.08.21-01"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -34,6 +34,8 @@ CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai l
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
+BREW_CATALOG_NAMES="|"
+AIUP_BREW_CATALOG_INDEX_READY=0
 HOMEBREW_CHILD_ORDER=(casks fonts formulae libraries recommended)
 HOMEBREW_RECOMMENDED_CASKS=(
   raycast obsidian docker linear notion windsurf devin-desktop
@@ -1614,14 +1616,26 @@ brew_child_for() {
   fi
 }
 
+catalog_brew_index_init() {
+  [ "${AIUP_BREW_CATALOG_INDEX_READY:-0}" -eq 1 ] && return 0
+  local tool name
+  BREW_CATALOG_NAMES="|"
+  for tool in "${TOOLS_CATALOG[@]}"; do
+    name="$(catalog_brew_formula "$tool")"
+    [ -n "$name" ] && BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|"
+    name="$(catalog_brew_cask "$tool")"
+    [ -n "$name" ] && BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|"
+  done
+  AIUP_BREW_CATALOG_INDEX_READY=1
+}
+
 catalog_covers_brew() {
   local name="$1"
-  local t
-  for t in "${TOOLS_CATALOG[@]}"; do
-    [ "$(catalog_brew_formula "$t")" = "$name" ] && return 0
-    [ "$(catalog_brew_cask "$t")" = "$name" ] && return 0
-  done
-  return 1
+  catalog_brew_index_init
+  case "$BREW_CATALOG_NAMES" in
+    *"|${name}|"*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 brew_extra_label() {

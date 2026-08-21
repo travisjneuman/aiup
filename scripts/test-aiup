@@ -27,6 +27,7 @@ PY
 
 grep -q '^catalog_validate()' "$AIUP"
 grep -q '^brew_review_installed_taps()' "$AIUP"
+grep -q '^catalog_brew_index_init()' "$AIUP"
 grep -q '^update_screenpipe()' "$AIUP"
 grep -q 'brew trust --tap' "$AIUP"
 grep -q 'would trust already-installed Homebrew tap' "$AIUP"
