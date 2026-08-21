@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.21-01"
+AIUP_VERSION="2026.08.21-02"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -1314,7 +1314,7 @@ catalog_ansi() {
 }
 
 # Keep in sync with catalog_hotkey_help line count.
-HOTKEY_HELP_LINES=11
+HOTKEY_HELP_LINES=13
 PREVIEW_META_LINES=8
 
 catalog_hotkey_help() {
@@ -1322,6 +1322,8 @@ catalog_hotkey_help() {
   printf 'tab  or  space     check / uncheck\n'
   printf 'ctrl-a             check all visible rows\n'
   printf 'ctrl-e             expand/collapse this category\n'
+  printf 'left / right       collapse / expand this category\n'
+  printf 'pgup / pgdn        previous / next category\n'
   printf 'alt-e              expand all categories\n'
   printf 'alt-c              collapse all categories\n'
   printf 'ctrl-d             uninstall (installed items; not brew/npm)\n'
@@ -1346,6 +1348,8 @@ print_catalog_preview() {
     __cat:*)
       printf 'category  %s\n' "${tool#__cat:}"
       printf 'enter or ctrl-e  expand / collapse\n'
+      printf 'left / right     collapse / expand\n'
+      printf 'pgup / pgdn      previous / next category\n'
       printf 'alt-e expand all   alt-c collapse all\n'
       printf '\n'
       catalog_hotkey_help
@@ -1434,30 +1438,90 @@ category_expanded() {
   grep -qx "$cat" "$EXPAND_FILE" 2>/dev/null
 }
 
-toggle_category() {
+category_for_row() {
   local raw="$1"
-  local cat="" parent=""
   case "$raw" in
-    __cat:*) cat="${raw#__cat:}" ;;
-    bc:*|bf:*) cat="$(catalog_category "$raw")" ;;
-    *) cat="$(catalog_category "$raw")" ;;
+    __cat:*) printf '%s\n' "${raw#__cat:}" ;;
+    bc:*|bf:*) catalog_category "$raw" ;;
+    *) catalog_category "$raw" ;;
   esac
+}
+
+expand_category() {
+  local raw="$1"
+  local cat parent
+  cat="$(category_for_row "$raw")"
+  [ -n "$cat" ] || return 0
+  ensure_dir "$STATE_DIR"
+  touch "$EXPAND_FILE"
+  if ! category_expanded "$cat"; then
+    printf '%s\n' "$cat" >> "$EXPAND_FILE"
+  fi
+  case "$cat" in
+    */*)
+      parent="${cat%%/*}"
+      if ! category_expanded "$parent"; then
+        printf '%s\n' "$parent" >> "$EXPAND_FILE"
+      fi
+      ;;
+  esac
+}
+
+collapse_category() {
+  local raw="$1"
+  local cat
+  cat="$(category_for_row "$raw")"
   [ -n "$cat" ] || return 0
   ensure_dir "$STATE_DIR"
   touch "$EXPAND_FILE"
   if category_expanded "$cat"; then
     grep -vx "$cat" "$EXPAND_FILE" > "${EXPAND_FILE}.tmp" 2>/dev/null || true
     mv "${EXPAND_FILE}.tmp" "$EXPAND_FILE"
+  fi
+}
+
+toggle_category() {
+  local raw="$1"
+  local cat
+  cat="$(category_for_row "$raw")"
+  [ -n "$cat" ] || return 0
+  if category_expanded "$cat"; then
+    collapse_category "$raw"
   else
-    printf '%s\n' "$cat" >> "$EXPAND_FILE"
-    case "$cat" in
-      */*)
-        parent="${cat%%/*}"
-        if ! category_expanded "$parent"; then
-          printf '%s\n' "$parent" >> "$EXPAND_FILE"
-        fi
-        ;;
-    esac
+    expand_category "$raw"
+  fi
+}
+
+category_nav_action() {
+  local direction="$1"
+  local current="$2"
+  local listfile="$3"
+  local current_line target
+  [ -f "$listfile" ] || return 0
+  current_line="$(awk -F '\t' -v id="$current" '$1 == id {print NR; exit}' "$listfile")"
+  [ -n "$current_line" ] || { printf 'pos(1)\n'; return 0; }
+  case "$direction" in
+    previous)
+      target="$(awk -F '\t' -v start="$current_line" 'NR < start && $1 ~ /^__cat:/ {last=NR} END {if (last) print last}' "$listfile")"
+      ;;
+    next)
+      target="$(awk -F '\t' -v start="$current_line" 'NR > start && $1 ~ /^__cat:/ {print NR; exit}' "$listfile")"
+      ;;
+  esac
+  printf 'pos(%s)\n' "${target:-$current_line}"
+}
+
+refresh_fzf_listfile() {
+  local listfile="$1"
+  local next_file
+  [ -n "$listfile" ] || return 0
+  [ -f "$listfile" ] || return 0
+  next_file="${listfile}.next"
+  if emit_fzf_rows_from_index > "$next_file"; then
+    mv "$next_file" "$listfile"
+  else
+    rm -f "$next_file"
+    return 1
   fi
 }
 
@@ -1793,12 +1857,17 @@ scan_brew_index() {
 
 enter_action_for() {
   local id="$1"
+  local listfile="${2:-}"
   local self
   self="$(command_path aiup)"
   [ -n "$self" ] || self="${BASH_SOURCE[0]:-$0}"
   case "$id" in
     __cat:*)
-      printf 'execute-silent(%s __cat-toggle %s)+reload-sync(%s __fzf-rows)+pos({n})\n' "$self" "$id" "$self"
+      if [ -n "$listfile" ]; then
+        printf 'execute-silent(%s __cat-toggle %s %s)+reload-sync(%s __fzf-rows)+pos({n})\n' "$self" "$id" "$listfile" "$self"
+      else
+        printf 'execute-silent(%s __cat-toggle %s)+reload-sync(%s __fzf-rows)+pos({n})\n' "$self" "$id" "$self"
+      fi
       ;;
     *)
       printf 'accept\n'
@@ -4283,16 +4352,20 @@ pick_catalog_tools() {
     selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --multi --delimiter=$'\t' --with-nth=2 \
       --no-height \
       --prompt "aiup ${mode}> " \
-      --header "enter expand or install · ctrl-e toggle category · alt-e expand all · alt-c collapse all · ctrl-d uninstall · ctrl-o docs · esc" \
+      --header "enter expand/install · left/right collapse/expand · pgup/pgdn category · ctrl-e toggle · alt-e/c all · ctrl-d uninstall · ctrl-o docs · esc" \
       --preview "$self preview {1}" \
       --preview-window "down:$(catalog_preview_height):wrap" \
       --bind 'space:toggle' \
       --bind 'ctrl-a:toggle-all' \
       --bind 'resize:refresh-preview' \
-      --bind "enter:transform:$self __enter-action {1}" \
-      --bind "ctrl-e:execute-silent($self __cat-toggle {1})+reload-sync($self __fzf-rows)+pos({n})" \
-      --bind "alt-e:execute-silent($self __cat-expand-all)+reload-sync($self __fzf-rows)+pos({n})" \
-      --bind "alt-c:execute-silent($self __cat-collapse-all)+reload-sync($self __fzf-rows)+pos({n})" \
+      --bind "enter:transform:$self __enter-action {1} $listfile" \
+      --bind "left:execute-silent($self __cat-collapse {1} $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
+      --bind "right:execute-silent($self __cat-expand {1} $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
+      --bind "pgup:transform:$self __cat-nav previous {1} $listfile" \
+      --bind "pgdn:transform:$self __cat-nav next {1} $listfile" \
+      --bind "ctrl-e:execute-silent($self __cat-toggle {1} $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
+      --bind "alt-e:execute-silent($self __cat-expand-all $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
+      --bind "alt-c:execute-silent($self __cat-collapse-all $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "ctrl-o:execute-silent($self docs {1})+clear-screen+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "f3:execute-silent($self docs {1})+clear-screen+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "alt-o:execute-silent($self docs {1})+clear-screen+reload-sync($self __fzf-rows)+pos({n})" \
@@ -4689,15 +4762,29 @@ parse_args() {
       ;;
     __cat-toggle)
       toggle_category "${args[1]:-}"
+      refresh_fzf_listfile "${args[2]:-}"
+      ;;
+    __cat-expand)
+      expand_category "${args[1]:-}"
+      refresh_fzf_listfile "${args[2]:-}"
+      ;;
+    __cat-collapse)
+      collapse_category "${args[1]:-}"
+      refresh_fzf_listfile "${args[2]:-}"
+      ;;
+    __cat-nav)
+      category_nav_action "${args[1]:-}" "${args[2]:-}" "${args[3]:-}"
       ;;
     __cat-expand-all)
       expand_all_categories
+      refresh_fzf_listfile "${args[1]:-}"
       ;;
     __cat-collapse-all)
       collapse_all_categories
+      refresh_fzf_listfile "${args[1]:-}"
       ;;
     __enter-action)
-      enter_action_for "${args[1]:-}"
+      enter_action_for "${args[1]:-}" "${args[2]:-}"
       ;;
     doctor)
       print_doctor

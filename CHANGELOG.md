@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.08.21-02
+
+- The interactive catalog now supports left/right category collapse/expand and Page Up/Page Down jumps between category rows.
+
 ## 2026.08.21-01
 
 - `aiup list` now caches catalog/Homebrew ownership lookups during inventory scanning, so the fzf picker opens promptly even when many Homebrew packages are installed.
