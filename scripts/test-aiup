@@ -12,6 +12,12 @@ AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" catalog --json > "$TEST_DIR/catalog.jso
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" inventory --json > "$TEST_DIR/inventory.json"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --sort label --view managed list --plain > "$TEST_DIR/managed.txt"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --view detected list --plain > "$TEST_DIR/detected.txt"
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --view managed list --plain > /dev/null
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" __fzf-rows > "$TEST_DIR/rows-collapsed.tsv"
+! grep -q '^chatgpt[[:space:]]' "$TEST_DIR/rows-collapsed.tsv"
+printf 'chatgpt' > "$TEST_DIR/state/list-query"
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" __fzf-rows > "$TEST_DIR/rows-search.tsv"
+grep -q '^chatgpt[[:space:]]' "$TEST_DIR/rows-search.tsv"
 python3 - "$TEST_DIR/catalog.json" <<'PY'
 import json
 import sys
@@ -73,6 +79,10 @@ grep -q 'detected-only' "$AIUP"
 grep -q 'detected) printf' "$AIUP"
 grep -q 'aiup inventory' "$AIUP"
 grep -q '^refresh_fzf_listfile()' "$AIUP"
+grep -q '^clear_terminal_screen()' "$AIUP"
+grep -q '^list_search_active()' "$AIUP"
+grep -q '__search-query' "$AIUP"
+grep -q 'change:execute-silent.*__search-query' "$AIUP"
 grep -q 'left:execute-silent.*__cat-collapse' "$AIUP"
 grep -q 'right:execute-silent.*__cat-expand' "$AIUP"
 grep -q 'pgup:transform.*__cat-nav previous' "$AIUP"

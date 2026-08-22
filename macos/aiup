@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.21-06"
+AIUP_VERSION="2026.08.21-07"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -514,6 +514,11 @@ restore_tty() {
   tty_usable || return 0
   printf '\033[?25h\033[?1049l\033[0m' >/dev/tty 2>/dev/null || true
   stty sane echo icanon </dev/tty 2>/dev/null || true
+}
+
+clear_terminal_screen() {
+  tty_usable || return 0
+  printf '\033[2J\033[H' >/dev/tty 2>/dev/null || true
 }
 
 # macOS/BSD stty maps ^O to "discard" and ^Y to "dsusp", so those chords
@@ -1734,6 +1739,10 @@ category_expanded() {
   local cat="$1"
   [ -f "$EXPAND_FILE" ] || return 1
   grep -qx "$cat" "$EXPAND_FILE" 2>/dev/null
+}
+
+list_search_active() {
+  [ -s "$LIST_QUERY_FILE" ]
 }
 
 category_for_row() {
@@ -5113,7 +5122,8 @@ emit_brew_available_rows() {
 }
 
 emit_fzf_rows_from_index() {
-  local cat n_inst n_abs tool id state label
+  local cat n_inst n_abs tool id state label search_active=0
+  list_search_active && search_active=1
   for cat in "${CATEGORY_ORDER[@]}"; do
     category_visible "$cat" || continue
   if [ "$cat" = 'homebrew' ]; then
@@ -5123,7 +5133,7 @@ emit_fzf_rows_from_index() {
       [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$n_inst" -eq 0 ] && continue
       format_category_header "$cat" "$n_inst" "$n_abs" 0
       printf '\n'
-      if category_expanded "$cat" || [ "$LIST_CATEGORY_FILTER" = 'homebrew' ] || [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]] || [ "$LIST_VIEW_MODE" = 'available' ]; then
+      if category_expanded "$cat" || [ "$search_active" -eq 1 ] || [ "$LIST_CATEGORY_FILTER" = 'homebrew' ] || [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]] || [ "$LIST_VIEW_MODE" = 'available' ]; then
         local child c_inst c_abs
         for child in "${HOMEBREW_CHILD_ORDER[@]}"; do
           if [[ "$LIST_CATEGORY_FILTER" == homebrew/* ]] && [ "$LIST_CATEGORY_FILTER" != "homebrew/${child}" ]; then
@@ -5138,7 +5148,7 @@ emit_fzf_rows_from_index() {
           [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$c_inst" -eq 0 ] && continue
           format_category_header "homebrew/${child}" "$c_inst" "$c_abs" 1
           printf '\n'
-          if category_expanded "homebrew/${child}" || [ "$LIST_CATEGORY_FILTER" = "homebrew/${child}" ]; then
+          if category_expanded "homebrew/${child}" || [ "$search_active" -eq 1 ] || [ "$LIST_CATEGORY_FILTER" = "homebrew/${child}" ]; then
             if [ "$child" = 'available' ] || [ "$child" = 'fonts' ]; then
               if homebrew_available_loaded; then
                 emit_brew_available_rows "$child"
@@ -5176,7 +5186,7 @@ emit_fzf_rows_from_index() {
     [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$n_inst" -eq 0 ] && continue
     format_category_header "$cat" "$n_inst" "$n_abs"
     printf '\n'
-    if category_expanded "$cat"; then
+    if category_expanded "$cat" || [ "$search_active" -eq 1 ]; then
       if [ "$cat" = 'detected' ]; then
         while IFS=$'\t' read -r _ state id label version source path; do
           [ -n "$id" ] || continue
@@ -5307,6 +5317,7 @@ pick_catalog_tools() {
       --bind 'space:toggle' \
       --bind 'ctrl-a:toggle-all' \
       --bind 'resize:refresh-preview' \
+      --bind "change:execute-silent($self __search-query {q})+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "enter:transform:$self __enter-action {1} $listfile" \
       --bind "left:execute-silent($self __cat-collapse {1} $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "right:execute-silent($self __cat-expand {1} $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
@@ -5509,19 +5520,25 @@ cmd_catalog_browse() {
   collapse_all_categories
   while true; do
     restore_tty
+    clear_terminal_screen
     brew_cache_invalidate
     PICK_ACTION=""
     PICK_TOOLS=()
     if ! pick_catalog_tools browse; then
       result_record cancelled "catalog picker"
+      restore_tty
+      clear_terminal_screen
       print_result_summary
       AIUP_KEEP_UI=0
       restore_tty
       return 0
     fi
     [ "${#PICK_TOOLS[@]}" -gt 0 ] || continue
+    restore_tty
+    clear_terminal_screen
     apply_catalog_action "${PICK_ACTION:-apply}" "${PICK_TOOLS[@]}" || true
     restore_tty
+    clear_terminal_screen
   done
 }
 
@@ -5775,6 +5792,10 @@ parse_args() {
       ;;
     __fzf-rows)
       emit_fzf_rows_from_index | sort_fzf_rows
+      ;;
+    __search-query)
+      ensure_dir "$STATE_DIR"
+      printf '%s' "${args[*]:1}" > "$LIST_QUERY_FILE"
       ;;
     __cat-toggle)
       toggle_category "${args[1]:-}"

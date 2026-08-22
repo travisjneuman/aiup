@@ -17,7 +17,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 | Need to jump farther | `ctrl-g` opens a searchable category palette and returns to the selected header. |
 | Need a focused view | `aiup list --category CAT` focuses a managed category, `detected`, `homebrew`, or `homebrew/available`. |
 | Need a compact maintenance view | `--view installed` hides absent rows; `--view managed`, `--view detected`, and `--view available` isolate the corresponding evidence lane. |
-| Need to find one item | fzf's query searches the visible rows; the focused Homebrew view is generated from the user's local taps. |
+| Need to find one item | fzf's query searches the entire catalog, including rows inside collapsed categories; the focused Homebrew view is generated from the user's local taps. |
 | Unknown local software | A final `detected` category shows app, npm, uv, and PATH evidence as detected-only rows with source, version, location, and source subtotals. |
 | Need context without leaving the list | The preview pane shows official docs for managed entries and source/version/path plus a Google search for detections. `ctrl-/` toggles the preview. |
 | Risk of an accidental mutation | Detected rows never enter an update action because aiup has no verified owner/updater contract. Detected app rows expose an exact-path cleanup preview and require `--apply` plus confirmation to move candidates to Trash. |
@@ -43,8 +43,10 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 - Previews show dependency closure and whether each prerequisite is ready or missing. Detected previews show a Google search URL and, for app bundles, the cleanup command.
 - Update runs summarize completed, removed, skipped, detected-only, failed, and cancelled work.
 
-## Remaining improvements
+## State and action continuity
 
 - The picker remembers the last query and selected category locally; the default overview remains collapsed and users can clear the query with fzf's normal query-editing keys.
+- While a query is non-empty, the row source temporarily includes every category's children so collapsed categories cannot hide matches. Clearing the query returns to the compact header-only overview.
+- Before and after a selected install, update, removal, or app switch, aiup restores the terminal, clears the previous full-screen frame, and then runs the provider action. Provider progress remains visible while the action is genuinely running; reopening the picker starts from a clean frame.
 
 The guiding invariant is that discovery can be broad and dynamic, while mutation remains explicit, source-backed, and reversible.
