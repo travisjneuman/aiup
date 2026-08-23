@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.21-07"
+AIUP_VERSION="2026.08.23-01"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -76,11 +76,13 @@ LIST_VIEW_MODE="${AIUP_VIEW_MODE:-overview}"
 LIST_SORT_MODE="${AIUP_SORT_MODE:-id}"
 INVENTORY_REFRESH=0
 RESULT_COMPLETED=()
+RESULT_CURRENT=()
 RESULT_REMOVED=()
 RESULT_SKIPPED=()
 RESULT_DETECTED=()
 RESULT_FAILED=()
 RESULT_CANCELLED=()
+AIUP_LAST_UPDATE_STATUS=completed
 
 if [ -n "${ZSH_VERSION:-}" ]; then
   setopt SH_WORD_SPLIT 2>/dev/null || true
@@ -159,12 +161,17 @@ result_record() {
   [ -n "$item" ] || return 0
   case "$kind" in
     completed) RESULT_COMPLETED+=("$item") ;;
+    current) RESULT_CURRENT+=("$item") ;;
     removed) RESULT_REMOVED+=("$item") ;;
     skipped) RESULT_SKIPPED+=("$item") ;;
     detected) RESULT_DETECTED+=("$item") ;;
     failed) RESULT_FAILED+=("$item") ;;
     cancelled) RESULT_CANCELLED+=("$item") ;;
   esac
+}
+
+update_status_set() {
+  AIUP_LAST_UPDATE_STATUS="$1"
 }
 
 print_result_group() {
@@ -176,12 +183,14 @@ print_result_group() {
 
 print_result_summary() {
   if [ "${#RESULT_COMPLETED[@]}" -eq 0 ] && [ "${#RESULT_REMOVED[@]}" -eq 0 ] && \
+    [ "${#RESULT_CURRENT[@]}" -eq 0 ] && \
     [ "${#RESULT_SKIPPED[@]}" -eq 0 ] && [ "${#RESULT_DETECTED[@]}" -eq 0 ] && \
     [ "${#RESULT_FAILED[@]}" -eq 0 ] && [ "${#RESULT_CANCELLED[@]}" -eq 0 ]; then
     return 0
   fi
   printf '\n=== aiup result ===\n'
   print_result_group completed "${RESULT_COMPLETED[@]}"
+  print_result_group current "${RESULT_CURRENT[@]}"
   print_result_group removed "${RESULT_REMOVED[@]}"
   print_result_group skipped "${RESULT_SKIPPED[@]}"
   print_result_group detected-only "${RESULT_DETECTED[@]}"
@@ -460,7 +469,7 @@ npm_uninstall_system_pkg_if_distinct() {
     return 0
   fi
   if system_npm_pkg_installed "$pkg"; then
-    run_with_heartbeat "npm uninstall -g $pkg" npm uninstall -g "$pkg" || true
+    run_with_heartbeat "npm uninstall -g $pkg (system prefix $sys_prefix)" env NPM_CONFIG_PREFIX="$sys_prefix" npm uninstall -g "$pkg" || true
   fi
 }
 
@@ -1445,6 +1454,20 @@ catalog_docs_url() {
     anythingllm) printf 'https://github.com/Mintplex-Labs/anything-llm\n' ;;
     n8n) printf 'https://github.com/n8n-io/n8n\n' ;;
     interpreter) printf 'https://github.com/openinterpreter/open-interpreter\n' ;;
+    *) printf '\n' ;;
+  esac
+}
+
+# Optional metadata-first update contract for official app installers.
+# Template variables are expanded by official_app_update_endpoint so a future
+# app can declare its own platform/architecture/current-version endpoint in the
+# manifest without duplicating the version-check plumbing in this script.
+catalog_update_endpoint() {
+  local manifest_endpoint
+  manifest_endpoint="$(catalog_manifest_field "$1" 8 2>/dev/null || true)"
+  [ -n "$manifest_endpoint" ] && { printf '%s\n' "$manifest_endpoint"; return 0; }
+  case "$1" in
+    screenpipe) printf 'https://screenpipe.com/api/app-update/stable/{target}-{arch}/{current_version}\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -2498,7 +2521,7 @@ app_bundle_version() {
 
 version_of_tool() {
   local tool="$1"
-  local kind cask app formula bin cmd expected
+  local kind cask app formula bin cmd expected version pkg
   if [ "$tool" = 'npm' ]; then
     if command_exists npm; then
       npm --version </dev/null 2>&1 | first_line
@@ -2534,16 +2557,57 @@ version_of_tool() {
       return 0
     fi
   fi
+  if [ "$kind" = 'aiup-npm' ]; then
+    pkg="$(catalog_npm_pkg "$tool")"
+    if [ -n "$pkg" ] && [ -f "$(npm_pkg_dir_from_prefix "$AIUP_NPM_PREFIX" "$pkg")/package.json" ]; then
+      version="$(python3 - "$(npm_pkg_dir_from_prefix "$AIUP_NPM_PREFIX" "$pkg")/package.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    value = json.load(handle).get("version", "")
+if value:
+    print(value)
+PY
+      )"
+      if [ -n "$version" ]; then
+        printf '%s\n' "$version"
+        return 0
+      fi
+    fi
+    if [ -n "$pkg" ] && [ -n "$SYSTEM_NPM_PREFIX" ] && [ -f "$(npm_pkg_dir_from_prefix "$SYSTEM_NPM_PREFIX" "$pkg")/package.json" ]; then
+      version="$(python3 - "$(npm_pkg_dir_from_prefix "$SYSTEM_NPM_PREFIX" "$pkg")/package.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    value = json.load(handle).get("version", "")
+if value:
+    print(value)
+PY
+      )"
+      if [ -n "$version" ]; then
+        printf '%s\n' "$version"
+        return 0
+      fi
+    fi
+  fi
   bin="$(binary_of_tool "$tool")"
   cmd="$(command_path "$bin")"
   if [ -n "$cmd" ] && [ -x "$cmd" ]; then
-    "$bin" --version </dev/null 2>&1 | first_line
-    return 0
+    version="$("$bin" --version </dev/null 2>&1 | first_line || true)"
+    if [ -n "$version" ]; then
+      printf '%s\n' "$version"
+      return 0
+    fi
   fi
   expected="$(expected_direct_path "$tool")"
   if [ -n "$expected" ] && [ -x "$expected" ]; then
-    "$expected" --version </dev/null 2>&1 | first_line
-    return 0
+    version="$("$expected" --version </dev/null 2>&1 | first_line || true)"
+    if [ -n "$version" ]; then
+      printf '%s\n' "$version"
+      return 0
+    fi
   fi
   printf 'not installed\n'
 }
@@ -4101,25 +4165,94 @@ screenpipe_detach_mount() {
   hdiutil detach "$mountpoint" >/dev/null 2>&1 || true
 }
 
+official_app_update_endpoint() {
+  local tool="$1"
+  local target="$2"
+  local arch="$3"
+  local current_version="$4"
+  local endpoint
+  endpoint="$(catalog_update_endpoint "$tool")"
+  [ -n "$endpoint" ] || return 1
+  endpoint="${endpoint//\{target\}/$target}"
+  endpoint="${endpoint//\{arch\}/$arch}"
+  endpoint="${endpoint//\{current_version\}/$current_version}"
+  printf '%s\n' "$endpoint"
+}
+
+# Returns the latest version from a Tauri-style JSON update manifest. A 204/no
+# body is a valid "already current" response, so callers can distinguish it
+# from a failed request with the return code 2.
+official_app_latest_version() {
+  local endpoint="$1"
+  local response
+  response="$(curl -fsSL --retry 2 --connect-timeout 10 --max-time 30 "$endpoint" 2>/dev/null)" || return 1
+  [ -n "$response" ] || return 2
+  printf '%s' "$response" | python3 -c '
+import json
+import sys
+
+try:
+    value = json.load(sys.stdin).get("version", "")
+except Exception:
+    raise SystemExit(1)
+if not value:
+    raise SystemExit(1)
+print(value)
+' 2>/dev/null
+}
+
 update_screenpipe() {
   local app current_version arch platform download_dir dmg mountpoint staged_dir staged_app source_app
-  local new_version bundle_id running backup_dir backup_app url
+  local new_version bundle_id running backup_dir backup_app url target latest_version endpoint metadata_rc
   app="$(catalog_app_path screenpipe)"
   current_version=""
   [ -d "$app" ] && current_version="$(app_bundle_version "$app" || true)"
 
-  if [ "$DRY_RUN" -eq 1 ]; then
-    info "DRY-RUN: download and verify the latest official Screenpipe stable DMG for this Mac"
-    return 0
-  fi
   case "$(uname -m)" in
-    arm64) platform='macos-arm' ;;
-    x86_64) platform='macos-intel' ;;
+    arm64) platform='macos-arm'; target='darwin'; arch='aarch64' ;;
+    x86_64) platform='macos-intel'; target='darwin'; arch='x86_64' ;;
     *) error "Screenpipe has no supported macOS artifact for $(uname -m)"; return 1 ;;
   esac
   command_exists curl || { error "curl is required to update Screenpipe"; return 1; }
   command_exists hdiutil || { error "hdiutil is required to update Screenpipe"; return 1; }
   command_exists ditto || { error "ditto is required to update Screenpipe"; return 1; }
+
+  info "Screenpipe detected install method: official-dmg"
+  if [ -n "$current_version" ]; then
+    endpoint="$(official_app_update_endpoint screenpipe "$target" "$arch" "$current_version")" || {
+      error "Screenpipe has no official update metadata endpoint"
+      return 1
+    }
+    info "Checking Screenpipe stable update metadata"
+    if latest_version="$(official_app_latest_version "$endpoint")"; then
+      if [ "$(version_is_greater "$latest_version" "$current_version")" != 'yes' ]; then
+        if [ "$latest_version" = "$current_version" ]; then
+          info "Screenpipe $current_version is already current"
+          update_status_set current
+          set_state_method screenpipe official-dmg
+          return 0
+        fi
+        error "Screenpipe metadata version $latest_version is not newer than installed $current_version; refusing downgrade"
+        return 1
+      fi
+      info "Screenpipe update available: $current_version -> $latest_version"
+    else
+      metadata_rc=$?
+      if [ "$metadata_rc" -eq 2 ]; then
+        info "Screenpipe $current_version is already current (official updater reported no update)"
+        update_status_set current
+        set_state_method screenpipe official-dmg
+        return 0
+      fi
+      error "Could not read Screenpipe's official update metadata; refusing an unverified DMG download"
+      return 1
+    fi
+  fi
+
+  if [ "$DRY_RUN" -eq 1 ]; then
+    info "DRY-RUN: download and verify the latest official Screenpipe stable DMG for this Mac"
+    return 0
+  fi
 
   download_dir="$STATE_DIR/downloads/screenpipe"
   ensure_dir "$download_dir" || return 1
@@ -4131,7 +4264,6 @@ update_screenpipe() {
   url="$SCREENPIPE_DOWNLOAD_URL?platform=$platform&channel=stable"
   mkdir -p "$mountpoint" "$staged_dir" || return 1
 
-  info "Screenpipe detected install method: official-dmg"
   run_with_heartbeat "download Screenpipe stable DMG" curl -fsSL --retry 2 --connect-timeout 10 --max-time 900 -L "$url" -o "$dmg" || {
     rm -rf "$mountpoint" "$staged_dir"
     rm -f "$dmg"
@@ -4174,6 +4306,7 @@ update_screenpipe() {
     info "Screenpipe $current_version is already current"
     screenpipe_detach_mount "$mountpoint"
     rm -rf "$mountpoint" "$staged_dir" "$dmg"
+    update_status_set current
     set_state_method screenpipe official-dmg
     return 0
   fi
@@ -4273,6 +4406,7 @@ update_by_kind() {
         if [ -n "$app" ] && [ -d "$app" ]; then
           if [ "$NO_INSTALL" -eq 1 ]; then
             warn "$tool is installed as an app but not Homebrew-managed; skip (enter or aiup only $tool to switch to Homebrew — settings stay)"
+            update_status_set skipped
             return 0
           fi
           brew_cask_adopt "$cask" "$app" || return 1
@@ -4365,15 +4499,25 @@ remove_by_kind() {
 
 run_tool_update() {
   local tool="$1"
+  local result_kind
   info "========== TOOL START: $tool =========="
+  AIUP_LAST_UPDATE_STATUS=completed
   if type "update_$tool" >/dev/null 2>&1; then
     if "update_$tool"; then
-      result_record completed "$tool"
+      result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
+      case "$result_kind" in
+        current|skipped) result_record "$result_kind" "$tool" ;;
+        *) result_record completed "$tool" ;;
+      esac
       info "========== TOOL DONE: $tool =========="
       return 0
     fi
   elif update_by_kind "$tool"; then
-    result_record completed "$tool"
+    result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
+    case "$result_kind" in
+      current|skipped) result_record "$result_kind" "$tool" ;;
+      *) result_record completed "$tool" ;;
+    esac
     info "========== TOOL DONE: $tool =========="
     return 0
   fi
@@ -4965,6 +5109,9 @@ remove_pi() {
   remove_aiup_npm_pkg @mariozechner/pi-coding-agent
   npm_uninstall_system_pkg_if_distinct @earendil-works/pi-coding-agent || true
   npm_uninstall_system_pkg_if_distinct @mariozechner/pi-coding-agent || true
+  if aiup_npm_pkg_installed pi-acp; then
+    warn "Pi ACP adapter remains installed independently; remove it explicitly with: aiup remove pi-acp"
+  fi
 }
 
 remove_kilo() {

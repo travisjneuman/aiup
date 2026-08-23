@@ -1,5 +1,5 @@
 # aiup managed catalog manifest
-# id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)
+# id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
 brew	infra	special	active	Homebrew — required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node
 uv	infra	curl-installer	active	Astral uv/uvx — Python toolchain (also used to install Aider/llm)	https://github.com/astral-sh/uv
@@ -75,7 +75,7 @@ ghostty	terminals	brew-cask	active	Ghostty terminal	https://github.com/ghostty-o
 iterm2	terminals	brew-cask	active	iTerm2 terminal	https://iterm2.com/
 ollama-app	local-ai	brew-cask	active	Ollama desktop app (Homebrew cask)	https://ollama.com/
 macwhisper	local-ai	brew-cask	active	MacWhisper — local speech-to-text	https://goodsnooze.gumroad.com/l/macwhisper
-screenpipe	local-ai	app	active	screenpipe — local screen/audio capture (official stable DMG updater)	https://github.com/screenpipe/screenpipe
+screenpipe	local-ai	app	active	screenpipe — local screen/audio capture (official stable DMG updater)	https://github.com/screenpipe/screenpipe		https://screenpipe.com/api/app-update/stable/{target}-{arch}/{current_version}
 n8n	workspaces	brew-formula	active	n8n — workflow automation (often used with local LLMs)	https://github.com/n8n-io/n8n
 interpreter	coding-agents	uv-tool	active	Open Interpreter — natural-language computer-use agent	https://github.com/openinterpreter/open-interpreter
 vibe	coding-agents	uv-tool	active	Mistral Vibe — open-source CLI coding assistant	https://github.com/mistralai/mistral-vibe

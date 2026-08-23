@@ -58,6 +58,8 @@ The installed `aiup` command runs the canonical `~/web-dev/aiup/macos/aiup` chec
 
 Update runs are unattended: Homebrew upgrade/install confirmations are accepted automatically, and version checks cannot wait for terminal input. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations still require your approval.
 
+Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; its settings and capture data remain outside the app bundle.
+
 ## ✨ Why people keep it
 
 <table>
@@ -149,7 +151,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.21-07** · **83** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.23-01** · **83** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

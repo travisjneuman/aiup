@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.08.23-01
+
+- Official app updaters can declare a metadata endpoint template; Screenpipe now checks its official Tauri update manifest before downloading a DMG and refuses unverified fallback downloads.
+- `pi-acp` now reports its npm package version even when its CLI emits no `--version` output, and removing Pi explicitly explains that the independently installed ACP adapter remains.
+- Default update results distinguish current tools and skipped unmanaged apps from completed updates.
+
 ## 2026.08.21-02
 
 - The interactive catalog now supports left/right category collapse/expand and Page Up/Page Down jumps between category rows.
