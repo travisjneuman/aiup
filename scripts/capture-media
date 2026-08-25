@@ -474,7 +474,8 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         for char in "raycast":
             adopt.send(char.encode())
             adopt.pump(0.7)
-        adopt.wait_for("switch to Homebrew")
+        adopt.wait_for("Found at /Applications/Raycast.app")
+        adopt.pump(0.5)
         adopt.send(b"\r")
         adopt.wait_for("Switch raycast to Homebrew without requesting a data zap?")
         adopt.pump(0.3)
