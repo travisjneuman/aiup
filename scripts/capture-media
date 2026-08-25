@@ -328,6 +328,7 @@ class Terminal:
 class Session:
     def __init__(self, work: pathlib.Path, args: list[str]) -> None:
         self.term = Terminal()
+        self.raw = bytearray()
         self.work = work
         self.command_log = work / "commands.log"
         env = os.environ.copy()
@@ -366,6 +367,7 @@ class Session:
             except (BlockingIOError, OSError):
                 payload = b""
             if payload:
+                self.raw.extend(payload)
                 self.term.feed(payload)
             else:
                 self.closed = True
@@ -374,7 +376,8 @@ class Session:
         deadline = time.monotonic() + timeout
         while needle not in self.term.text():
             if time.monotonic() >= deadline:
-                raise RuntimeError(f"capture timed out waiting for {needle!r}\n{self.term.text()}")
+                raw_tail = bytes(self.raw[-12000:]).decode("utf-8", "replace")
+                raise RuntimeError(f"capture timed out waiting for {needle!r}\nSCREEN:\n{self.term.text()}\nRAW:\n{raw_tail}")
             self.pump(0.1)
 
     def send(self, value: bytes) -> None:
