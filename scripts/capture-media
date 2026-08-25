@@ -430,6 +430,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     main = Session(work / "main", ["list"])
     try:
         main.wait_for("aiup browse>")
+        main.wait_for("category  infra")
         main.pump(0.5)
         states["collapsed"] = main.term.render(font, bold_font)
         check_public_text("collapsed", main.term.text())
@@ -461,6 +462,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     try:
         homebrew.wait_for("aiup browse>")
         homebrew.wait_for("Raycast launcher")
+        homebrew.wait_for("category  homebrew")
         homebrew.pump(0.4)
         check_public_text("homebrew", homebrew.term.text())
         states["homebrew"] = homebrew.term.render(font, bold_font)

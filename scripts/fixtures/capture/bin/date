@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -u
+
+case "${1:-}" in
+  +%s)
+    printf '1787680800\n'
+    ;;
+  '+%Y-%m-%d %I:%M:%S %p')
+    printf '2026-08-25 02:00:00 PM\n'
+    ;;
+  *)
+    printf '2026-08-25 02:00:00 PM\n'
+    ;;
+esac
