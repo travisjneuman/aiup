@@ -5810,7 +5810,7 @@ Options:
   --dry-run                Print actions without executing them
   --no-install             Do not install missing tools; fails if required fzf is absent.
   --heartbeat-seconds N    Override heartbeat interval for this run
-  --category CAT           Limit `aiup list` to one category
+  --category CAT           Limit \`aiup list\` to one category
   --view MODE              Limit list rows: overview, installed, managed, detected, available
   --sort MODE              Order list rows by id (default) or label within each category
   --refresh                Rebuild local detected inventory instead of using its cache

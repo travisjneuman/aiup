@@ -10,6 +10,9 @@ bash -n "$AIUP"
 
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" catalog --json > "$TEST_DIR/catalog.json"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" inventory --json > "$TEST_DIR/inventory.json"
+AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" help > "$TEST_DIR/help.txt"
+grep -Fq 'Limit `aiup list` to one category' "$TEST_DIR/help.txt"
+! grep -q '^== infra ==$' "$TEST_DIR/help.txt"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --sort label --view managed list --plain > "$TEST_DIR/managed.txt"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --view detected list --plain > "$TEST_DIR/detected.txt"
 AIUP_STATE_DIR="$TEST_DIR/state" "$AIUP" --view managed list --plain > /dev/null
