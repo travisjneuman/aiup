@@ -1,8 +1,8 @@
 # Scope, completion, and next work
 
-Status date: **2026-08-24**
+Status date: **2026-08-25**
 
-Current version: **2026.08.23-01**
+Current version: **2026.08.25-01**
 
 ## What is complete
 
@@ -16,8 +16,12 @@ The macOS implementation is complete for its present daily-use scope:
 - preserve settings when an existing app is adopted by Homebrew;
 - check official desktop-app metadata before downloading a replacement and validate the replacement before activation;
 - keep generated catalog documentation synchronized with the manifest.
+- install publicly without probing a maintainer checkout or any personal path;
+- refresh and validate the public runtime plus its matching catalog manifest before activation;
+- keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in;
+- fail closed on offline, failed, empty, invalid, mismatched, or partial public refreshes.
 
-The 2026-08-24 review passed Bash syntax, the repository regression suite (`83 catalog tools`), generated catalog consistency, a fresh PTY open/cancel run, public HTTP checks, and local link/asset resolution.
+The 2026-08-25 portability review added network-free launcher regression coverage for clean public HOME/state fixtures, paths containing spaces, install/PATH persistence, first run, runtime update, offline failure, explicit local development, safe uninstall, and invalid/partial refresh rejection. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; Homebrew/fzf bootstrap additionally follows Homebrew's Xcode Command Line Tools requirement.
 
 ## What is not complete
 
@@ -25,13 +29,14 @@ aiup is not a finished cross-platform or tagged 1.0 product:
 
 - Linux and Windows are documented stubs.
 - There is no tagged release or packaged installer; installation uses the live launcher.
+- A normal public invocation is not offline-capable: it must refresh from GitHub and deliberately refuses to execute a stale cache. Offline development requires an explicit local checkout path.
 - There is no repository CI workflow. Current validation is local and intentionally small relative to the Bash runtime.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, and trust requirements change.
 - The public site still uses TUI media captured on 2026-08-20, before the current navigation, dynamic views, detected inventory, collapsed-category search, action badges, and result classifications.
 
 ## Site status
 
-`https://aiup.neuman.dev` is live from the established Cloudflare Pages project and the current source commit has a successful Pages check. The static page, metadata, headers, crawler files, catalog JSON, and referenced assets resolve successfully.
+As of the separate 2026-08-24 site review, `https://aiup.neuman.dev` was live from the established Cloudflare Pages project and that reviewed source commit had a successful Pages check. The static page, metadata, headers, crawler files, catalog JSON, and referenced assets resolved successfully. Source publication and current browser/device acceptance remain separate evidence from this installation-contract change.
 
 The site is therefore **live and mechanically complete as a small product poster**, but it is **not content-current or visually complete** until the TUI media is replaced and the refreshed desktop/mobile presentation receives visual review. An HTTP 200 and source-level responsive CSS are not browser/device or owner acceptance.
 

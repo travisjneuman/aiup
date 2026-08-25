@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.08.25-01
+
+- Public installs no longer default to or probe a maintainer-specific checkout. `AIUP_SOURCE_PATH` is consulted only when a user deliberately sets a non-empty local-development path.
+- The launcher now fetches, validates, version-matches, and activates the public runtime together with its catalog manifest. Failed, empty, invalid, mismatched, partial, and offline refreshes stop without executing the download or a stale cache.
+- Installation, PATH persistence, prerequisites, network behavior, local development, and uninstall instructions now describe the public macOS contract without assuming Bash, Python 3, curl, Homebrew, or fzf is already usable.
+- Network-free launcher regressions cover clean HOME/state fixtures, paths with spaces, first run, refresh, offline failure, explicit source override, and uninstall scope.
+
 ## 2026.08.23-01
 
 - Official app updaters can declare a metadata endpoint template; Screenpipe now checks its official Tauri update manifest before downloading a DMG and refuses unverified fallback downloads.
@@ -31,7 +38,7 @@
 
 ## 2026.08.20-22
 
-- Installed `aiup` now uses the canonical local `~/web-dev/aiup/macos/aiup` checkout first, so local testing needs no GitHub access and sees unpublished local changes immediately. GitHub remains a fallback for installations without a local checkout.
+- Historical: installed `aiup` temporarily preferred a maintainer checkout path for local testing. Version 2026.08.25-01 removed that machine-specific public default; local-checkout execution now requires an explicit `AIUP_SOURCE_PATH`.
 
 ## 2026.08.20-21
 

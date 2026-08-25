@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LAUNCHER="$ROOT/macos/aiup-launcher"
+FIXTURE="$(mktemp -d "$ROOT/.aiup-launcher-test.XXXXXX")"
+trap 'rm -rf "$FIXTURE"' EXIT
+
+HOME_FIXTURE="$FIXTURE/home with spaces"
+STATE_DIR="$HOME_FIXTURE/Library/Application Support/aiup state"
+INSTALL_PATH="$HOME_FIXTURE/.local/bin/aiup"
+FAKE_BIN="$FIXTURE/fake bin"
+NO_CURL_BIN="$FIXTURE/no curl bin"
+RUNTIME_SOURCE="$FIXTURE/downloaded runtime"
+MANIFEST_SOURCE="$FIXTURE/downloaded manifest"
+CURL_LOG="$FIXTURE/curl.log"
+
+mkdir -p "$(dirname "$INSTALL_PATH")" "$FAKE_BIN" "$NO_CURL_BIN" "$HOME_FIXTURE/web-dev/aiup/macos"
+cp "$LAUNCHER" "$INSTALL_PATH"
+chmod 700 "$INSTALL_PATH"
+
+touch "$HOME_FIXTURE/.zprofile"
+if ! grep -Fq '# >>> aiup PATH >>>' "$HOME_FIXTURE/.zprofile"; then
+  printf '\n# >>> aiup PATH >>>\nexport PATH="$HOME/.local/bin:$PATH"\n# <<< aiup PATH <<<\n' >> "$HOME_FIXTURE/.zprofile"
+fi
+grep -Fxq 'export PATH="$HOME/.local/bin:$PATH"' "$HOME_FIXTURE/.zprofile"
+[ "$(grep -Fc '# >>> aiup PATH >>>' "$HOME_FIXTURE/.zprofile")" -eq 1 ]
+
+write_runtime() {
+  local destination="$1"
+  local version="$2"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    "AIUP_VERSION=\"$version\"" \
+    'case "${1:-}" in' \
+    '  version) printf "%s\\n" "$AIUP_VERSION" ;;' \
+    '  manifest) printf "%s\\n" "${AIUP_CATALOG_MANIFEST:-}" ;;' \
+    '  *) printf "runtime %s: %s\\n" "$AIUP_VERSION" "$*" ;;' \
+    'esac' > "$destination"
+  chmod 700 "$destination"
+}
+
+write_manifest() {
+  local destination="$1"
+  local version="$2"
+  printf '%s\n' \
+    '# aiup managed catalog manifest' \
+    "# aiup-runtime-version: $version" \
+    $'brew\tinfra\tspecial\tactive\tHomebrew\thttps://example.invalid/brew' \
+    $'fzf\tinfra\tbrew-formula\tactive\tfzf\thttps://example.invalid/fzf' > "$destination"
+}
+
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'set -u' \
+  'output=""' \
+  'url=""' \
+  'while [ "$#" -gt 0 ]; do' \
+  '  case "$1" in' \
+  '    -o) output="$2"; shift 2 ;;' \
+  '    -*) shift ;;' \
+  '    *) url="$1"; shift ;;' \
+  '  esac' \
+  'done' \
+  'printf "%s\\n" "$url" >> "$FAKE_CURL_LOG"' \
+  '[ "${FAKE_CURL_MODE:-ok}" = ok ] || exit 22' \
+  'case "$url" in' \
+  '  *manifest.tsv*) cp "$FAKE_MANIFEST_SOURCE" "$output" ;;' \
+  '  *) cp "$FAKE_RUNTIME_SOURCE" "$output" ;;' \
+  'esac' > "$FAKE_BIN/curl"
+chmod 700 "$FAKE_BIN/curl"
+ln -s /bin/bash "$NO_CURL_BIN/bash"
+
+write_runtime "$HOME_FIXTURE/web-dev/aiup/macos/aiup" personal-checkout
+write_runtime "$RUNTIME_SOURCE" fixture-1
+write_manifest "$MANIFEST_SOURCE" fixture-1
+
+run_public() {
+  env \
+    HOME="$HOME_FIXTURE" \
+    PATH="$FAKE_BIN:/usr/bin:/bin" \
+    AIUP_SOURCE_PATH="" \
+    AIUP_STATE_DIR="$STATE_DIR" \
+    AIUP_UPSTREAM_URL='https://example.invalid/macos/aiup' \
+    AIUP_MANIFEST_URL='https://example.invalid/macos/catalog/manifest.tsv' \
+    FAKE_RUNTIME_SOURCE="$RUNTIME_SOURCE" \
+    FAKE_MANIFEST_SOURCE="$MANIFEST_SOURCE" \
+    FAKE_CURL_LOG="$CURL_LOG" \
+    FAKE_CURL_MODE="${FAKE_CURL_MODE:-ok}" \
+    "$INSTALL_PATH" "$@"
+}
+
+# Install, PATH persistence, first run, and a HOME containing the former
+# personal checkout convention. Default execution must still use the download.
+grep -Fq 'aiup-launcher -o ~/.local/bin/aiup' "$ROOT/README.md"
+grep -Fq 'aiup-launcher -o ~/.local/bin/aiup' "$ROOT/docs/install.md"
+[ "$(run_public version)" = fixture-1 ]
+[ "$(run_public only fzf)" = 'runtime fixture-1: only fzf' ]
+! run_public version | grep -q personal-checkout
+! grep -q 'web-dev' "$LAUNCHER"
+[ -x "$STATE_DIR/aiup-live" ]
+[ -s "$STATE_DIR/catalog/manifest.tsv" ]
+[ "$(run_public manifest)" = "$STATE_DIR/catalog/manifest.tsv" ]
+
+# A later invocation refreshes and activates the newer validated pair.
+write_runtime "$RUNTIME_SOURCE" fixture-2
+write_manifest "$MANIFEST_SOURCE" fixture-2
+[ "$(run_public version)" = fixture-2 ]
+grep -q '^AIUP_VERSION="fixture-2"$' "$STATE_DIR/aiup-live"
+cp "$STATE_DIR/aiup-live" "$FIXTURE/cached runtime"
+cp "$STATE_DIR/catalog/manifest.tsv" "$FIXTURE/cached manifest"
+
+# Offline/failed refresh never executes or replaces the last validated cache.
+if FAKE_CURL_MODE=fail run_public version > "$FIXTURE/offline.out" 2> "$FIXTURE/offline.err"; then
+  printf 'launcher test: offline refresh unexpectedly succeeded\n' >&2
+  exit 1
+fi
+[ ! -s "$FIXTURE/offline.out" ]
+grep -q 'could not fetch the live public runtime' "$FIXTURE/offline.err"
+cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+cmp "$FIXTURE/cached manifest" "$STATE_DIR/catalog/manifest.tsv"
+
+# Empty, invalid, and partial downloads fail before activation.
+: > "$RUNTIME_SOURCE"
+if run_public version > /dev/null 2> "$FIXTURE/empty.err"; then
+  printf 'launcher test: empty runtime unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'runtime was empty' "$FIXTURE/empty.err"
+cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+
+printf '%s\n' '#!/usr/bin/env bash' 'printf "no version\\n"' > "$RUNTIME_SOURCE"
+if run_public version > /dev/null 2> "$FIXTURE/invalid.err"; then
+  printf 'launcher test: invalid runtime unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'did not declare an aiup version' "$FIXTURE/invalid.err"
+cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+
+printf '%s\n' '#!/usr/bin/env bash' 'AIUP_VERSION="broken-syntax"' 'if then' > "$RUNTIME_SOURCE"
+write_manifest "$MANIFEST_SOURCE" broken-syntax
+if run_public version > /dev/null 2> "$FIXTURE/syntax.err"; then
+  printf 'launcher test: syntax-invalid runtime unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'failed shell syntax validation' "$FIXTURE/syntax.err"
+cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+
+write_runtime "$RUNTIME_SOURCE" fixture-3
+write_manifest "$MANIFEST_SOURCE" wrong-version
+if run_public version > /dev/null 2> "$FIXTURE/partial.err"; then
+  printf 'launcher test: partial runtime pair unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'versions did not match' "$FIXTURE/partial.err"
+cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+cmp "$FIXTURE/cached manifest" "$STATE_DIR/catalog/manifest.tsv"
+
+# A missing downloader and an explicit missing source both fail without fallback.
+if env HOME="$HOME_FIXTURE" PATH="$NO_CURL_BIN" AIUP_STATE_DIR="$STATE_DIR" \
+  /bin/bash "$INSTALL_PATH" version > /dev/null 2> "$FIXTURE/unavailable.err"; then
+  printf 'launcher test: missing curl unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'curl is required' "$FIXTURE/unavailable.err"
+
+if env HOME="$HOME_FIXTURE" PATH="$FAKE_BIN:/usr/bin:/bin" \
+  AIUP_SOURCE_PATH="$FIXTURE/missing source" FAKE_CURL_LOG="$CURL_LOG" \
+  "$INSTALL_PATH" version > /dev/null 2> "$FIXTURE/missing-source.err"; then
+  printf 'launcher test: missing explicit source unexpectedly fell back\n' >&2
+  exit 1
+fi
+grep -q 'AIUP_SOURCE_PATH is not a file' "$FIXTURE/missing-source.err"
+
+# Explicit local development works offline, including paths containing spaces.
+LOCAL_SOURCE="$FIXTURE/local checkout with spaces/macos/aiup"
+mkdir -p "$(dirname "$LOCAL_SOURCE")"
+write_runtime "$LOCAL_SOURCE" local-development
+curl_count_before="$(wc -l < "$CURL_LOG" | tr -d ' ')"
+[ "$(env HOME="$HOME_FIXTURE" PATH="$FAKE_BIN:/usr/bin:/bin" \
+  AIUP_SOURCE_PATH="$LOCAL_SOURCE" FAKE_CURL_MODE=fail FAKE_CURL_LOG="$CURL_LOG" \
+  "$INSTALL_PATH" version)" = local-development ]
+[ "$(wc -l < "$CURL_LOG" | tr -d ' ')" = "$curl_count_before" ]
+
+# The documented uninstall scope removes aiup and its PATH blocks, not other data.
+printf 'keep\n' > "$HOME_FIXTURE/keep-me"
+printf '\n# >>> aiup PATH >>>\nexport PATH="example"\n# <<< aiup PATH <<<\n' > "$HOME_FIXTURE/.zshrc"
+rm -f "$INSTALL_PATH"
+rm -rf "$STATE_DIR"
+for profile in "$HOME_FIXTURE/.zprofile" "$HOME_FIXTURE/.zshrc"; do
+  [ -f "$profile" ] || continue
+  sed -i '' '/# >>> aiup PATH >>>/,/# <<< aiup PATH <<</d' "$profile"
+done
+[ ! -e "$INSTALL_PATH" ]
+[ ! -e "$STATE_DIR" ]
+! grep -q '# >>> aiup PATH >>>' "$HOME_FIXTURE/.zprofile" "$HOME_FIXTURE/.zshrc"
+[ "$(cat "$HOME_FIXTURE/keep-me")" = keep ]
+
+printf 'aiup launcher tests: ok\n'

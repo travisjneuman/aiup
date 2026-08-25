@@ -2,6 +2,8 @@
 
 > A local catalog for AI tools on macOS.
 
+Local inventory is never uploaded. The public CLI refreshes its runtime and catalog from GitHub before each run; install/update actions may contact Homebrew or the selected vendor.
+
 - Site: https://aiup.neuman.dev/
 - Source: https://github.com/travisjneuman/aiup
 - License: MIT

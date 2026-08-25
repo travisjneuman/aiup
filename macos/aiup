@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.23-01"
+AIUP_VERSION="2026.08.25-01"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -110,6 +110,39 @@ error() { log ERROR "$@" >&2; }
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+require_runtime_environment() {
+  local macos_version macos_major
+  [ "$(uname -s 2>/dev/null || true)" = 'Darwin' ] || {
+    error "aiup currently supports macOS only"
+    return 1
+  }
+  [ "${BASH_VERSINFO[0]:-0}" -ge 3 ] || {
+    error "aiup requires Bash 3 or newer"
+    return 1
+  }
+  command_exists python3 || {
+    error "python3 is required; install a supported Python 3 before running aiup"
+    return 1
+  }
+  command_exists curl || {
+    error "curl is required for runtime and vendor refresh requests"
+    return 1
+  }
+  command_exists sw_vers || {
+    error "sw_vers is required to verify the macOS version"
+    return 1
+  }
+  macos_version="$(sw_vers -productVersion 2>/dev/null || true)"
+  macos_major="${macos_version%%.*}"
+  case "$macos_major" in
+    ''|*[!0-9]*) error "could not determine the macOS version"; return 1 ;;
+  esac
+  [ "$macos_major" -ge 14 ] || {
+    error "aiup supports macOS 14 Sonoma or newer, matching Homebrew's supported installation baseline"
+    return 1
+  }
 }
 
 command_path() {
@@ -3584,7 +3617,7 @@ notes_of() {
 }
 
 update_brew() {
-  local brew_bin=""
+  local brew_bin="" installer=""
   if command_exists brew; then
     brew_bin="$(command_path brew)"
   elif [ -x /opt/homebrew/bin/brew ]; then
@@ -3605,8 +3638,24 @@ update_brew() {
     set_state_method brew installer
     return 0
   fi
-  info "Installing Homebrew via the official installer (may prompt for your password)"
-  run_shell_with_heartbeat "NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL $HOMEBREW_INSTALL_URL)\"" || return 1
+  if ! command_exists xcode-select || ! xcode-select -p >/dev/null 2>&1; then
+    error "Homebrew's supported macOS setup requires Xcode Command Line Tools; run: xcode-select --install"
+    return 1
+  fi
+  tty_usable || {
+    error "Homebrew installation requires an interactive terminal for its confirmation and administrator authentication"
+    return 1
+  }
+  info "Starting Homebrew's official interactive installer (it may request confirmation and administrator authentication)"
+  installer="$(curl -fsSL "$HOMEBREW_INSTALL_URL")" || {
+    error "Could not fetch Homebrew's official installer"
+    return 1
+  }
+  [ -n "$installer" ] || {
+    error "Homebrew's official installer download was empty"
+    return 1
+  }
+  /bin/bash -c "$installer" || return 1
   if [ -x /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
     export PATH="/opt/homebrew/bin:$PATH"
@@ -5743,9 +5792,11 @@ required infrastructure (currently fzf), then update installed tools. Optional m
 \`aiup install\` or \`aiup only <tool>\`. Installing a tool that needs brew,
 npm, or uv installs those missing dependencies first (brew → npm/uv → tool).
 
-aiup itself needs bash, python3, curl, and fzf. Interactive \`aiup list\`
-requires fzf. Homebrew is installed first when fzf or another brew-managed
-catalog item is missing.
+aiup supports macOS 14 or newer and requires Bash 3+, Python 3, and curl.
+The public launcher refreshes the runtime and catalog from GitHub before every
+run. Local inventory is never uploaded. Interactive \`aiup list\` requires fzf;
+aiup installs Homebrew first when fzf or another brew-managed item is missing.
+Homebrew's supported setup also requires current Xcode Command Line Tools.
 
 Options:
   --dry-run                Print actions without executing them
@@ -5870,6 +5921,7 @@ parse_args() {
     esac
   done
 
+  require_runtime_environment || return 1
   catalog_validate || return 1
 
   case "$LIST_VIEW_MODE" in

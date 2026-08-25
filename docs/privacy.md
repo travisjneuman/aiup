@@ -1,6 +1,6 @@
 # Privacy and scanning
 
-aiup is a local catalog. A scan never leaves the machine it runs on.
+aiup is a local-inventory catalog. Inventory data never leaves the machine it runs on, but normal public execution and software maintenance do make clearly bounded network requests.
 
 ## What a scan reads
 
@@ -19,16 +19,26 @@ The interactive catalog also builds a local-only inventory of app bundle identif
 - No telemetry
 - No account
 - No upload of the inventory
-- No network call to "check what you have" (docs URLs open only when you press the docs key)
-- Installers you trigger still talk to their own vendors (Homebrew, npm, curl scripts). That is those tools, not aiup phoning home
+- No upload or network lookup containing the local inventory
+- No background telemetry or account profile
 
-The default product does not require an account or a server.
+## Network requests
+
+The network lanes are separate:
+
+1. **Launcher refresh:** a public installation requests the current runtime and catalog manifest from `raw.githubusercontent.com` before every invocation. Those requests do not contain the local inventory. If either request fails validation or is unavailable, aiup stops rather than running an old cache. An explicit `AIUP_SOURCE_PATH` development run skips this refresh.
+2. **Homebrew and vendor maintenance:** actions that inspect remote versions, install, or update software may contact Homebrew, npm registries, GitHub releases, or the selected vendor's documented metadata/download endpoints. These requests are made only by the relevant action; their remote services have their own logging and privacy policies.
+3. **User-opened links:** `aiup docs` or the picker docs key opens a catalog URL. A detected-only item opens a Google search only after the user deliberately chooses that action. Merely scanning local inventory does not open those links.
+
+The aiup CLI itself does not require an aiup account or upload local inventory to an aiup server. Individual catalog tools may require their own accounts.
 
 ## State files
 
 | Path | Purpose |
 |---|---|
 | `~/.local/share/aiup/methods/` | Last known install method per tool |
+| `~/.local/share/aiup/aiup-live` | Last validated public runtime; never used as an offline fallback |
+| `~/.local/share/aiup/catalog/manifest.tsv` | Matching validated public catalog manifest |
 | `~/.local/share/aiup/npm/` | Isolated npm prefix for Node CLIs |
 | `~/.local/share/aiup/fzf-expanded` | Which catalog categories are expanded |
 | `~/.local/share/aiup/catalog-index.tsv` | Last scan of the main catalog |

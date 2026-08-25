@@ -2,13 +2,15 @@
 set -u
 set -o pipefail
 
-# Keep the installed command on this machine's canonical checkout first.
-# The launcher is intentionally small so it can remain stable while the
-# runtime script changes.
-AIUP_SOURCE_PATH="${AIUP_SOURCE_PATH:-$HOME/web-dev/aiup/macos/aiup}"
+# Public installs refresh the runtime and catalog from the public repository on
+# every invocation. Local-checkout execution is an explicit development opt-in:
+# AIUP_SOURCE_PATH is consulted only when the user sets it to a non-empty path.
+AIUP_SOURCE_PATH="${AIUP_SOURCE_PATH:-}"
 AIUP_UPSTREAM_URL="${AIUP_UPSTREAM_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup}"
+AIUP_MANIFEST_URL="${AIUP_MANIFEST_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/catalog/manifest.tsv}"
 AIUP_STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
 AIUP_RUNTIME_PATH="${AIUP_RUNTIME_PATH:-$AIUP_STATE_DIR/aiup-live}"
+AIUP_MANIFEST_PATH="${AIUP_MANIFEST_PATH:-$AIUP_STATE_DIR/catalog/manifest.tsv}"
 
 die() {
   printf 'aiup: %s\n' "$*" >&2
@@ -25,39 +27,78 @@ validate_runtime() {
   bash -n "$runtime_path" || die "the aiup runtime failed shell syntax validation: $runtime_path"
 }
 
-if [ -f "$AIUP_SOURCE_PATH" ]; then
+runtime_version() {
+  sed -n 's/^AIUP_VERSION="\([^"]*\)"$/\1/p' "$1" | head -n 1
+}
+
+validate_manifest() {
+  local manifest_path="$1"
+  local expected_version="$2"
+  local manifest_version
+  [ -s "$manifest_path" ] || die "the aiup catalog manifest was empty: $manifest_path"
+  manifest_version="$(sed -n 's/^# aiup-runtime-version: //p' "$manifest_path" | head -n 1)"
+  [ -n "$manifest_version" ] || die "the aiup catalog manifest did not declare a runtime version: $manifest_path"
+  [ "$manifest_version" = "$expected_version" ] || \
+    die "the aiup runtime and catalog manifest versions did not match"
+  awk -F '\t' '
+    /^#/ || NF == 0 { next }
+    NF < 6 || $1 == "" || $2 == "" || $3 == "" || $4 == "" || $5 == "" || $6 == "" { exit 1 }
+    seen[$1]++ { exit 1 }
+    $1 == "brew" { has_brew = 1 }
+    $1 == "fzf" { has_fzf = 1 }
+    END { if (!has_brew || !has_fzf) exit 1 }
+  ' "$manifest_path" || die "the aiup catalog manifest failed validation: $manifest_path"
+}
+
+command -v bash >/dev/null 2>&1 || die "bash is required to run aiup"
+
+if [ -n "$AIUP_SOURCE_PATH" ]; then
+  [ -f "$AIUP_SOURCE_PATH" ] || die "AIUP_SOURCE_PATH is not a file: $AIUP_SOURCE_PATH"
   validate_runtime "$AIUP_SOURCE_PATH"
-  export AIUP_LIVE_SYNCED=1
   exec bash "$AIUP_SOURCE_PATH" "$@"
 fi
 
-if [ "${AIUP_LIVE_SYNCED:-0}" != 1 ]; then
-  command -v curl >/dev/null 2>&1 || die "curl is required to fetch the live public version"
-  command -v mktemp >/dev/null 2>&1 || die "mktemp is required to refresh the live public version"
-  command -v bash >/dev/null 2>&1 || die "bash is required to run aiup"
+command -v curl >/dev/null 2>&1 || die "curl is required to refresh the live public runtime"
+command -v mktemp >/dev/null 2>&1 || die "mktemp is required to refresh the live public runtime"
 
-  mkdir -p "$AIUP_STATE_DIR" || die "could not create $AIUP_STATE_DIR"
-  tmp_path="$(mktemp "$AIUP_STATE_DIR/.aiup-live.XXXXXX")" || die "could not create a temporary runtime"
-  cleanup() {
-    rm -f "$tmp_path"
-  }
-  trap cleanup EXIT HUP INT TERM
+mkdir -p "$AIUP_STATE_DIR" || die "could not create $AIUP_STATE_DIR"
+tmp_runtime="$(mktemp "$AIUP_STATE_DIR/.aiup-live.XXXXXX")" || die "could not create a temporary runtime"
+tmp_manifest="$(mktemp "$AIUP_STATE_DIR/.aiup-catalog.XXXXXX")" || {
+  rm -f "$tmp_runtime"
+  die "could not create a temporary catalog manifest"
+}
+cleanup() {
+  rm -f "$tmp_runtime" "$tmp_manifest"
+}
+trap cleanup EXIT HUP INT TERM
 
-  case "$AIUP_UPSTREAM_URL" in
-    *\?*) fetch_url="${AIUP_UPSTREAM_URL}&aiup_refresh=$(date +%s)-$$" ;;
-    *) fetch_url="${AIUP_UPSTREAM_URL}?aiup_refresh=$(date +%s)-$$" ;;
-  esac
-  if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
-    -H 'Cache-Control: no-cache' "$fetch_url" -o "$tmp_path"; then
-    die "could not fetch the live public version from $AIUP_UPSTREAM_URL"
-  fi
-  validate_runtime "$tmp_path"
-
-  chmod 700 "$tmp_path" || die "could not make the live runtime executable"
-  mv -f "$tmp_path" "$AIUP_RUNTIME_PATH" || die "could not activate the live runtime"
-  trap - EXIT HUP INT TERM
+case "$AIUP_UPSTREAM_URL" in
+  *\?*) runtime_url="${AIUP_UPSTREAM_URL}&aiup_refresh=$(date +%s)-$$" ;;
+  *) runtime_url="${AIUP_UPSTREAM_URL}?aiup_refresh=$(date +%s)-$$" ;;
+esac
+case "$AIUP_MANIFEST_URL" in
+  *\?*) manifest_url="${AIUP_MANIFEST_URL}&aiup_refresh=$(date +%s)-$$" ;;
+  *) manifest_url="${AIUP_MANIFEST_URL}?aiup_refresh=$(date +%s)-$$" ;;
+esac
+if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
+  -H 'Cache-Control: no-cache' "$runtime_url" -o "$tmp_runtime"; then
+  die "could not fetch the live public runtime from $AIUP_UPSTREAM_URL"
 fi
+if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
+  -H 'Cache-Control: no-cache' "$manifest_url" -o "$tmp_manifest"; then
+  die "could not fetch the live public catalog from $AIUP_MANIFEST_URL"
+fi
+validate_runtime "$tmp_runtime"
+validate_manifest "$tmp_manifest" "$(runtime_version "$tmp_runtime")"
+
+mkdir -p "$(dirname "$AIUP_RUNTIME_PATH")" "$(dirname "$AIUP_MANIFEST_PATH")" || \
+  die "could not create the live runtime directories"
+chmod 700 "$tmp_runtime" || die "could not make the live runtime executable"
+mv -f "$tmp_manifest" "$AIUP_MANIFEST_PATH" || die "could not activate the live catalog manifest"
+mv -f "$tmp_runtime" "$AIUP_RUNTIME_PATH" || die "could not activate the live runtime"
+trap - EXIT HUP INT TERM
 
 validate_runtime "$AIUP_RUNTIME_PATH"
-export AIUP_LIVE_SYNCED=1
+validate_manifest "$AIUP_MANIFEST_PATH" "$(runtime_version "$AIUP_RUNTIME_PATH")"
+export AIUP_CATALOG_MANIFEST="$AIUP_MANIFEST_PATH"
 exec bash "$AIUP_RUNTIME_PATH" "$@"

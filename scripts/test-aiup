@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 AIUP="$ROOT/macos/aiup"
-TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/aiup-test.XXXXXX")"
+TEST_DIR="$(mktemp -d "$ROOT/.aiup-test.XXXXXX")"
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 bash -n "$AIUP"
@@ -108,3 +108,4 @@ if grep -q 'would ask whether to trust installed Homebrew tap' "$AIUP"; then
 fi
 
 printf 'aiup tests: ok (%s catalog tools)\n' "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["tools"]))' "$TEST_DIR/catalog.json")"
+"$ROOT/scripts/test-aiup-launcher"

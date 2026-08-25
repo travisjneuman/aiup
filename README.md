@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>Scan your Mac. Update what you already have. Install or remove from a full-screen list.</strong><br/>
-  Nothing is uploaded. Nothing requires an account.
+  Local inventory is never uploaded. aiup itself requires no account.
 </p>
 
 <p align="center">
@@ -40,6 +40,8 @@
 mkdir -p ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup-launcher -o ~/.local/bin/aiup
 chmod +x ~/.local/bin/aiup
+touch ~/.zprofile
+grep -Fq '# >>> aiup PATH >>>' ~/.zprofile || printf '\n# >>> aiup PATH >>>\nexport PATH="$HOME/.local/bin:$PATH"\n# <<< aiup PATH <<<\n' >> ~/.zprofile
 export PATH="$HOME/.local/bin:$PATH"
 aiup only fzf
 aiup list
@@ -54,9 +56,11 @@ aiup list
 
 ### 🔄 Always live
 
-The installed `aiup` command runs the canonical `~/web-dev/aiup/macos/aiup` checkout on every invocation, so local testing starts with the latest local script—even before a push. `AIUP_SOURCE_PATH` can point to another checkout's `macos/aiup` script. GitHub is only a fallback for users without a local checkout.
+The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, then activates them under `~/.local/share/aiup`. A failed, empty, invalid, or partial refresh stops without executing the download or an older cache. Public use therefore needs network access at the start of every run.
 
-Update runs are unattended: Homebrew upgrade/install confirmations are accepted automatically, and version checks cannot wait for terminal input. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations still require your approval.
+Repository contributors can opt into an offline local checkout for one invocation by deliberately setting `AIUP_SOURCE_PATH` to that checkout's `macos/aiup` file. No checkout path is guessed or probed by default.
+
+Normal package updates are unattended: Homebrew package confirmations are accepted automatically, and version checks cannot wait for terminal input. The initial Homebrew bootstrap is the exception and runs its official installer interactively for confirmation and any administrator authentication. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations also require your approval.
 
 Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; its settings and capture data remain outside the app bundle.
 
@@ -86,8 +90,8 @@ Child lists are **your Mac**, plus a short recommended set — not all of Homebr
 </td>
 <td>
 
-### 🔒 Stays on the machine
-PATH, app bundles, `brew list`. No telemetry. [Privacy →](docs/privacy.md)
+### 🔒 Inventory stays local
+PATH, app bundles, and package inventory are never uploaded. Runtime and package refreshes still use the network. [Privacy →](docs/privacy.md)
 
 </td>
 </tr>
@@ -151,7 +155,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.23-01** · **83** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.25-01** · **83** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -175,9 +179,13 @@ Research notes → **[catalog research](docs/catalog-research.md)** · TUI revie
 
 | Need | Why |
 |---|---|
-| bash · python3 · curl | The script (macOS already has these) |
-| [fzf](https://github.com/junegunn/fzf) | Required full-screen catalog and infrastructure tool; aiup installs and updates the Homebrew formula |
-| Homebrew / Node / uv | Homebrew is required for fzf and brew-managed items; Node/uv are installed on demand when needed |
+| macOS 14+ | Current support baseline, matching Homebrew's supported macOS installation requirements |
+| Bash 3+ · Python 3 · curl | Prerequisites checked at startup; aiup cannot bootstrap its own shell, Python runtime, or downloader |
+| [fzf](https://github.com/junegunn/fzf) | Required full-screen catalog; aiup installs and updates the Homebrew formula |
+| Homebrew + Xcode Command Line Tools | Bootstrapped when fzf or a brew-managed item is requested; the official installer may require administrator authentication |
+| Node / uv | Installed on demand only when a selected tool needs them |
+
+Run `command -v bash curl python3` before installing. See the [installation contract](docs/install.md) for PATH persistence, online/offline behavior, local development, and uninstall steps.
 
 ## 🗺️ Status
 

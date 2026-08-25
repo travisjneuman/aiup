@@ -2,9 +2,4 @@
 
 Not implemented yet. The macOS script in `macos/aiup` is the current implementation.
 
-When the port lands it will:
-
-- Keep the same catalog ids and commands (`aiup`, `aiup list`, `aiup install`, `aiup remove`)
-- Scan locally (PATH, app dirs, distro packages) with nothing uploaded
-- Prefer vendor installers and user prefixes — never `sudo`
-- Treat Homebrew as optional, not required
+No Linux dependency, privilege, package-manager, or installation contract has been accepted. Do not infer portability from the macOS launcher or documentation; a future port must define and test those behaviors on Linux before making support claims.
