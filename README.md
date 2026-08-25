@@ -31,7 +31,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png" />
-    <img src="docs/media/aiup-list.gif" alt="aiup 2026.08.25-02 catalog: collapsed categories, a Gemini search with update preview, restored overview, and cancelled result" width="960" height="540" />
+    <img src="docs/media/aiup-list.gif" alt="aiup 2026.08.25-02 catalog: color-coded collapsed categories, a Gemini search with update preview, restored overview, and cancelled result" width="960" height="540" />
   </picture>
 </p>
 
@@ -101,12 +101,12 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
 
 <p align="center">
-  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Bordered collapsed aiup overview showing 81 managed entries and Detected last with 2 app, 2 npm, 1 uv, and 3 PATH demo detections" />
-  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Homebrew recommended view with Raycast on disk and switch-to-Homebrew, Docker install, and lazygit install actions" />
+  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Bordered collapsed aiup overview with distinct category colors, 81 managed entries, and Detected last with 2 app, 2 npm, 1 uv, and 3 PATH demo detections" />
+  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Expanded Homebrew hierarchy with orange, pink, gold, and yellow child categories plus Raycast switch-to-Homebrew, Docker install, and lazygit install actions" />
 </p>
 
 <p align="center">
-  <img src="docs/media/aiup-list-search.png" alt="Search inside collapsed categories revealing installed Gemini with its active lifecycle, update action, official docs, and dependency preview" width="720" height="405" />
+  <img src="docs/media/aiup-list-search.png" alt="Color-coded search inside collapsed categories revealing installed Gemini with its active lifecycle, update action, official docs, and dependency preview" width="720" height="405" />
 </p>
 
 ## 🎛️ Keys
