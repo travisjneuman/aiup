@@ -1145,6 +1145,16 @@ ensure_required_tools_present() {
     case "$AIUP_REQUIRED_UPDATED" in
       *"|$required|"*) continue ;;
     esac
+    if capture_fixture_enabled; then
+      capture_fixture_require || { NO_INSTALL="$saved_no_install"; return 1; }
+      tool_is_present "$required" || {
+        error "Capture fixture requires the existing '$required' command and will not install it"
+        NO_INSTALL="$saved_no_install"
+        return 1
+      }
+      AIUP_REQUIRED_UPDATED="${AIUP_REQUIRED_UPDATED}${required}|"
+      continue
+    fi
     if [ "${NO_INSTALL_EXPLICIT:-0}" -eq 1 ]; then
       NO_INSTALL="$saved_no_install"
     else
