@@ -19,10 +19,11 @@ The macOS implementation has passed the documented source and regression checks 
 - install publicly without probing a maintainer checkout or any personal path;
 - refresh and validate the public runtime plus its matching catalog manifest before activating one immutable generation through an atomic pointer;
 - retain the previous complete validated generation as recovery evidence without executing it as an offline fallback;
+- serialize finalization, pointer replacement, and exact pruning so repeated successful refreshes retain only current and previous while overlapping hidden staging remains untouched;
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in;
 - fail closed on offline, failed, empty, invalid, mismatched, or partial public refreshes.
 
-The 2026-08-25 closure added a validated atomic launcher installer and network-free regression coverage for clean public HOME/state fixtures, paths containing spaces, first install, safe replacement, install/PATH persistence, runtime and manifest activation failures, pre-switch failure, offline refusal, explicit local development, exact uninstall scope, invalid/partial refresh rejection, prior-pair preservation, and later recovery. The same date's primary-source catalog audit recorded a disposition for all 83 starting entries and left 81 managed entries with executable contracts. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; individual products can impose stricter constraints recorded in the [dated audit](catalog-accuracy-2026-08-25.md).
+The 2026-08-25 closure added a validated atomic launcher installer and network-free regression coverage for clean public HOME/state fixtures, paths containing spaces, first install, safe replacement, install/PATH persistence, runtime and manifest activation failures, pre-switch and current-pointer failure, offline refusal, explicit local development, exact uninstall scope, invalid/partial refresh rejection, prior-pair preservation, bounded repeated-success retention, dead-lock recovery, overlapping activation safety, and later recovery. The same date's primary-source catalog audit recorded a disposition for all 83 starting entries and left 81 managed entries with executable contracts. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; individual products can impose stricter constraints recorded in the [dated audit](catalog-accuracy-2026-08-25.md).
 
 ## What is not complete
 

@@ -52,7 +52,7 @@ aiup list
 
 ### 🔄 Always live
 
-The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, stages them in one immutable generation, then atomically switches a single current-generation pointer. A failed, empty, invalid, partial, or unactivatable refresh stops without executing the download or an older cache. The previous complete generation remains available as recovery evidence. Public use therefore needs network access at the start of every run.
+The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, stages them as one pair, then serializes finalization and atomically switches a single `current-generation` pointer. `previous-generation` preserves the former complete validated pair as recovery evidence; older unreferenced aiup generations are pruned, so repeated successes retain at most those two complete pairs. An overlapping invocation's hidden staging directory is never pruned, and a live activation lock is never reclaimed. A failed, empty, invalid, partial, locked, or unactivatable refresh stops without executing the download or an older cache. Public use therefore needs network access at the start of every run.
 
 Repository contributors can opt into an offline local checkout for one invocation by deliberately setting `AIUP_SOURCE_PATH` to that checkout's `macos/aiup` file. No checkout path is guessed or probed by default.
 

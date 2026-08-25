@@ -156,6 +156,7 @@ run_public() {
     AIUP_UPSTREAM_URL='https://example.invalid/macos/aiup' \
     AIUP_MANIFEST_URL='https://example.invalid/macos/catalog/manifest.tsv' \
     AIUP_LAUNCHER_TEST_FAIL_AT="${AIUP_LAUNCHER_TEST_FAIL_AT:-}" \
+    AIUP_LAUNCHER_TEST_HOLD_LOCK="${AIUP_LAUNCHER_TEST_HOLD_LOCK:-0}" \
     FAKE_LAUNCHER_SOURCE="$LAUNCHER_SOURCE" \
     FAKE_RUNTIME_SOURCE="$RUNTIME_SOURCE" \
     FAKE_MANIFEST_SOURCE="$MANIFEST_SOURCE" \
@@ -196,6 +197,7 @@ assert_cached_pair_unchanged() {
   ! find "$STATE_DIR/generations" -maxdepth 1 -name '.staging-*' -print | grep -q .
   [ "$(find "$STATE_DIR/generations" -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' | wc -l | tr -d ' ')" = "$generation_count_before_failures" ]
   ! find "$STATE_DIR" -maxdepth 1 \( -name '.current-generation.*' -o -name '.previous-generation.*' \) -print | grep -q .
+  [ ! -e "$STATE_DIR/activation.lock" ]
 }
 
 write_runtime "$RUNTIME_SOURCE" never-execute-runtime-failure
@@ -226,6 +228,18 @@ if AIUP_LAUNCHER_TEST_FAIL_AT=before-switch run_public version > "$FIXTURE/befor
 fi
 [ ! -s "$FIXTURE/before-switch.out" ]
 grep -q 'injected launcher failure at before-switch' "$FIXTURE/before-switch.err"
+assert_cached_pair_unchanged
+
+write_runtime "$RUNTIME_SOURCE" never-execute-current-activation
+write_manifest "$MANIFEST_SOURCE" never-execute-current-activation
+previous_before_current_failure="$(sed -n '1p' "$STATE_DIR/previous-generation")"
+if AIUP_LAUNCHER_TEST_FAIL_AT=current-activation run_public version > "$FIXTURE/current-activation.out" 2> "$FIXTURE/current-activation.err"; then
+  printf 'launcher test: current-pointer activation failure unexpectedly succeeded\n' >&2
+  exit 1
+fi
+[ ! -s "$FIXTURE/current-activation.out" ]
+grep -q 'injected launcher failure at current-activation' "$FIXTURE/current-activation.err"
+[ "$(sed -n '1p' "$STATE_DIR/previous-generation")" = "$previous_before_current_failure" ]
 assert_cached_pair_unchanged
 
 # Offline/failed refresh stops without executing either the download or stale pair.
@@ -283,6 +297,60 @@ cmp "$FIXTURE/cached manifest" "$cached_dir/manifest.tsv"
 recovered_generation="$(sed -n '1p' "$STATE_DIR/current-generation")"
 grep -q '^AIUP_VERSION="recovered"$' "$STATE_DIR/generations/$recovered_generation/aiup"
 grep -q '^# aiup-runtime-version: recovered$' "$STATE_DIR/generations/$recovered_generation/manifest.tsv"
+[ "$(find "$STATE_DIR/generations" -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' | wc -l | tr -d ' ')" -eq 2 ]
+
+assert_generation_pair() {
+  local generation_id="$1"
+  local pair_dir="$STATE_DIR/generations/$generation_id"
+  local runtime_pair_version manifest_pair_version
+  [ -x "$pair_dir/aiup" ]
+  [ -s "$pair_dir/manifest.tsv" ]
+  runtime_pair_version="$(sed -n 's/^AIUP_VERSION="\([^"]*\)"$/\1/p' "$pair_dir/aiup")"
+  manifest_pair_version="$(sed -n 's/^# aiup-runtime-version: //p' "$pair_dir/manifest.tsv")"
+  [ -n "$runtime_pair_version" ]
+  [ "$runtime_pair_version" = "$manifest_pair_version" ]
+}
+
+# Repeated successful refreshes retain only the active pair and its immediate
+# predecessor. Older aiup-created generations do not accumulate.
+retained_previous=""
+for retained_version in retained-1 retained-2 retained-3 retained-4 retained-5; do
+  retained_previous="$(sed -n '1p' "$STATE_DIR/current-generation")"
+  write_runtime "$RUNTIME_SOURCE" "$retained_version"
+  write_manifest "$MANIFEST_SOURCE" "$retained_version"
+  [ "$(run_public version)" = "$retained_version" ]
+  [ "$(sed -n '1p' "$STATE_DIR/previous-generation")" = "$retained_previous" ]
+  [ "$(find "$STATE_DIR/generations" -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' | wc -l | tr -d ' ')" -eq 2 ]
+  assert_generation_pair "$(sed -n '1p' "$STATE_DIR/current-generation")"
+  assert_generation_pair "$(sed -n '1p' "$STATE_DIR/previous-generation")"
+done
+
+# A dead exact-path lock is recovered without weakening the live-owner check.
+printf '99999999 stale-test-owner\n' > "$STATE_DIR/activation.lock"
+write_runtime "$RUNTIME_SOURCE" stale-lock-recovered
+write_manifest "$MANIFEST_SOURCE" stale-lock-recovered
+[ "$(run_public version)" = stale-lock-recovered ]
+[ ! -e "$STATE_DIR/activation.lock" ]
+
+# Overlapping invocations may stage concurrently, but finalization/pointer
+# changes are serialized. Neither invocation can prune the other's staging or
+# a pair that could still become active.
+write_runtime "$RUNTIME_SOURCE" concurrent-refresh
+write_manifest "$MANIFEST_SOURCE" concurrent-refresh
+AIUP_LAUNCHER_TEST_HOLD_LOCK=1 run_public version > "$FIXTURE/concurrent-1.out" 2> "$FIXTURE/concurrent-1.err" &
+concurrent_pid_1=$!
+sleep 0.1
+run_public version > "$FIXTURE/concurrent-2.out" 2> "$FIXTURE/concurrent-2.err" &
+concurrent_pid_2=$!
+wait "$concurrent_pid_1"
+wait "$concurrent_pid_2"
+grep -Fxq concurrent-refresh "$FIXTURE/concurrent-1.out"
+grep -Fxq concurrent-refresh "$FIXTURE/concurrent-2.out"
+[ "$(find "$STATE_DIR/generations" -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' | wc -l | tr -d ' ')" -eq 2 ]
+! find "$STATE_DIR/generations" -maxdepth 1 -name '.staging-*' -print | grep -q .
+[ ! -e "$STATE_DIR/activation.lock" ]
+assert_generation_pair "$(sed -n '1p' "$STATE_DIR/current-generation")"
+assert_generation_pair "$(sed -n '1p' "$STATE_DIR/previous-generation")"
 
 # A missing downloader and an explicit missing source both fail without fallback.
 if env HOME="$HOME_FIXTURE" PATH="$NO_CURL_BIN" AIUP_STATE_DIR="$STATE_DIR" \

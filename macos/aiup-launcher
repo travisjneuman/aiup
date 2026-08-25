@@ -12,7 +12,9 @@ AIUP_STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
 AIUP_GENERATIONS_DIR="${AIUP_GENERATIONS_DIR:-$AIUP_STATE_DIR/generations}"
 AIUP_CURRENT_POINTER="${AIUP_CURRENT_POINTER:-$AIUP_STATE_DIR/current-generation}"
 AIUP_PREVIOUS_POINTER="${AIUP_PREVIOUS_POINTER:-$AIUP_STATE_DIR/previous-generation}"
+AIUP_ACTIVATION_LOCK="${AIUP_ACTIVATION_LOCK:-$AIUP_STATE_DIR/activation.lock}"
 AIUP_LAUNCHER_TEST_FAIL_AT="${AIUP_LAUNCHER_TEST_FAIL_AT:-}"
+AIUP_LAUNCHER_TEST_HOLD_LOCK="${AIUP_LAUNCHER_TEST_HOLD_LOCK:-0}"
 
 die() {
   printf 'aiup: %s\n' "$*" >&2
@@ -68,6 +70,93 @@ read_generation_pointer() {
   printf '%s\n' "$generation_id"
 }
 
+validate_generation_pair() {
+  local generation_id="$1"
+  local generation_dir="$AIUP_GENERATIONS_DIR/$generation_id"
+  valid_generation_id "$generation_id" || die "an aiup generation pointer was invalid"
+  [ -d "$generation_dir" ] && [ ! -L "$generation_dir" ] || \
+    die "an aiup generation directory was unavailable: $generation_dir"
+  validate_runtime "$generation_dir/aiup"
+  validate_manifest "$generation_dir/manifest.tsv" "$(runtime_version "$generation_dir/aiup")"
+}
+
+activation_lock_owner_alive() {
+  local owner="$1"
+  local owner_pid="${owner%% *}"
+  case "$owner_pid" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  kill -0 "$owner_pid" 2>/dev/null
+}
+
+acquire_activation_lock() {
+  local current_owner confirmed_owner reaper_dir tries=0
+  activation_lock_owner="$$ $(date +%s) ${RANDOM:-0}"
+  activation_owner_tmp="$(mktemp "$AIUP_STATE_DIR/.activation-lock-owner.XXXXXX")" || \
+    die "could not prepare the aiup activation lock"
+  printf '%s\n' "$activation_lock_owner" > "$activation_owner_tmp" || \
+    die "could not write the aiup activation lock owner"
+  reaper_dir="$AIUP_STATE_DIR/.activation-lock-reaper"
+
+  while ! ln "$activation_owner_tmp" "$AIUP_ACTIVATION_LOCK" 2>/dev/null; do
+    [ ! -L "$AIUP_ACTIVATION_LOCK" ] || die "refusing a symbolic-link activation lock"
+    current_owner="$(sed -n '1p' "$AIUP_ACTIVATION_LOCK" 2>/dev/null || true)"
+    if [ -n "$current_owner" ] && ! activation_lock_owner_alive "$current_owner"; then
+      if mkdir "$reaper_dir" 2>/dev/null; then
+        confirmed_owner="$(sed -n '1p' "$AIUP_ACTIVATION_LOCK" 2>/dev/null || true)"
+        if [ "$confirmed_owner" = "$current_owner" ] && \
+          ! activation_lock_owner_alive "$confirmed_owner"; then
+          rm -f "$AIUP_ACTIVATION_LOCK"
+        fi
+        rmdir "$reaper_dir" 2>/dev/null || true
+      fi
+    fi
+    tries=$((tries + 1))
+    [ "$tries" -lt 400 ] || die "timed out waiting for another aiup activation"
+    sleep 0.05
+  done
+  rm -f "$activation_owner_tmp"
+  activation_owner_tmp=""
+  activation_lock_held=1
+}
+
+release_activation_lock() {
+  local current_owner
+  [ "$activation_lock_held" -eq 1 ] || return 0
+  current_owner="$(sed -n '1p' "$AIUP_ACTIVATION_LOCK" 2>/dev/null || true)"
+  if [ "$current_owner" = "$activation_lock_owner" ]; then
+    rm -f "$AIUP_ACTIVATION_LOCK"
+  fi
+  activation_lock_held=0
+}
+
+prune_unreferenced_generations() {
+  local current_generation previous_generation candidate generation_id
+  current_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER")" || \
+    die "the active generation pointer was invalid"
+  validate_generation_pair "$current_generation"
+  previous_generation="$(read_generation_pointer "$AIUP_PREVIOUS_POINTER" 2>/dev/null || true)"
+  if [ -n "$previous_generation" ]; then
+    validate_generation_pair "$previous_generation"
+  fi
+
+  for candidate in "$AIUP_GENERATIONS_DIR"/*; do
+    [ -e "$candidate" ] || continue
+    [ -d "$candidate" ] && [ ! -L "$candidate" ] || continue
+    generation_id="${candidate##*/}"
+    valid_generation_id "$generation_id" || continue
+    [ "$generation_id" != "$current_generation" ] || continue
+    [ "$generation_id" != "$previous_generation" ] || continue
+    [ -f "$candidate/aiup" ] && [ -f "$candidate/manifest.tsv" ] || \
+      die "refusing to prune an unfamiliar aiup generation: $candidate"
+    [ "$(find "$candidate" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')" -eq 2 ] || \
+      die "refusing to prune an aiup generation with unexpected contents: $candidate"
+    rm -f "$candidate/aiup" "$candidate/manifest.tsv" || \
+      die "could not prune an unreferenced aiup generation: $candidate"
+    rmdir "$candidate" || die "could not remove an empty aiup generation: $candidate"
+  done
+}
+
 fail_if_requested() {
   [ "$AIUP_LAUNCHER_TEST_FAIL_AT" != "$1" ] || die "injected launcher failure at $1"
 }
@@ -92,8 +181,14 @@ tmp_manifest="$(mktemp "$AIUP_STATE_DIR/.aiup-manifest-download.XXXXXX")" || {
 staging_dir=""
 new_generation_dir=""
 previous_pointer_tmp=""
+previous_pointer_rollback_tmp=""
+previous_pointer_changed=0
+previous_pointer_was_present=0
 current_pointer_tmp=""
 activated=0
+activation_lock_held=0
+activation_lock_owner=""
+activation_owner_tmp=""
 cleanup() {
   [ -z "$tmp_runtime" ] || rm -f "$tmp_runtime"
   [ -z "$tmp_manifest" ] || rm -f "$tmp_manifest"
@@ -105,8 +200,19 @@ cleanup() {
     rm -f "$new_generation_dir/aiup" "$new_generation_dir/manifest.tsv"
     rmdir "$new_generation_dir" 2>/dev/null || true
   fi
+  if [ "$activated" -eq 0 ] && [ "$previous_pointer_changed" -eq 1 ]; then
+    if [ "$previous_pointer_was_present" -eq 1 ] && [ -n "$previous_pointer_rollback_tmp" ]; then
+      mv -f "$previous_pointer_rollback_tmp" "$AIUP_PREVIOUS_POINTER" 2>/dev/null || true
+      previous_pointer_rollback_tmp=""
+    else
+      rm -f "$AIUP_PREVIOUS_POINTER"
+    fi
+  fi
   [ -z "$previous_pointer_tmp" ] || rm -f "$previous_pointer_tmp"
+  [ -z "$previous_pointer_rollback_tmp" ] || rm -f "$previous_pointer_rollback_tmp"
   [ -z "$current_pointer_tmp" ] || rm -f "$current_pointer_tmp"
+  [ -z "$activation_owner_tmp" ] || rm -f "$activation_owner_tmp"
+  release_activation_lock
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -149,12 +255,38 @@ tmp_manifest=""
 # Revalidate the exact files that will be addressed by the generation pointer.
 validate_runtime "$staging_dir/aiup"
 validate_manifest "$staging_dir/manifest.tsv" "$(runtime_version "$staging_dir/aiup")"
+
+# Only finalization, pointer replacement, and bounded retention are serialized.
+# Downloads and hidden staging directories remain safe to overlap, and pruning
+# never examines or removes another invocation's .staging-* directory.
+acquire_activation_lock
+case "$AIUP_LAUNCHER_TEST_HOLD_LOCK" in
+  0|'') ;;
+  *[!0-9]*) die "invalid launcher lock-hold test value" ;;
+  *) sleep "$AIUP_LAUNCHER_TEST_HOLD_LOCK" ;;
+esac
+
+previous_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER" 2>/dev/null || true)"
+if [ -f "$AIUP_CURRENT_POINTER" ]; then
+  [ -n "$previous_generation" ] || die "the active generation pointer was invalid"
+  validate_generation_pair "$previous_generation"
+fi
+
 mv "$staging_dir" "$new_generation_dir" || die "could not finalize the validated aiup generation"
 staging_dir=""
 fail_if_requested before-switch
 
-previous_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER" 2>/dev/null || true)"
-if [ -n "$previous_generation" ] && [ -d "$AIUP_GENERATIONS_DIR/$previous_generation" ]; then
+if [ -n "$previous_generation" ]; then
+  if [ -f "$AIUP_PREVIOUS_POINTER" ]; then
+    prior_previous_generation="$(read_generation_pointer "$AIUP_PREVIOUS_POINTER")" || \
+      die "the previous generation pointer was invalid"
+    validate_generation_pair "$prior_previous_generation"
+    previous_pointer_rollback_tmp="$(mktemp "$AIUP_STATE_DIR/.previous-generation-rollback.XXXXXX")" || \
+      die "could not preserve the previous-generation pointer before activation"
+    printf '%s\n' "$prior_previous_generation" > "$previous_pointer_rollback_tmp" || \
+      die "could not preserve the previous-generation pointer before activation"
+    previous_pointer_was_present=1
+  fi
   previous_pointer_tmp="$(mktemp "$AIUP_STATE_DIR/.previous-generation.XXXXXX")" || \
     die "could not create the previous-generation pointer"
   printf '%s\n' "$previous_generation" > "$previous_pointer_tmp" || \
@@ -162,14 +294,19 @@ if [ -n "$previous_generation" ] && [ -d "$AIUP_GENERATIONS_DIR/$previous_genera
   mv -f "$previous_pointer_tmp" "$AIUP_PREVIOUS_POINTER" || \
     die "could not preserve the previous-generation pointer"
   previous_pointer_tmp=""
+  previous_pointer_changed=1
 fi
 
 current_pointer_tmp="$(mktemp "$AIUP_STATE_DIR/.current-generation.XXXXXX")" || \
   die "could not create the current-generation pointer"
 printf '%s\n' "$generation_id" > "$current_pointer_tmp" || die "could not write the current-generation pointer"
+fail_if_requested current-activation
 mv -f "$current_pointer_tmp" "$AIUP_CURRENT_POINTER" || die "could not activate the validated aiup generation"
 current_pointer_tmp=""
 activated=1
+previous_pointer_changed=0
+[ -z "$previous_pointer_rollback_tmp" ] || rm -f "$previous_pointer_rollback_tmp"
+previous_pointer_rollback_tmp=""
 
 active_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER")" || die "the active generation pointer was invalid"
 active_dir="$AIUP_GENERATIONS_DIR/$active_generation"
@@ -177,6 +314,8 @@ active_runtime="$active_dir/aiup"
 active_manifest="$active_dir/manifest.tsv"
 validate_runtime "$active_runtime"
 validate_manifest "$active_manifest" "$(runtime_version "$active_runtime")"
+prune_unreferenced_generations
 export AIUP_CATALOG_MANIFEST="$active_manifest"
+release_activation_lock
 trap - EXIT HUP INT TERM
 exec bash "$active_runtime" "$@"

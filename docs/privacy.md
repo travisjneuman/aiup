@@ -37,10 +37,11 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | Path | Purpose |
 |---|---|
 | `~/.local/share/aiup/methods/` | Last known install method per tool |
-| `~/.local/share/aiup/generations/<id>/aiup` | Runtime in an immutable validated runtime/catalog generation; never used as an offline fallback |
-| `~/.local/share/aiup/generations/<id>/manifest.tsv` | Catalog paired with that generation's runtime |
+| `~/.local/share/aiup/generations/<id>/aiup` | Runtime in the current or previous immutable validated pair; older unreferenced aiup generations are pruned |
+| `~/.local/share/aiup/generations/<id>/manifest.tsv` | Catalog paired with that generation's runtime; never mixed across generations |
 | `~/.local/share/aiup/current-generation` | Atomically replaced pointer selecting the active pair after refresh |
 | `~/.local/share/aiup/previous-generation` | Previous complete pair retained as recovery evidence, not an offline fallback |
+| `~/.local/share/aiup/activation.lock` | Short-lived process-owned serialization record for finalization, pointer replacement, and exact retention cleanup |
 | `~/.local/share/aiup/npm/` | Isolated npm prefix for Node CLIs |
 | `~/.local/share/aiup/fzf-expanded` | Which catalog categories are expanded |
 | `~/.local/share/aiup/catalog-index.tsv` | Last scan of the main catalog |
