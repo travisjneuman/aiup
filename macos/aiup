@@ -264,13 +264,13 @@ print_result_summary() {
     return 0
   fi
   printf '\n=== aiup result ===\n'
-  print_result_group completed "${RESULT_COMPLETED[@]}"
-  print_result_group current "${RESULT_CURRENT[@]}"
-  print_result_group removed "${RESULT_REMOVED[@]}"
-  print_result_group skipped "${RESULT_SKIPPED[@]}"
-  print_result_group detected-only "${RESULT_DETECTED[@]}"
-  print_result_group failed "${RESULT_FAILED[@]}"
-  print_result_group cancelled "${RESULT_CANCELLED[@]}"
+  print_result_group completed ${RESULT_COMPLETED[@]+"${RESULT_COMPLETED[@]}"}
+  print_result_group current ${RESULT_CURRENT[@]+"${RESULT_CURRENT[@]}"}
+  print_result_group removed ${RESULT_REMOVED[@]+"${RESULT_REMOVED[@]}"}
+  print_result_group skipped ${RESULT_SKIPPED[@]+"${RESULT_SKIPPED[@]}"}
+  print_result_group detected-only ${RESULT_DETECTED[@]+"${RESULT_DETECTED[@]}"}
+  print_result_group failed ${RESULT_FAILED[@]+"${RESULT_FAILED[@]}"}
+  print_result_group cancelled ${RESULT_CANCELLED[@]+"${RESULT_CANCELLED[@]}"}
 }
 
 run_with_heartbeat() {
@@ -5602,7 +5602,7 @@ pick_catalog_tools() {
       --bind "alt-o:execute-silent($self docs {1})+clear-screen+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "ctrl-y:execute-silent($self docs --print {1} | pbcopy)" \
       --expect=ctrl-d,ctrl-r \
-      "${fzf_state_args[@]}" \
+      ${fzf_state_args[@]+"${fzf_state_args[@]}"} \
       < "$listfile")" || fzf_rc=$?
     rm -f "$listfile"
     if [ "$fzf_rc" -eq 130 ] || [ "$fzf_rc" -eq 1 ]; then
