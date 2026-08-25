@@ -181,9 +181,12 @@ Research notes → **[catalog research](docs/catalog-research.md)** · TUI revie
 
 ## 🗺️ Status
 
-| OS | |
+The macOS implementation is ready for its current daily-use scope, but aiup is not a finished cross-platform or tagged 1.0 product. The public site is live; its checked-in TUI captures are scheduled for replacement because they predate the current navigation, search, detected-inventory, and result UX. See **[scope, completion, and next work](docs/status.md)**.
+
+| Surface | Status |
 |---|---|
-| 🍎 macOS | Current — `macos/aiup` |
+| 🍎 macOS | Current daily-use implementation — `macos/aiup` |
+| 🌐 Site | Live; current-TUI media refresh pending |
 | 🐧 Linux | Coming |
 | 🪟 Windows | Coming |
 
