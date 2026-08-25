@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.08.25-02
+
+- The public launcher now activates each validated runtime/manifest pair as one immutable generation behind an atomic pointer and retains the previous complete generation as recovery evidence.
+- The public installer downloads beside the destination, validates the launcher, and atomically replaces it; network-free regressions cover first install, safe replacement, invalid/partial input, spaced paths, idempotent PATH persistence, exact uninstall scope, activation failures, and later recovery.
+- A dated primary-source audit records dispositions for all 83 starting entries: 73 confirmed, 7 corrected, 1 downgraded, and 2 removed, leaving 81 managed entries.
+- Gemini CLI and Continue CLI are active; `n8n` now uses its official npm package; Pi, GSD, OpenCode, and Goose use current canonical sources; GPT4All is maintenance-only; `omp` and Plandex are detected-only when present.
+- Homebrew adoption copy now states the controlled behavior precisely: aiup does not pass `--zap` or directly delete `~/Library`, while vendor-specific behavior may vary.
+
 ## 2026.08.25-01
 
 - Public installs no longer default to or probe a maintainer-specific checkout. `AIUP_SOURCE_PATH` is consulted only when a user deliberately sets a non-empty local-development path.
@@ -66,7 +74,7 @@
 
 ## 2026.08.20-11
 
-- Enter on an **on disk** app lets Homebrew manage it. Settings stay. Never `--zap`.
+- Historical copy said settings always stay. The current contract is narrower: aiup does not pass `--zap` or directly delete `~/Library` during adoption.
 - Command-line tools already on PATH get a Homebrew copy alongside.
 
 ## 2026.08.20-10

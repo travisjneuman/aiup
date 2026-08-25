@@ -2,26 +2,27 @@
 
 Status date: **2026-08-25**
 
-Current version: **2026.08.25-01**
+Current version: **2026.08.25-02**
 
 ## What is complete
 
-The macOS implementation is complete for its present daily-use scope:
+The macOS implementation has passed the documented source and regression checks for this dated daily-use scope:
 
 - scan installed managed tools and update only what is present;
 - require and maintain fzf as interactive infrastructure;
 - install, update, remove, or adopt catalog items through explicit actions;
 - browse the managed catalog, local detected-only software, and Homebrew inventory through focused views;
 - search inside collapsed categories and restore a clean picker after provider actions;
-- preserve settings when an existing app is adopted by Homebrew;
+- avoid passing `--zap` or directly deleting `~/Library` when an existing app is handed to Homebrew, without claiming universal vendor behavior;
 - check official desktop-app metadata before downloading a replacement and validate the replacement before activation;
-- keep generated catalog documentation synchronized with the manifest.
+- keep generated catalog documentation synchronized with the manifest;
 - install publicly without probing a maintainer checkout or any personal path;
-- refresh and validate the public runtime plus its matching catalog manifest before activation;
+- refresh and validate the public runtime plus its matching catalog manifest before activating one immutable generation through an atomic pointer;
+- retain the previous complete validated generation as recovery evidence without executing it as an offline fallback;
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in;
 - fail closed on offline, failed, empty, invalid, mismatched, or partial public refreshes.
 
-The 2026-08-25 portability review added network-free launcher regression coverage for clean public HOME/state fixtures, paths containing spaces, install/PATH persistence, first run, runtime update, offline failure, explicit local development, safe uninstall, and invalid/partial refresh rejection. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; Homebrew/fzf bootstrap additionally follows Homebrew's Xcode Command Line Tools requirement.
+The 2026-08-25 closure added a validated atomic launcher installer and network-free regression coverage for clean public HOME/state fixtures, paths containing spaces, first install, safe replacement, install/PATH persistence, runtime and manifest activation failures, pre-switch failure, offline refusal, explicit local development, exact uninstall scope, invalid/partial refresh rejection, prior-pair preservation, and later recovery. The same date's primary-source catalog audit recorded a disposition for all 83 starting entries and left 81 managed entries with executable contracts. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; individual products can impose stricter constraints recorded in the [dated audit](catalog-accuracy-2026-08-25.md).
 
 ## What is not complete
 
@@ -60,11 +61,11 @@ Capture requirements:
 - perform no install, update, remove, or adoption during capture;
 - verify the GIF loop, still readability, alt text, desktop layout, mobile layout, and reduced-motion presentation before calling the site current.
 
-## Next work, in order
+## Ordered closure sequence
 
-1. Refresh and accept the public TUI media set, then update the site and README together.
-2. Define the macOS stability contract and decide whether the next milestone is a tagged pre-1.0 release.
-3. Add CI for syntax, regression tests, and generated-doc drift only after explicitly approving the recurring GitHub workflow.
-4. Choose whether Linux or Windows is genuinely next; do not call aiup cross-platform until one is implemented and accepted.
+1. **Catalog/provider audit accepted** — completed in 2026.08.25-02 with all 83 starting dispositions recorded.
+2. **Current TUI media and brand suite** — capture and accept the real current interface without software mutation.
+3. **Site UX/SEO** — revise and visually review the site using the accepted current media.
+4. **GitHub public-presence overhaul** — improve repository presentation only after product/site truth is current.
 
-The product should remain maintenance-led after the media/release pass. New catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries.
+The product should remain maintenance-led. New catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries; tagged-release, CI, and cross-platform decisions remain separate future scopes.

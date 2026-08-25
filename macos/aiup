@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.25-01"
+AIUP_VERSION="2026.08.25-02"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -18,10 +18,9 @@ WARP_AGENT_CLI_INSTALL_URL="https://app.warp.dev/download/agent-cli"
 GROK_INSTALL_URL="https://x.ai/cli/install.sh"
 AIDER_INSTALL_URL="https://aider.chat/install.sh"
 CURSOR_INSTALL_URL="https://cursor.com/install"
-GOOSE_INSTALL_URL="https://github.com/block/goose/releases/download/stable/download_cli.sh"
+GOOSE_INSTALL_URL="https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh"
 AMP_INSTALL_URL="https://ampcode.com/install.sh"
 DROID_INSTALL_URL="https://app.factory.ai/cli"
-PLANDEX_INSTALL_URL="https://plandex.ai/install.sh"
 CONTINUE_INSTALL_URL="https://raw.githubusercontent.com/continuedev/cli/main/scripts/install.sh"
 UV_INSTALL_URL="https://astral.sh/uv/install.sh"
 KIRO_INSTALL_URL="https://cli.kiro.dev/install"
@@ -141,6 +140,20 @@ require_runtime_environment() {
   esac
   [ "$macos_major" -ge 14 ] || {
     error "aiup supports macOS 14 Sonoma or newer, matching Homebrew's supported installation baseline"
+    return 1
+  }
+}
+
+require_tool_macos_major() {
+  local tool="$1"
+  local minimum="$2"
+  local current
+  current="$(sw_vers -productVersion 2>/dev/null | cut -d. -f1)"
+  case "$current" in
+    ''|*[!0-9]*) error "could not determine the macOS version for $tool"; return 1 ;;
+  esac
+  [ "$current" -ge "$minimum" ] || {
+    error "$tool requires macOS $minimum or newer according to its official support policy"
     return 1
   }
 }
@@ -817,7 +830,6 @@ expected_direct_path() {
     gsd2) printf '%s/gsd\n' "$AIUP_NPM_BIN" ;;
     hermes) printf '%s/hermes\n' "$LOCAL_BIN" ;;
     pi) printf '%s/pi\n' "$AIUP_NPM_BIN" ;;
-    omp) printf '%s/omp\n' "$LOCAL_BIN" ;;
     warp) printf '%s/warp\n' "$LOCAL_BIN" ;;
     continue) printf '%s/cn\n' "$AIUP_NPM_BIN" ;;
     pi-acp) printf '%s/pi-acp\n' "$AIUP_NPM_BIN" ;;
@@ -880,7 +892,7 @@ catalog_category() {
   [ -n "$manifest_category" ] && { printf '%s\n' "$manifest_category"; return 0; }
   case "$1" in
     brew|npm|uv|fzf|gh|wrangler|deno) printf 'infra\n' ;;
-    claude|copilot|codex|antigravity|grok|gemini|pi|kilo|gsd2|opencode|hermes|omp|warp|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter) printf 'coding-agents\n' ;;
+    claude|copilot|codex|antigravity|grok|gemini|pi|kilo|gsd2|opencode|hermes|warp|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|interpreter) printf 'coding-agents\n' ;;
     t3-code|t3-nightly|grokbot|opencode-desktop|hermes-desktop|n8n) printf 'workspaces\n' ;;
     vscode|vscode-insiders|cursor-ide|zed|antigravity-ide) printf 'editors\n' ;;
     cmux|warp-app|ghostty|iterm2) printf 'terminals\n' ;;
@@ -1000,21 +1012,17 @@ catalog_lifecycle() {
   manifest_lifecycle="$(catalog_manifest_field "$1" 4 2>/dev/null || true)"
   [ -n "$manifest_lifecycle" ] && { printf '%s\n' "$manifest_lifecycle"; return 0; }
   case "$1" in
-    continue) printf 'sunset\n' ;;
-    gemini) printf 'sunset\n' ;;
     mods) printf 'archived\n' ;;
-    plandex) printf 'maintenance\n' ;;
+    gpt4all) printf 'maintenance\n' ;;
     *) printf 'active\n' ;;
   esac
 }
 
 catalog_lifecycle_note() {
   case "$1" in
-    continue) printf 'Acquired by Cursor (Jun 2026). Product shut down; GitHub repo is read-only. Prefer Cursor Agent CLI or Cursor IDE.\n' ;;
-    gemini) printf 'Google points Individual/Pro users at Antigravity (agy) instead of Gemini CLI.\n' ;;
     mods) printf 'Charm archived the mods repository. Still installable via Homebrew.\n' ;;
     openhands) printf 'The official OpenHands CLI repository says this CLI is no longer actively maintained and points users toward Agent Canvas.\n' ;;
-    plandex) printf 'Upstream quieter since late 2025; treat as maintenance-mode.\n' ;;
+    gpt4all) printf 'The official repository has not published a release since February 2025; Homebrew still provides the vendor installer cask.\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -1025,11 +1033,11 @@ catalog_kind() {
   [ -n "$manifest_kind" ] && { printf '%s\n' "$manifest_kind"; return 0; }
   case "$1" in
     brew|npm) printf 'special\n' ;;
-    claude|codex|antigravity|grok|gemini|opencode|kilo|gsd2|hermes|pi|omp|warp|copilot|aider|goose|cursor|qwen) printf 'special\n' ;;
-    crush|cline|continue|pi-acp|qwen) printf 'aiup-npm\n' ;;
-    amp|droid|plandex|uv) printf 'curl-installer\n' ;;
+    claude|codex|antigravity|grok|gemini|opencode|kilo|gsd2|hermes|pi|warp|copilot|aider|goose|cursor|qwen) printf 'special\n' ;;
+    crush|cline|continue|pi-acp|qwen|n8n) printf 'aiup-npm\n' ;;
+    amp|droid|uv) printf 'curl-installer\n' ;;
     kiro) printf 'brew-cask\n' ;;
-    fzf|kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|n8n|mlx|mlx-lm) printf 'brew-formula\n' ;;
+    fzf|kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
     chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
     screenpipe) printf 'app\n' ;;
     interpreter) printf 'uv-tool\n' ;;
@@ -1203,7 +1211,6 @@ catalog_curl_url() {
   case "$1" in
     amp) printf '%s\n' "$AMP_INSTALL_URL" ;;
     droid) printf '%s\n' "$DROID_INSTALL_URL" ;;
-    plandex) printf '%s\n' "$PLANDEX_INSTALL_URL" ;;
     uv) printf '%s\n' "$UV_INSTALL_URL" ;;
     continue) printf '%s\n' "$CONTINUE_INSTALL_URL" ;;
     kiro) printf '%s\n' "$KIRO_INSTALL_URL" ;;
@@ -1257,12 +1264,24 @@ catalog_app_path() {
 }
 
 catalog_validate() {
-  local tool kind category
+  local tool kind category lifecycle bin seen="|"
   local failures=0
   catalog_manifest_load || return 1
   for tool in "${TOOLS_CATALOG[@]}"; do
     kind="$(catalog_kind "$tool")"
     category="$(catalog_category "$tool")"
+    lifecycle="$(catalog_lifecycle "$tool")"
+    case "$tool" in
+      ''|*[!a-z0-9-]*|-*|*-) error "Catalog entry has an unstable id: '$tool'"; failures=$((failures + 1)) ;;
+    esac
+    case "$seen" in
+      *"|$tool|"*) error "Catalog entry '$tool' is duplicated"; failures=$((failures + 1)) ;;
+      *) seen="${seen}${tool}|" ;;
+    esac
+    case "$lifecycle" in
+      active|maintenance|sunset|archived) ;;
+      *) error "Catalog entry '$tool' has invalid lifecycle '$lifecycle'"; failures=$((failures + 1)) ;;
+    esac
     case " ${CATEGORY_ORDER[*]} " in
       *" $category "*) ;;
       *)
@@ -1315,6 +1334,10 @@ catalog_validate() {
           error "Catalog entry '$tool' has no dedicated updater"
           failures=$((failures + 1))
         fi
+        if [ "$kind" = 'app' ] && [ -z "$(catalog_app_path "$tool")" ]; then
+          error "Catalog entry '$tool' has no app path for version/removal handling"
+          failures=$((failures + 1))
+        fi
         ;;
       unknown)
         error "Catalog entry '$tool' has unsupported installer kind '$kind'"
@@ -1326,6 +1349,15 @@ catalog_validate() {
       special|unknown)
         if ! type "remove_$tool" >/dev/null 2>&1; then
           error "Catalog entry '$tool' has no dedicated remover"
+          failures=$((failures + 1))
+        fi
+        ;;
+    esac
+    case "$kind" in
+      special|curl-installer)
+        bin="$(binary_of_tool "$tool")"
+        if [ -z "$bin" ]; then
+          error "Catalog entry '$tool' has no version-detection binary"
           failures=$((failures + 1))
         fi
         ;;
@@ -1351,16 +1383,15 @@ catalog_label() {
     codex) printf 'OpenAI Codex CLI — @openai/codex\n' ;;
     antigravity) printf 'Google Antigravity CLI (agy)\n' ;;
     grok) printf 'Grok Build — xAI official CLI\n' ;;
-    gemini) printf 'Google Gemini CLI (legacy; Antigravity is preferred)\n' ;;
+    gemini) printf 'Google Gemini CLI — official npm package (macOS 15+)\n' ;;
     pi) printf 'Pi coding agent — @earendil-works/pi-coding-agent\n' ;;
     kilo) printf 'Kilo Code CLI — @kilocode/cli\n' ;;
     gsd2) printf 'GSD (gsd-pi) — @opengsd/gsd-pi\n' ;;
     opencode) printf 'OpenCode — official installer\n' ;;
     hermes) printf 'Hermes Agent — Nous Research\n' ;;
-    omp) printf 'Oh My Pi (omp) standalone binary\n' ;;
     warp) printf 'Warp Agent CLI (warp / Oz TUI)\n' ;;
     aider) printf 'Aider — git-native pair programming CLI\n' ;;
-    goose) printf 'Goose — Block open-source agent CLI\n' ;;
+    goose) printf 'Goose — open-source agent CLI\n' ;;
     cursor) printf 'Cursor Agent CLI (cursor-agent / cursor-cli cask)\n' ;;
     qwen) printf 'Qwen Code — @qwen-code/qwen-code\n' ;;
     crush) printf 'Crush — Charm agentic TUI (@charmland/crush)\n' ;;
@@ -1369,9 +1400,8 @@ catalog_label() {
     droid) printf 'Factory Droid — Factory.ai coding agent\n' ;;
     kimi) printf 'Kimi Code CLI — Moonshot (kimi-code)\n' ;;
     openclaw) printf 'OpenClaw — personal/local AI assistant CLI\n' ;;
-    plandex) printf 'Plandex — large-task planning CLI (quieter upstream)\n' ;;
     cline) printf 'Cline CLI — npm cline\n' ;;
-    continue) printf '[SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only\n' ;;
+    continue) printf 'Continue CLI — @continuedev/cli\n' ;;
     pi-acp) printf 'Pi ACP adapter (pi-acp) for T3 Code / editors\n' ;;
     llm) printf 'llm — Simon Willison Unix LLM CLI\n' ;;
     mods) printf 'mods — Charm pipe-to-LLM (upstream archived)\n' ;;
@@ -1394,7 +1424,7 @@ catalog_label() {
     anythingllm) printf 'AnythingLLM — private local RAG/chat app\n' ;;
     mlx) printf 'MLX — Apple Silicon engine for running local AI (not a chat app)\n' ;;
     mlx-lm) printf 'mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX\n' ;;
-    n8n) printf 'n8n — workflow automation (often used with local LLMs)\n' ;;
+    n8n) printf 'n8n — workflow automation via the official npm package\n' ;;
     interpreter) printf 'Open Interpreter — natural-language computer-use agent\n' ;;
     vscode) printf 'Visual Studio Code\n' ;;
     vscode-insiders) printf 'VS Code Insiders\n' ;;
@@ -1431,15 +1461,14 @@ catalog_docs_url() {
     antigravity) printf 'https://antigravity.google/\n' ;;
     grok) printf 'https://x.ai/build\n' ;;
     gemini) printf 'https://github.com/google-gemini/gemini-cli\n' ;;
-    pi) printf 'https://github.com/badlogic/pi-mono\n' ;;
+    pi) printf 'https://github.com/earendil-works/pi\n' ;;
     kilo) printf 'https://github.com/Kilo-Org/kilocode\n' ;;
-    gsd2) printf 'https://github.com/opengsd/gsd-pi\n' ;;
-    opencode) printf 'https://github.com/sst/opencode\n' ;;
+    gsd2) printf 'https://github.com/open-gsd/gsd-pi\n' ;;
+    opencode) printf 'https://github.com/anomalyco/opencode\n' ;;
     hermes) printf 'https://github.com/NousResearch/hermes-agent\n' ;;
-    omp) printf 'https://pi.dev/\n' ;;
     warp) printf 'https://github.com/warpdotdev/warp\n' ;;
     aider) printf 'https://github.com/Aider-AI/aider\n' ;;
-    goose) printf 'https://github.com/block/goose\n' ;;
+    goose) printf 'https://github.com/aaif-goose/goose\n' ;;
     cursor) printf 'https://cursor.com/docs/cli\n' ;;
     qwen) printf 'https://github.com/QwenLM/qwen-code\n' ;;
     crush) printf 'https://github.com/charmbracelet/crush\n' ;;
@@ -1448,7 +1477,6 @@ catalog_docs_url() {
     droid) printf 'https://github.com/Factory-AI/factory\n' ;;
     kimi) printf 'https://github.com/MoonshotAI/kimi-code\n' ;;
     openclaw) printf 'https://github.com/openclaw/openclaw\n' ;;
-    plandex) printf 'https://github.com/plandex-ai/plandex\n' ;;
     cline) printf 'https://github.com/cline/cline\n' ;;
     continue) printf 'https://github.com/continuedev/continue\n' ;;
     pi-acp) printf 'https://www.npmjs.com/package/pi-acp\n' ;;
@@ -1571,7 +1599,7 @@ HOTKEY_HELP_LINES=13
 PREVIEW_META_LINES=8
 
 catalog_hotkey_help() {
-  printf 'enter              install/update, expand category, or switch on-disk apps to Homebrew (settings stay)\n'
+  printf 'enter              install/update, expand category, or switch on-disk apps to Homebrew (no --zap)\n'
   printf 'tab  or  space     check / uncheck\n'
   printf 'ctrl-a             check all visible rows\n'
   printf 'ctrl-e             expand/collapse this category\n'
@@ -1644,7 +1672,7 @@ print_catalog_preview() {
       printf '%s\n' "$(brew_extra_label "$kind" "$name")"
       if [ "$kind" = 'cask' ] && extra_app="$(app_path_for_cask "$name")"; then
         if [ "$extra_state" = 'on-disk' ]; then
-          printf 'Found at %s — already on your Mac, not via Homebrew. Enter lets Homebrew manage it. Notes and settings stay; ~/Library is never deleted.\n' "$extra_app"
+          printf 'Found at %s — already on your Mac, not via Homebrew. Enter lets Homebrew manage it without aiup passing --zap or directly deleting ~/Library.\n' "$extra_app"
         fi
       elif [ "$kind" = 'formula' ] && [ "$extra_state" = 'on-disk' ]; then
         printf 'A %s command is already on PATH from outside Homebrew. Enter installs a Homebrew copy alongside it. The existing command is not uninstalled.\n' "$(formula_cmd_name "$name")"
@@ -2344,8 +2372,8 @@ enter_action_for() {
   esac
 }
 
-# Switch an existing .app to Homebrew without touching settings.
-# Never --zap. Never delete ~/Library, notes vaults, or preferences.
+# Switch an existing .app to Homebrew without asking Homebrew to zap data.
+# aiup does not pass --zap or directly delete ~/Library in this path.
 # 1) --adopt if the bundle matches what Homebrew would install
 # 2) otherwise replace the .app only (--force), after confirm
 brew_cask_adopt() {
@@ -2357,30 +2385,30 @@ brew_cask_adopt() {
     run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"
     return $?
   fi
-  info "Letting Homebrew manage $name. Notes, settings, and data stay. ~/Library is never deleted."
+  info "Letting Homebrew manage $name. aiup will not pass --zap or directly delete ~/Library."
   if [ -n "$app" ]; then
     info "Current app: $app"
   fi
   if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
-    if ! confirm_tty "Switch $name to Homebrew without losing settings? [y/N] "; then
+    if ! confirm_tty "Switch $name to Homebrew without requesting a data zap? [y/N] "; then
       info "Left $name as-is (still not Homebrew-managed)"
       return 0
     fi
   fi
   if run_with_heartbeat "brew install --cask --adopt $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --adopt --yes "$name"; then
-    info "Homebrew now manages $name. Settings were not moved or wiped."
+    info "Homebrew now manages $name. aiup did not request a data zap."
     return 0
   fi
   warn "Homebrew could not adopt the existing copy (usually a version mismatch)."
-  warn "Next step replaces the app bundle only. Preferences and documents stay."
+  warn "Next step asks Homebrew to replace the app bundle without --zap; vendor-specific installer behavior may vary."
   if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
-    if ! confirm_tty "Replace the $name app bundle via Homebrew? Settings stay. [y/N] "; then
+    if ! confirm_tty "Replace the $name app bundle via Homebrew without --zap? [y/N] "; then
       info "Cancelled. $name is unchanged."
       return 0
     fi
   fi
   run_with_heartbeat "brew install --cask --force $name" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --force --yes "$name" || return 1
-  info "Homebrew now manages $name. Settings were not moved or wiped."
+  info "Homebrew now manages $name. aiup did not request a data zap."
 }
 
 # Install a formula next to whatever is already on PATH. Never uninstall
@@ -2395,7 +2423,7 @@ brew_formula_install_alongside() {
   fi
   if formula_present_outside_brew "$name"; then
     info "$name is already on PATH outside Homebrew. Installing the Homebrew copy alongside it."
-    info "The existing command is not uninstalled (system tools and settings stay)."
+    info "The existing command is not uninstalled or modified."
     if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
       if ! confirm_tty "Install Homebrew $name alongside the copy already on PATH? [y/N] "; then
         info "Left $name as-is"
@@ -2429,7 +2457,7 @@ apply_brew_extras() {
               brew_ensure_target_tap "" "$name" cask || return 1
               run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
             else
-              warn "$name is on your Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew (settings stay)."
+              warn "$name is on your Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew without --zap."
             fi
             ;;
           *)
@@ -2882,14 +2910,6 @@ grok_method() {
   fi
 }
 
-omp_method() {
-  if [ -x "$LOCAL_BIN/omp" ] || command_exists omp; then
-    printf 'installer\n'
-  else
-    printf 'missing\n'
-  fi
-}
-
 warp_method() {
   local cmd
   cmd="$(command_path warp)"
@@ -2982,7 +3002,6 @@ install_method_of() {
     gsd2) gsd2_method ;;
     hermes) hermes_method ;;
     pi) pi_method ;;
-    omp) omp_method ;;
     warp) warp_method ;;
     copilot) copilot_method ;;
     aider) aider_method ;;
@@ -3043,12 +3062,11 @@ preferred_method_of() {
     hermes) printf 'installer\n' ;;
     pi) printf 'aiup-npm\n' ;;
     screenpipe) printf 'official-dmg\n' ;;
-    omp) printf 'installer\n' ;;
     warp) printf 'installer\n' ;;
-    crush|cline|continue|pi-acp) printf 'aiup-npm\n' ;;
-    amp|droid|plandex|uv) printf 'installer\n' ;;
+    crush|cline|continue|pi-acp|n8n) printf 'aiup-npm\n' ;;
+    amp|droid|uv) printf 'installer\n' ;;
     kiro|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
-    kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|n8n|mlx|mlx-lm) printf 'brew-formula\n' ;;
+    kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
     sgpt|interpreter) printf 'uv-tool\n' ;;
     vibe|openhands) printf 'uv-tool\n' ;;
     llama-cpp) printf 'brew-formula\n' ;;
@@ -3412,10 +3430,6 @@ source_count_of() {
     grok)
       { [ -x "$LOCAL_BIN/grok" ] || [ -x "$HOME/.grok/bin/grok" ]; } && count=$((count+1))
       ;;
-    omp)
-      [ -x "$LOCAL_BIN/omp" ] && count=$((count+1))
-      command_exists omp && [ "$(command_path omp)" != "$LOCAL_BIN/omp" ] && count=$((count+1))
-      ;;
     warp)
       { [ -x "$LOCAL_BIN/warp" ] || [ -x "$HOME/.warp/tui/current/warp-tui-stable" ]; } && count=$((count+1))
       brew_cask_installed warp-agent-cli && count=$((count+1))
@@ -3567,7 +3581,7 @@ status_of() {
   fi
 
   case "$tool" in
-    fzf|npm|claude|codex|antigravity|gemini|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|pi-acp|uv|gh|wrangler|deno|llm|mods|aichat|fabric|sgpt|ollama|chatgpt|cursor-ide|zed|cmux|ollama-app)
+    fzf|npm|claude|codex|antigravity|gemini|opencode|kilo|gsd2|hermes|pi|grok|warp|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|pi-acp|uv|gh|wrangler|deno|llm|mods|aichat|fabric|sgpt|ollama|chatgpt|cursor-ide|zed|cmux|ollama-app)
       if [ "$method" = "$preferred" ] && [ "$duplicates" = 'no' ] && [ "$path_active" = 'yes' ] && [ "$persistent" != 'no' ]; then
         printf 'GOOD\n'
       elif [ "$method" = 'missing' ]; then
@@ -3589,25 +3603,24 @@ notes_of() {
     npm) printf 'Homebrew-managed Node owns the active npm; update Node through Homebrew so node, npm, and npx stay coherent.\n' ;;
     claude) printf 'Anthropic native install at ~/.local/bin is the preferred path on macOS and avoids conflicting npm/Homebrew installs.\n' ;;
     codex) printf 'aiup-managed npm prefix tracks the official npm latest channel and avoids Homebrew cask lag/sync issues.\n' ;;
-    antigravity) printf 'Google Antigravity CLI is the replacement terminal experience for Individual/Pro Gemini CLI usage; aiup manages the agy installer binary.\n' ;;
-    gemini) printf 'Gemini CLI is legacy for this system. Google directs Individual/Pro users to Antigravity CLI.\n' ;;
+    antigravity) printf 'Google Antigravity CLI is a separate Google coding-agent product; aiup manages its agy installer binary.\n' ;;
+    gemini) printf 'Official Gemini CLI npm package. Current vendor documentation requires Node.js 20+ and macOS 15+.\n' ;;
     opencode) printf 'Official install script in ~/.local/bin preserves a stable path and keeps OpenCode outside Homebrew tap/source ambiguity.\n' ;;
     kilo) printf 'Official npm install anchored to aiup-managed stable prefix avoids brittle global/bin paths.\n' ;;
-    gsd2) printf 'GSD2 coding agent. aiup prefers @opengsd/gsd-pi and also recognizes the older gsd-pi package for migration.\n' ;;
+    gsd2) printf 'GSD coding agent. aiup prefers @opengsd/gsd-pi and also recognizes the older gsd-pi package for migration.\n' ;;
     hermes) printf 'Hermes Agent CLI (Nous Research) installs into ~/.hermes via the official curl script and self-updates via "hermes update". Hermes Desktop is a separate catalog item under workspaces.\n' ;;
     hermes-desktop) printf 'Official Nous desktop app for the Hermes agent (same agent as the CLI). Homebrew cask hermes-desktop, or the official DMG.\n' ;;
     mlx) printf 'Apple Silicon array engine (brew formula mlx).\n' ;;
     mlx-lm) printf 'mlx-lm runs, chats with, and serves local LLMs on Apple Silicon using MLX. Separate from Ollama/LM Studio/Jan. brew install mlx-lm (depends on mlx).\n' ;;
     pi) printf 'Pi coding agent. The current package scope is @earendil-works/pi-coding-agent; aiup also recognizes the older @mariozechner package for migration.\n' ;;
     grok) printf 'Grok CLI is vendor-installed under ~/.grok and updates with "grok update". aiup only refreshes it when the binary is already present.\n' ;;
-    omp) printf 'Oh My Pi (omp) is a standalone binary in ~/.local/bin and updates with "omp update".\n' ;;
     warp) printf 'Warp Agent CLI lives in ~/.warp/tui (symlink from ~/.local/bin/warp). The official install script is the self-updating path.\n' ;;
     copilot) printf 'GitHub Copilot CLI via aiup npm prefix (@github/copilot). Requires a Copilot subscription.\n' ;;
     aider) printf 'Aider official installer (aider.chat/install.sh) or uv tool install aider-chat.\n' ;;
-    goose) printf 'Block Goose CLI. Preferred: Homebrew formula block-goose-cli.\n' ;;
+    goose) printf 'Goose CLI. Preferred: Homebrew formula block-goose-cli.\n' ;;
     cursor) printf 'Cursor Agent CLI via cursor.com/install. Binary is cursor-agent.\n' ;;
     qwen) printf 'Qwen Code via aiup npm prefix (@qwen-code/qwen-code).\n' ;;
-    screenpipe) printf 'Official Screenpipe stable DMG from screenpipe.com, architecture-selected and verified before the app bundle is replaced. Settings and capture data stay outside the app bundle.\n' ;;
+    screenpipe) printf 'Official Screenpipe stable DMG from screenpipe.com, architecture-selected and verified before the app bundle is replaced. aiup replaces only the app bundle and does not remove its settings or capture paths.\n' ;;
     vibe) printf 'Mistral Vibe is installed and upgraded as the uv tool mistral-vibe. First use still requires its own provider setup.\n' ;;
     openhands) printf 'OpenHands CLI is sunset: its official CLI repository says it is no longer actively maintained. Install only for legacy compatibility.\n' ;;
     llama-cpp) printf 'llama.cpp is a Homebrew formula; model files are separate and are never downloaded by aiup.\n' ;;
@@ -3797,11 +3810,11 @@ update_codex() {
 
 update_gemini() {
   ensure_managed_paths
+  require_tool_macos_major gemini 15 || return 1
   if ! command_exists npm; then
     error "npm is required to manage Gemini CLI via aiup's npm prefix"
     return 1
   fi
-  warn "Gemini CLI is legacy; Google points Individual/Pro users at Antigravity (agy)"
   npm_install_aiup_latest @google/gemini-cli@latest || return 1
   [ "$DRY_RUN" -eq 1 ] && return 0
   hash_refresh
@@ -4057,28 +4070,6 @@ update_grok() {
     return 1
   fi
   set_state_method grok installer
-}
-
-update_omp() {
-  ensure_managed_paths
-  local method omp_bin
-  method="$(omp_method)"
-  omp_bin="$(command_path omp)"
-  [ -z "$omp_bin" ] && omp_bin="$LOCAL_BIN/omp"
-  info "OMP detected install method: $method"
-  if [ "$method" = 'missing' ] || [ ! -x "$omp_bin" ]; then
-    error "OMP has no public one-line installer in the catalog. Install the omp binary first, then rerun."
-    return 1
-  fi
-  info "Refreshing OMP via vendor self-update"
-  run_with_heartbeat "omp update" "$omp_bin" update || return 1
-  [ "$DRY_RUN" -eq 1 ] && return 0
-  hash_refresh
-  if ! command_exists omp; then
-    error "OMP is not on PATH after update"
-    return 1
-  fi
-  set_state_method omp installer
 }
 
 update_warp() {
@@ -4454,7 +4445,7 @@ update_by_kind() {
         app="$(catalog_app_path "$tool")"
         if [ -n "$app" ] && [ -d "$app" ]; then
           if [ "$NO_INSTALL" -eq 1 ]; then
-            warn "$tool is installed as an app but not Homebrew-managed; skip (enter or aiup only $tool to switch to Homebrew — settings stay)"
+            warn "$tool is installed as an app but not Homebrew-managed; skip (enter or aiup only $tool to switch to Homebrew without --zap)"
             update_status_set skipped
             return 0
           fi
@@ -4720,9 +4711,6 @@ print_doctor() {
         printf '  ~/.local/bin/grok exists: %s\n' "$([ -x "$LOCAL_BIN/grok" ] && printf yes || printf no)"
         printf '  ~/.grok/bin/grok exists: %s\n' "$([ -x "$HOME/.grok/bin/grok" ] && printf yes || printf no)"
         ;;
-      omp)
-        printf '  ~/.local/bin/omp exists: %s\n' "$([ -x "$LOCAL_BIN/omp" ] && printf yes || printf no)"
-        ;;
       warp)
         printf '  ~/.local/bin/warp exists: %s\n' "$([ -x "$LOCAL_BIN/warp" ] && printf yes || printf no)"
         printf '  ~/.warp/tui current exists: %s\n' "$([ -e "$HOME/.warp/tui/current/warp-tui-stable" ] && printf yes || printf no)"
@@ -4865,6 +4853,28 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 json.dump({"name": "aiup", "items": items}, sys.stdout, indent=2, ensure_ascii=False)
 sys.stdout.write("\n")
 PY
+}
+
+print_catalog_contracts() {
+  local tool kind target deps version install update remove
+  printf 'id\tkind\ttarget\tdependencies\tversion\tinstall\tupdate\tremove\n'
+  for tool in "${TOOLS_CATALOG[@]}"; do
+    kind="$(catalog_kind "$tool")"
+    target=""
+    case "$kind" in
+      aiup-npm) target="$(catalog_npm_pkg "$tool")"; version='npm-package-json'; install='npm-prefix'; update='npm-prefix'; remove='npm-prefix' ;;
+      brew-formula) target="$(catalog_brew_formula "$tool")"; version='brew-formula-record'; install='brew-formula'; update='brew-formula'; remove='brew-formula' ;;
+      brew-cask) target="$(catalog_brew_cask "$tool")"; version='brew-cask-or-app'; install='brew-cask'; update='brew-cask'; remove='brew-cask' ;;
+      curl-installer) target="$(catalog_curl_url "$tool")"; version='cli-version'; install='official-installer'; update='official-installer'; remove='bounded-user-path' ;;
+      uv-tool) target="$(catalog_uv_pkg "$tool")"; version='uv-package-or-cli'; install='uv-tool'; update='uv-tool'; remove='uv-tool' ;;
+      app) target="$(catalog_app_path "$tool")"; version='app-bundle'; install='dedicated-verified-app'; update='dedicated-verified-app'; remove='exact-app-bundle' ;;
+      special) target="$(binary_of_tool "$tool")"; version='dedicated-or-cli'; install='dedicated'; update='dedicated'; remove='dedicated' ;;
+      *) target=''; version=''; install=''; update=''; remove='' ;;
+    esac
+    deps="$(catalog_deps "$tool" | paste -sd, -)"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$tool" "$kind" "$target" "$deps" "$version" "$install" "$update" "$remove"
+  done
 }
 
 # Catalog definition only — no scan of your Mac. Used by the public site/README.
@@ -5055,7 +5065,7 @@ cmd_cleanup() {
       record="$(inventory_record "$id" 2>/dev/null || true)"
       if [ -n "$record" ]; then
         IFS=$'\t' read -r _ _ _ label version source app <<< "$record"
-        printf '%s is detected via %s, but aiup has no safe generic remover for it.\n' "$(inventory_item_name "$label")" "$source"
+        printf '%s is detected via %s, but aiup has no reviewed generic remover for it.\n' "$(inventory_item_name "$label")" "$source"
         printf 'Use ctrl-o in aiup list or: aiup docs --print %s\n' "$id"
         return 0
       fi
@@ -5186,11 +5196,6 @@ remove_opencode() {
 remove_hermes() {
   remove_file_if_exists "$LOCAL_BIN/hermes"
   remove_dir_if_exists "$HOME/.hermes" "$HERMES_HOME"
-}
-
-remove_omp() {
-  remove_file_if_exists "$LOCAL_BIN/omp" "$LOCAL_BIN/omp.lock"
-  remove_dir_if_exists "$HOME/.omp"
 }
 
 remove_warp() {
@@ -5651,7 +5656,7 @@ apply_catalog_action() {
           __cat:*) continue ;;
           bc:*|bf:*) brew_extras+=("$tool"); continue ;;
           di:app:*) cmd_cleanup "$tool" 1 || true; result_record detected "$tool"; continue ;;
-          di:*) warn "Detected item '$tool' has no safe generic remover; use ctrl-o or its owning package manager"; result_record detected "$tool"; continue ;;
+          di:*) warn "Detected item '$tool' has no reviewed generic remover; use ctrl-o or its owning package manager"; result_record detected "$tool"; continue ;;
         esac
         if [ "$tool" = 'npm' ] || [ "$tool" = 'brew' ]; then
           warn "$tool is not removable via aiup"
@@ -5782,13 +5787,16 @@ Usage:
   aiup inventory --refresh Rebuild the local inventory cache now
   aiup catalog             Print the catalog definition as JSON (no scan)
   aiup catalog --markdown  Print the catalog definition as Markdown
+  aiup catalog --contracts Print version/install/update/remove contract coverage
   aiup version             Print aiup version
   aiup help                Show this help
 
 Scan is local-only (PATH, app bundles, Homebrew inventory). Nothing is
-uploaded. Update/install runs are unattended: Homebrew confirmations are
-accepted and update subprocesses receive no terminal input. They ensure
-required infrastructure (currently fzf), then update installed tools. Optional missing tools are only added by
+uploaded. Package update/install runs are unattended: Homebrew package
+confirmations are accepted and update subprocesses receive no terminal input.
+The official initial Homebrew installer remains interactive and may request
+administrator authentication. Runs ensure required infrastructure (currently
+fzf), then update installed tools. Optional missing tools are only added by
 \`aiup install\` or \`aiup only <tool>\`. Installing a tool that needs brew,
 npm, or uv installs those missing dependencies first (brew → npm/uv → tool).
 
@@ -5815,7 +5823,7 @@ resolve_tools() {
   for arg in "$@"; do
     case "$arg" in
       brew|homebrew) out+=("brew") ;;
-      npm|uv|fzf|gh|wrangler|deno|bun|pnpm|jq|yq|ripgrep|fd|just|shellcheck|actionlint|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|omp|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|plandex|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|vibe|openhands|llama-cpp|llama-app|whisper-cpp|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
+      npm|uv|fzf|gh|wrangler|deno|bun|pnpm|jq|yq|ripgrep|fd|just|shellcheck|actionlint|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|vibe|openhands|llama-cpp|llama-app|whisper-cpp|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
       vscode-code|code) out+=("vscode") ;;
       t3) out+=("t3-code") ;;
       grok-bot) out+=("grokbot") ;;
@@ -6029,7 +6037,11 @@ parse_args() {
       print_doctor
       ;;
     catalog)
-      print_catalog_definition "${args[1]:---json}"
+      if [ "${args[1]:-}" = '--contracts' ]; then
+        print_catalog_contracts
+      else
+        print_catalog_definition "${args[1]:---json}"
+      fi
       ;;
     inventory)
       print_inventory_definition "${args[1]:---json}"

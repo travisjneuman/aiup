@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -u
+set -o pipefail
+
+AIUP_INSTALL_PATH="${AIUP_INSTALL_PATH:-$HOME/.local/bin/aiup}"
+AIUP_INSTALL_PROFILE="${AIUP_INSTALL_PROFILE:-$HOME/.zprofile}"
+AIUP_LAUNCHER_URL="${AIUP_LAUNCHER_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup-launcher}"
+AIUP_INSTALL_MAX_BYTES=1048576
+
+die() {
+  printf 'aiup installer: %s\n' "$*" >&2
+  exit 1
+}
+
+validate_launcher() {
+  local launcher_path="$1"
+  local byte_count
+  [ -s "$launcher_path" ] || die "downloaded launcher was empty"
+  byte_count="$(wc -c < "$launcher_path" | tr -d ' ')"
+  [ "$byte_count" -le "$AIUP_INSTALL_MAX_BYTES" ] || die "downloaded launcher exceeded the size limit"
+  head -n 1 "$launcher_path" | grep -q '^#!/usr/bin/env bash$' || die "downloaded launcher had an unexpected shebang"
+  grep -Fq 'AIUP_UPSTREAM_URL=' "$launcher_path" || die "downloaded file was missing the launcher upstream marker"
+  grep -Fq 'AIUP_CURRENT_POINTER=' "$launcher_path" || die "downloaded file was missing the pair-activation marker"
+  grep -Fq 'validate_runtime()' "$launcher_path" || die "downloaded file was missing launcher validation"
+  grep -Fq 'exec bash "$active_runtime" "$@"' "$launcher_path" || die "downloaded file was missing the launcher entry point"
+  bash -n "$launcher_path" || die "downloaded launcher failed Bash syntax validation"
+}
+
+persist_path() {
+  local install_dir="$1"
+  local path_line
+  local escaped_dir
+  mkdir -p "$(dirname "$AIUP_INSTALL_PROFILE")" || die "could not create the profile directory"
+  touch "$AIUP_INSTALL_PROFILE" || die "could not create $AIUP_INSTALL_PROFILE"
+  if grep -Fq '# >>> aiup PATH >>>' "$AIUP_INSTALL_PROFILE"; then
+    return 0
+  fi
+  if [ "$install_dir" = "$HOME/.local/bin" ]; then
+    path_line='export PATH="$HOME/.local/bin:$PATH"'
+  else
+    case "$install_dir" in
+      *$'\n'*|*$'\r'*) die "install directories containing newlines are unsupported" ;;
+    esac
+    escaped_dir="$(printf '%s' "$install_dir" | sed 's/\\/\\\\/g; s/"/\\"/g; s/`/\\`/g; s/\$/\\$/g')"
+    path_line="export PATH=\"$escaped_dir:\$PATH\""
+  fi
+  printf '\n# >>> aiup PATH >>>\n%s\n# <<< aiup PATH <<<\n' "$path_line" >> "$AIUP_INSTALL_PROFILE" || \
+    die "could not persist the aiup PATH block"
+}
+
+command -v bash >/dev/null 2>&1 || die "bash is required"
+command -v curl >/dev/null 2>&1 || die "curl is required"
+command -v mktemp >/dev/null 2>&1 || die "mktemp is required"
+
+install_dir="$(dirname "$AIUP_INSTALL_PATH")"
+mkdir -p "$install_dir" || die "could not create $install_dir"
+tmp_launcher="$(mktemp "$install_dir/.aiup-install.XXXXXX")" || die "could not create a temporary launcher"
+cleanup() {
+  rm -f "$tmp_launcher"
+}
+trap cleanup EXIT HUP INT TERM
+
+if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 --max-filesize "$AIUP_INSTALL_MAX_BYTES" \
+  "$AIUP_LAUNCHER_URL" -o "$tmp_launcher"; then
+  die "could not download the aiup launcher"
+fi
+validate_launcher "$tmp_launcher"
+chmod 700 "$tmp_launcher" || die "could not set launcher permissions"
+mv -f "$tmp_launcher" "$AIUP_INSTALL_PATH" || die "could not activate the aiup launcher"
+trap - EXIT HUP INT TERM
+
+persist_path "$install_dir"
+printf 'Installed aiup launcher at %s\n' "$AIUP_INSTALL_PATH"
+printf 'Open a new shell or run: export PATH="%s:$PATH"\n' "$install_dir"

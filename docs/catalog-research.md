@@ -1,5 +1,7 @@
 # Catalog research review
 
+The complete dated disposition record for the 83-entry starting catalog is [Catalog accuracy audit — 2026-08-25](catalog-accuracy-2026-08-25.md). This file remains the standing policy and candidate notebook.
+
 This is the review log for expanding aiup's managed catalog. The catalog is deliberately split into two evidence lanes:
 
 - **Managed** entries have an official macOS installation/update path that aiup can execute and validate.

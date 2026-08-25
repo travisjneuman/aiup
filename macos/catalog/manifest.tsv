@@ -1,5 +1,5 @@
 # aiup managed catalog manifest
-# aiup-runtime-version: 2026.08.25-01
+# aiup-runtime-version: 2026.08.25-02
 # id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
 brew	infra	special	active	Homebrew — required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node
@@ -22,16 +22,15 @@ copilot	coding-agents	special	active	GitHub Copilot CLI — @github/copilot	http
 codex	coding-agents	special	active	OpenAI Codex CLI — @openai/codex	https://github.com/openai/codex
 antigravity	coding-agents	special	active	Google Antigravity CLI (agy)	https://antigravity.google/
 grok	coding-agents	special	active	Grok Build — xAI official CLI	https://x.ai/build
-gemini	coding-agents	special	sunset	Google Gemini CLI (legacy; Antigravity is preferred)	https://github.com/google-gemini/gemini-cli
-pi	coding-agents	special	active	Pi coding agent — @earendil-works/pi-coding-agent	https://github.com/badlogic/pi-mono
+gemini	coding-agents	special	active	Google Gemini CLI — official npm package (macOS 15+)	https://github.com/google-gemini/gemini-cli
+pi	coding-agents	special	active	Pi coding agent — @earendil-works/pi-coding-agent	https://github.com/earendil-works/pi
 kilo	coding-agents	special	active	Kilo Code CLI — @kilocode/cli	https://github.com/Kilo-Org/kilocode
-gsd2	coding-agents	special	active	GSD (gsd-pi) — @opengsd/gsd-pi	https://github.com/opengsd/gsd-pi
-opencode	coding-agents	special	active	OpenCode — official installer	https://github.com/sst/opencode
+gsd2	coding-agents	special	active	GSD (gsd-pi) — @opengsd/gsd-pi	https://github.com/open-gsd/gsd-pi
+opencode	coding-agents	special	active	OpenCode — official installer	https://github.com/anomalyco/opencode
 hermes	coding-agents	special	active	Hermes Agent — Nous Research	https://github.com/NousResearch/hermes-agent
-omp	coding-agents	special	active	Oh My Pi (omp) standalone binary	https://pi.dev/
 warp	coding-agents	special	active	Warp Agent CLI (warp / Oz TUI)	https://github.com/warpdotdev/warp
 aider	coding-agents	special	active	Aider — git-native pair programming CLI	https://github.com/Aider-AI/aider
-goose	coding-agents	special	active	Goose — Block open-source agent CLI	https://github.com/block/goose
+goose	coding-agents	special	active	Goose — open-source agent CLI	https://github.com/aaif-goose/goose
 cursor	coding-agents	special	active	Cursor Agent CLI (cursor-agent / cursor-cli cask)	https://cursor.com/docs/cli
 qwen	coding-agents	special	active	Qwen Code — @qwen-code/qwen-code	https://github.com/QwenLM/qwen-code
 crush	coding-agents	aiup-npm	active	Crush — Charm agentic TUI (@charmland/crush)	https://github.com/charmbracelet/crush
@@ -40,9 +39,8 @@ kiro	coding-agents	brew-cask	active	Kiro CLI — Amazon Q Developer CLI successo
 droid	coding-agents	curl-installer	active	Factory Droid — Factory.ai coding agent	https://github.com/Factory-AI/factory
 kimi	coding-agents	brew-formula	active	Kimi Code CLI — Moonshot (kimi-code)	https://github.com/MoonshotAI/kimi-code
 openclaw	coding-agents	brew-formula	active	OpenClaw — personal/local AI assistant CLI	https://github.com/openclaw/openclaw
-plandex	coding-agents	curl-installer	maintenance	Plandex — large-task planning CLI (quieter upstream)	https://github.com/plandex-ai/plandex
 cline	coding-agents	aiup-npm	active	Cline CLI — npm cline	https://github.com/cline/cline
-continue	coding-agents	aiup-npm	sunset	[SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only	https://github.com/continuedev/continue
+continue	coding-agents	aiup-npm	active	Continue CLI — @continuedev/cli	https://github.com/continuedev/continue
 pi-acp	adapters	aiup-npm	active	Pi ACP adapter (pi-acp) for T3 Code / editors	https://www.npmjs.com/package/pi-acp
 llm	llm-utils	brew-formula	active	llm — Simon Willison Unix LLM CLI	https://github.com/simonw/llm
 mods	llm-utils	brew-formula	archived	mods — Charm pipe-to-LLM (upstream archived)	https://github.com/charmbracelet/mods
@@ -52,7 +50,7 @@ sgpt	llm-utils	uv-tool	active	shell-gpt (sgpt) via uv	https://github.com/TheR1D/
 ollama	local-ai	brew-formula	active	Ollama local-model CLI	https://github.com/ollama/ollama
 lm-studio	local-ai	brew-cask	active	LM Studio — local LLM desktop app	https://lmstudio.ai/
 jan	local-ai	brew-cask	active	Jan — local ChatGPT-style app	https://github.com/janhq/jan
-gpt4all	local-ai	brew-cask	active	GPT4All — local LLM desktop app	https://github.com/nomic-ai/gpt4all
+gpt4all	local-ai	brew-cask	maintenance	GPT4All — local LLM desktop app (maintenance-only)	https://github.com/nomic-ai/gpt4all
 anythingllm	local-ai	brew-cask	active	AnythingLLM — private local RAG/chat app	https://github.com/Mintplex-Labs/anything-llm
 mlx	local-ai	brew-formula	active	MLX — Apple Silicon engine for running local AI (not a chat app)	https://github.com/ml-explore/mlx
 mlx-lm	local-ai	brew-formula	active	mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX	https://github.com/ml-explore/mlx-lm
@@ -77,7 +75,7 @@ iterm2	terminals	brew-cask	active	iTerm2 terminal	https://iterm2.com/
 ollama-app	local-ai	brew-cask	active	Ollama desktop app (Homebrew cask)	https://ollama.com/
 macwhisper	local-ai	brew-cask	active	MacWhisper — local speech-to-text	https://goodsnooze.gumroad.com/l/macwhisper
 screenpipe	local-ai	app	active	screenpipe — local screen/audio capture (official stable DMG updater)	https://github.com/screenpipe/screenpipe		https://screenpipe.com/api/app-update/stable/{target}-{arch}/{current_version}
-n8n	workspaces	brew-formula	active	n8n — workflow automation (often used with local LLMs)	https://github.com/n8n-io/n8n
+n8n	workspaces	aiup-npm	active	n8n — workflow automation via the official npm package	https://github.com/n8n-io/n8n	n8n
 interpreter	coding-agents	uv-tool	active	Open Interpreter — natural-language computer-use agent	https://github.com/openinterpreter/open-interpreter
 vibe	coding-agents	uv-tool	active	Mistral Vibe — open-source CLI coding assistant	https://github.com/mistralai/mistral-vibe
 llama-cpp	local-ai	brew-formula	active	llama.cpp — local LLM inference engine and server	https://github.com/ggml-org/llama.cpp

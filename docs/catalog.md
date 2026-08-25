@@ -1,4 +1,4 @@
-# Catalog (2026.08.25-01)
+# Catalog (2026.08.25-02)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -36,16 +36,15 @@ Agents that write and edit code in the terminal
 | `codex` | OpenAI Codex CLI — @openai/codex |
 | `antigravity` | Google Antigravity CLI (agy) |
 | `grok` | Grok Build — xAI official CLI |
-| `gemini` | Google Gemini CLI (legacy; Antigravity is preferred) |
+| `gemini` | Google Gemini CLI — official npm package (macOS 15+) |
 | `pi` | Pi coding agent — @earendil-works/pi-coding-agent |
 | `kilo` | Kilo Code CLI — @kilocode/cli |
 | `gsd2` | GSD (gsd-pi) — @opengsd/gsd-pi |
 | `opencode` | OpenCode — official installer |
 | `hermes` | Hermes Agent — Nous Research |
-| `omp` | Oh My Pi (omp) standalone binary |
 | `warp` | Warp Agent CLI (warp / Oz TUI) |
 | `aider` | Aider — git-native pair programming CLI |
-| `goose` | Goose — Block open-source agent CLI |
+| `goose` | Goose — open-source agent CLI |
 | `cursor` | Cursor Agent CLI (cursor-agent / cursor-cli cask) |
 | `qwen` | Qwen Code — @qwen-code/qwen-code |
 | `crush` | Crush — Charm agentic TUI (@charmland/crush) |
@@ -54,9 +53,8 @@ Agents that write and edit code in the terminal
 | `droid` | Factory Droid — Factory.ai coding agent |
 | `kimi` | Kimi Code CLI — Moonshot (kimi-code) |
 | `openclaw` | OpenClaw — personal/local AI assistant CLI |
-| `plandex` | Plandex — large-task planning CLI (quieter upstream) |
 | `cline` | Cline CLI — npm cline |
-| `continue` | [SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only |
+| `continue` | Continue CLI — @continuedev/cli |
 | `interpreter` | Open Interpreter — natural-language computer-use agent |
 | `vibe` | Mistral Vibe — open-source CLI coding assistant |
 | `openhands` | [SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained |
@@ -72,7 +70,7 @@ Desktop hubs that drive those agents
 | `grokbot` | Grok Bot — xAI teammates that work across your apps |
 | `opencode-desktop` | OpenCode desktop client |
 | `hermes-desktop` | Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI |
-| `n8n` | n8n — workflow automation (often used with local LLMs) |
+| `n8n` | n8n — workflow automation via the official npm package |
 
 ## ✏️ editors
 
@@ -117,7 +115,7 @@ Models, capture, and engines that run on your Mac
 | `ollama` | Ollama local-model CLI |
 | `lm-studio` | LM Studio — local LLM desktop app |
 | `jan` | Jan — local ChatGPT-style app |
-| `gpt4all` | GPT4All — local LLM desktop app |
+| `gpt4all` | GPT4All — local LLM desktop app (maintenance-only) |
 | `anythingllm` | AnythingLLM — private local RAG/chat app |
 | `mlx` | MLX — Apple Silicon engine for running local AI (not a chat app) |
 | `mlx-lm` | mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX |

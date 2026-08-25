@@ -1,6 +1,6 @@
 # Install
 
-aiup is a macOS Bash application with a small live launcher. There is no package installer or tagged release yet.
+aiup is a macOS Bash application with a small live launcher. There is no tagged release or packaged macOS artifact yet; the live helper below installs the launcher.
 
 ## Supported configuration and prerequisites
 
@@ -23,15 +23,11 @@ Homebrew and fzf do not need to be present before installation. When a selected 
 ## Install and persist PATH
 
 ```bash
-mkdir -p ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup-launcher -o ~/.local/bin/aiup
-chmod +x ~/.local/bin/aiup
-touch ~/.zprofile
-grep -Fq '# >>> aiup PATH >>>' ~/.zprofile || printf '\n# >>> aiup PATH >>>\nexport PATH="$HOME/.local/bin:$PATH"\n# <<< aiup PATH <<<\n' >> ~/.zprofile
+curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/install-aiup | bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-The profile block makes `aiup` available to future sessions using macOS's default zsh login shell; the `export` activates it in the current session. If you deliberately use another login shell, add `$HOME/.local/bin` through that shell's supported profile mechanism instead.
+The small installer downloads the launcher to a size-bounded temporary file beside the destination, verifies non-empty content, the expected shebang and launcher markers, and Bash syntax, sets mode `700`, then atomically replaces `~/.local/bin/aiup`. A failed, empty, invalid, or partial download leaves an existing launcher unchanged. It adds one marked PATH block to `~/.zprofile`; repeated installs do not duplicate it. The `export` activates the path in the current session. If you deliberately use another login shell, add `$HOME/.local/bin` through that shell's supported profile mechanism instead.
 
 ## First run
 
@@ -54,7 +50,7 @@ Normal update/install subprocesses are unattended, including Homebrew's package 
 
 ## Online, offline, and local development behavior
 
-For a normal public installation, every invocation downloads both `main/macos/aiup` and `main/macos/catalog/manifest.tsv` from `raw.githubusercontent.com`. The launcher validates the script, manifest structure, and matching version before activating them as `~/.local/share/aiup/aiup-live` and `~/.local/share/aiup/catalog/manifest.tsv`.
+For a normal public installation, every invocation downloads both `main/macos/aiup` and `main/macos/catalog/manifest.tsv` from `raw.githubusercontent.com`. The launcher validates the script, manifest structure, and matching version before staging both under `~/.local/share/aiup/generations/`. One atomically replaced `current-generation` pointer selects the pair; `previous-generation` retains the former complete validated pair as recovery evidence. Neither a partially staged generation nor files from different generations can be selected together.
 
 If the runtime or manifest is unavailable, empty, invalid, mismatched, or cannot be activated, the command stops. A previous cache is retained for recovery evidence but is not executed as an offline fallback. Normal public use therefore requires GitHub access at the start of every run; later install/update actions may need Homebrew or vendor access too.
 

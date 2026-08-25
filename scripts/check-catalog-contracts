@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+MANIFEST="$ROOT/macos/catalog/manifest.tsv"
+CHECK_DIR="$(mktemp -d "$ROOT/.aiup-contract-check.XXXXXX")"
+trap 'rm -rf "$CHECK_DIR"' EXIT
+
+AIUP_STATE_DIR="$CHECK_DIR/state" "$AIUP" catalog --contracts > "$CHECK_DIR/contracts.tsv"
+AIUP_STATE_DIR="$CHECK_DIR/state" "$AIUP" catalog --json > "$CHECK_DIR/catalog.json"
+AIUP_STATE_DIR="$CHECK_DIR/state" "$AIUP" catalog --markdown > "$CHECK_DIR/catalog.md"
+
+python3 - "$AIUP" "$MANIFEST" "$CHECK_DIR/contracts.tsv" "$CHECK_DIR/catalog.json" "$CHECK_DIR/catalog.md" <<'PY'
+import csv
+import json
+import pathlib
+import re
+import sys
+
+runtime_path, manifest_path, contracts_path, json_path, markdown_path = map(pathlib.Path, sys.argv[1:])
+runtime = runtime_path.read_text(encoding="utf-8")
+manifest = manifest_path.read_text(encoding="utf-8")
+
+runtime_version = re.search(r'^AIUP_VERSION="([^"]+)"$', runtime, re.MULTILINE).group(1)
+manifest_version = re.search(r'^# aiup-runtime-version: (\S+)$', manifest, re.MULTILINE).group(1)
+catalog = json.loads(json_path.read_text(encoding="utf-8"))
+markdown = markdown_path.read_text(encoding="utf-8")
+
+with contracts_path.open(encoding="utf-8", newline="") as handle:
+    contracts = list(csv.DictReader(handle, delimiter="\t"))
+
+assert runtime_version == manifest_version == catalog["version"], "runtime/manifest/catalog versions drifted"
+assert f"# Catalog ({runtime_version})" in markdown, "Markdown catalog version drifted"
+assert len(contracts) == len(catalog["tools"]) == 81, "managed catalog must contain 81 post-audit entries"
+assert len({row["id"] for row in contracts}) == len(contracts), "duplicate contract id"
+assert {row["id"] for row in contracts} == {tool["id"] for tool in catalog["tools"]}, "contract/catalog ids drifted"
+assert not ({"omp", "plandex"} & {row["id"] for row in contracts}), "removed entries remain managed"
+
+for row in contracts:
+    for key in ("id", "kind", "target", "version", "install", "update", "remove"):
+        assert row[key], f"{row['id']} lacks {key} contract"
+
+by_id = {tool["id"]: tool for tool in catalog["tools"]}
+assert by_id["gemini"]["lifecycle"] == "active"
+assert by_id["continue"]["lifecycle"] == "active"
+assert by_id["gpt4all"]["lifecycle"] == "maintenance"
+assert by_id["n8n"]["kind"] == "aiup-npm"
+assert by_id["pi"]["docs"] == "https://github.com/earendil-works/pi"
+assert by_id["gsd2"]["docs"] == "https://github.com/open-gsd/gsd-pi"
+assert by_id["opencode"]["docs"] == "https://github.com/anomalyco/opencode"
+assert by_id["goose"]["docs"] == "https://github.com/aaif-goose/goose"
+PY
+
+printf 'catalog contracts: ok (81 managed entries; runtime, manifest, JSON, and Markdown synchronized)\n'

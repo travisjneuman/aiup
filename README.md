@@ -11,7 +11,7 @@
   <img alt="macOS" src="https://img.shields.io/badge/macOS-catalog-39FF14?style=for-the-badge&logo=apple&logoColor=black&labelColor=111" />
   <img alt="local only" src="https://img.shields.io/badge/scan-local%20only-5CE1FF?style=for-the-badge&labelColor=111" />
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-d67bff?style=for-the-badge&labelColor=111" />
-  <img alt="never sudo" src="https://img.shields.io/badge/sudo-never-ffb347?style=for-the-badge&labelColor=111" />
+  <img alt="aiup does not invoke sudo" src="https://img.shields.io/badge/aiup_sudo-not_invoked-ffb347?style=for-the-badge&labelColor=111" />
 </p>
 
 <p align="center">
@@ -37,11 +37,7 @@
 ## ⚡ One minute
 
 ```bash
-mkdir -p ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup-launcher -o ~/.local/bin/aiup
-chmod +x ~/.local/bin/aiup
-touch ~/.zprofile
-grep -Fq '# >>> aiup PATH >>>' ~/.zprofile || printf '\n# >>> aiup PATH >>>\nexport PATH="$HOME/.local/bin:$PATH"\n# <<< aiup PATH <<<\n' >> ~/.zprofile
+curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/install-aiup | bash
 export PATH="$HOME/.local/bin:$PATH"
 aiup only fzf
 aiup list
@@ -56,13 +52,13 @@ aiup list
 
 ### 🔄 Always live
 
-The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, then activates them under `~/.local/share/aiup`. A failed, empty, invalid, or partial refresh stops without executing the download or an older cache. Public use therefore needs network access at the start of every run.
+The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, stages them in one immutable generation, then atomically switches a single current-generation pointer. A failed, empty, invalid, partial, or unactivatable refresh stops without executing the download or an older cache. The previous complete generation remains available as recovery evidence. Public use therefore needs network access at the start of every run.
 
 Repository contributors can opt into an offline local checkout for one invocation by deliberately setting `AIUP_SOURCE_PATH` to that checkout's `macos/aiup` file. No checkout path is guessed or probed by default.
 
 Normal package updates are unattended: Homebrew package confirmations are accepted automatically, and version checks cannot wait for terminal input. The initial Homebrew bootstrap is the exception and runs its official installer interactively for confirmation and any administrator authentication. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations also require your approval.
 
-Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; its settings and capture data remain outside the app bundle.
+Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; aiup replaces only its app bundle and does not remove its configured settings or capture paths.
 
 ## ✨ Why people keep it
 
@@ -76,8 +72,8 @@ Default `aiup` keeps optional tools from coming back, but restores required infr
 </td>
 <td width="50%">
 
-### 🚫 Never sudo
-User-prefix installs. Node CLIs live in `~/.local/share/aiup/npm`, not a root-owned global.
+### 🚫 No direct sudo
+aiup does not invoke `sudo` directly. Its user-prefix installs keep Node CLIs in `~/.local/share/aiup/npm`; Homebrew's official initial installer may separately request administrator authentication.
 
 </td>
 </tr>
@@ -99,7 +95,7 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 
 ### 🔎 Your Mac, not a hardcoded demo
 
-The managed catalog is curated for safe install/update/remove actions. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
+The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
 
 <p align="center">
   <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Collapsed catalog" />
@@ -135,7 +131,7 @@ Installed rows glow **neon green**. Each category has a color bar. Categories st
 Same app. Not a second copy.
 
 <p align="center">
-  <img src="docs/media/aiup-list-adopt.png" alt="Switch an existing app to Homebrew without losing settings" width="720" />
+  <img src="docs/media/aiup-list-adopt.png" alt="Switch an existing app to Homebrew without requesting a data zap" width="720" />
 </p>
 
 | State | Meaning |
@@ -146,21 +142,21 @@ Same app. Not a second copy.
 
 Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 
-- Notes, vaults, preferences, and `~/Library` **stay**
-- Homebrew **never** runs `--zap`
+- aiup does **not pass `--zap`** or directly delete `~/Library` during this action
+- Homebrew and vendor installer behavior can still be app-specific
 - If the versions already match, Homebrew **adopts** the existing `.app` (no re-download)
-- If they don't, only the app bundle is replaced — your data is left alone
+- If they don't, aiup asks Homebrew to replace the app bundle without `--zap`
 - Command-line tools already on PATH get a Homebrew copy **alongside**; the original is not deleted
 
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.25-01** · **83** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.25-02** · **81** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
 | ⚙️ | **infra** | Runtimes and installers other tools need | 16 tools |
-| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 29 tools |
+| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
 | 🖥️ | **workspaces** | Desktop hubs that drive those agents | 6 tools |
 | ✏️ | **editors** | Places you type code | 5 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
@@ -173,7 +169,7 @@ _**2026.08.25-01** · **83** tools in the main catalog. Generated from `macos/ai
 
 Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**
 
-Research notes → **[catalog research](docs/catalog-research.md)** · TUI review → **[navigation research](docs/tui-research.md)**
+Research notes → **[dated 83-entry accuracy audit](docs/catalog-accuracy-2026-08-25.md)** · **[catalog research](docs/catalog-research.md)** · TUI review → **[navigation research](docs/tui-research.md)**
 
 ## 🧰 What aiup needs
 
@@ -189,7 +185,7 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The macOS implementation is ready for its current daily-use scope, but aiup is not a finished cross-platform or tagged 1.0 product. The public site is live; its checked-in TUI captures are scheduled for replacement because they predate the current navigation, search, detected-inventory, and result UX. See **[scope, completion, and next work](docs/status.md)**.
+The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The public site is live; its checked-in TUI captures are scheduled for replacement because they predate the current navigation, search, detected-inventory, and result UX. See **[scope, completion, and next work](docs/status.md)**.
 
 | Surface | Status |
 |---|---|

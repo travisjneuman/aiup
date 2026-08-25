@@ -32,7 +32,7 @@ The same product can exist as a Homebrew cask *and* as a drag-installed / App St
 | **on disk** | The app or command is on your Mac some other way |
 | **absent** | Not found via Homebrew *or* the app/PATH check (recommended only) |
 
-## Switch to Homebrew without losing settings
+## Switch to Homebrew without requesting a data zap
 
 On an **on disk** row, press enter.
 
@@ -40,7 +40,7 @@ For apps:
 
 1. Confirm.
 2. `brew install --cask --adopt` — Homebrew tracks the existing `.app` when it matches.
-3. If versions differ, only the app bundle is replaced (`brew install --cask --force`). Notes, vaults, preferences, and everything under `~/Library` stay. aiup never passes `--zap`.
+3. If versions differ, aiup asks Homebrew to replace the app bundle with `brew install --cask --force` and does not pass `--zap` or directly delete `~/Library`. Homebrew and vendor installer behavior can still be app-specific, so this is not a universal guarantee about every product's settings.
 
 For command-line tools already on PATH:
 

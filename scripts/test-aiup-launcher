@@ -3,28 +3,22 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LAUNCHER="$ROOT/macos/aiup-launcher"
+INSTALLER="$ROOT/macos/install-aiup"
 FIXTURE="$(mktemp -d "$ROOT/.aiup-launcher-test.XXXXXX")"
 trap 'rm -rf "$FIXTURE"' EXIT
 
 HOME_FIXTURE="$FIXTURE/home with spaces"
 STATE_DIR="$HOME_FIXTURE/Library/Application Support/aiup state"
-INSTALL_PATH="$HOME_FIXTURE/.local/bin/aiup"
+INSTALL_PATH="$HOME_FIXTURE/bin with spaces/aiup"
+PROFILE_PATH="$HOME_FIXTURE/profile with spaces/.zprofile"
 FAKE_BIN="$FIXTURE/fake bin"
 NO_CURL_BIN="$FIXTURE/no curl bin"
+LAUNCHER_SOURCE="$FIXTURE/downloaded launcher"
 RUNTIME_SOURCE="$FIXTURE/downloaded runtime"
 MANIFEST_SOURCE="$FIXTURE/downloaded manifest"
 CURL_LOG="$FIXTURE/curl.log"
 
-mkdir -p "$(dirname "$INSTALL_PATH")" "$FAKE_BIN" "$NO_CURL_BIN" "$HOME_FIXTURE/web-dev/aiup/macos"
-cp "$LAUNCHER" "$INSTALL_PATH"
-chmod 700 "$INSTALL_PATH"
-
-touch "$HOME_FIXTURE/.zprofile"
-if ! grep -Fq '# >>> aiup PATH >>>' "$HOME_FIXTURE/.zprofile"; then
-  printf '\n# >>> aiup PATH >>>\nexport PATH="$HOME/.local/bin:$PATH"\n# <<< aiup PATH <<<\n' >> "$HOME_FIXTURE/.zprofile"
-fi
-grep -Fxq 'export PATH="$HOME/.local/bin:$PATH"' "$HOME_FIXTURE/.zprofile"
-[ "$(grep -Fc '# >>> aiup PATH >>>' "$HOME_FIXTURE/.zprofile")" -eq 1 ]
+mkdir -p "$FAKE_BIN" "$NO_CURL_BIN" "$HOME_FIXTURE/web-dev/aiup/macos"
 
 write_runtime() {
   local destination="$1"
@@ -58,6 +52,7 @@ printf '%s\n' \
   'while [ "$#" -gt 0 ]; do' \
   '  case "$1" in' \
   '    -o) output="$2"; shift 2 ;;' \
+  '    --retry|--connect-timeout|--max-time|--max-filesize|-H) shift 2 ;;' \
   '    -*) shift ;;' \
   '    *) url="$1"; shift ;;' \
   '  esac' \
@@ -65,11 +60,88 @@ printf '%s\n' \
   'printf "%s\\n" "$url" >> "$FAKE_CURL_LOG"' \
   '[ "${FAKE_CURL_MODE:-ok}" = ok ] || exit 22' \
   'case "$url" in' \
+  '  *aiup-launcher*) cp "$FAKE_LAUNCHER_SOURCE" "$output" ;;' \
   '  *manifest.tsv*) cp "$FAKE_MANIFEST_SOURCE" "$output" ;;' \
   '  *) cp "$FAKE_RUNTIME_SOURCE" "$output" ;;' \
   'esac' > "$FAKE_BIN/curl"
 chmod 700 "$FAKE_BIN/curl"
 ln -s /bin/bash "$NO_CURL_BIN/bash"
+
+run_installer() {
+  env \
+    HOME="$HOME_FIXTURE" \
+    PATH="$FAKE_BIN:/usr/bin:/bin" \
+    AIUP_INSTALL_PATH="$INSTALL_PATH" \
+    AIUP_INSTALL_PROFILE="$PROFILE_PATH" \
+    AIUP_LAUNCHER_URL='https://example.invalid/macos/aiup-launcher' \
+    FAKE_LAUNCHER_SOURCE="$LAUNCHER_SOURCE" \
+    FAKE_RUNTIME_SOURCE="$RUNTIME_SOURCE" \
+    FAKE_MANIFEST_SOURCE="$MANIFEST_SOURCE" \
+    FAKE_CURL_LOG="$CURL_LOG" \
+    FAKE_CURL_MODE="${FAKE_CURL_MODE:-ok}" \
+    /bin/bash "$INSTALLER"
+}
+
+cp "$LAUNCHER" "$LAUNCHER_SOURCE"
+
+# The documented installer performs the real first install in a destination and
+# HOME containing spaces; tests do not seed the destination with a known copy.
+grep -Fq 'macos/install-aiup | bash' "$ROOT/README.md"
+grep -Fq 'macos/install-aiup | bash' "$ROOT/docs/install.md"
+[ ! -e "$INSTALL_PATH" ]
+run_installer > "$FIXTURE/install-first.out"
+[ -x "$INSTALL_PATH" ]
+grep -Fqx 'export PATH="'"$(dirname "$INSTALL_PATH")"':$PATH"' "$PROFILE_PATH"
+[ "$(grep -Fc '# >>> aiup PATH >>>' "$PROFILE_PATH")" -eq 1 ]
+
+# A valid later download atomically replaces the launcher and does not duplicate PATH.
+printf '\n# validated replacement fixture\n' >> "$LAUNCHER_SOURCE"
+run_installer > "$FIXTURE/install-replace.out"
+grep -Fq 'validated replacement fixture' "$INSTALL_PATH"
+[ "$(grep -Fc '# >>> aiup PATH >>>' "$PROFILE_PATH")" -eq 1 ]
+cp "$INSTALL_PATH" "$FIXTURE/installed launcher before failures"
+
+# Failed, empty, invalid, partial, and syntax-invalid downloads preserve the
+# existing valid launcher byte-for-byte and leave no installer temporary file.
+if FAKE_CURL_MODE=fail run_installer > /dev/null 2> "$FIXTURE/install-download.err"; then
+  printf 'launcher test: failed installer download unexpectedly succeeded\n' >&2
+  exit 1
+fi
+cmp "$FIXTURE/installed launcher before failures" "$INSTALL_PATH"
+
+: > "$LAUNCHER_SOURCE"
+if run_installer > /dev/null 2> "$FIXTURE/install-empty.err"; then
+  printf 'launcher test: empty installer download unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'downloaded launcher was empty' "$FIXTURE/install-empty.err"
+cmp "$FIXTURE/installed launcher before failures" "$INSTALL_PATH"
+
+printf '%s\n' 'not a launcher' > "$LAUNCHER_SOURCE"
+if run_installer > /dev/null 2> "$FIXTURE/install-invalid.err"; then
+  printf 'launcher test: invalid installer download unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'unexpected shebang' "$FIXTURE/install-invalid.err"
+cmp "$FIXTURE/installed launcher before failures" "$INSTALL_PATH"
+
+printf '%s\n' '#!/usr/bin/env bash' 'AIUP_UPSTREAM_URL=x' > "$LAUNCHER_SOURCE"
+if run_installer > /dev/null 2> "$FIXTURE/install-partial.err"; then
+  printf 'launcher test: partial installer download unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'missing the pair-activation marker' "$FIXTURE/install-partial.err"
+cmp "$FIXTURE/installed launcher before failures" "$INSTALL_PATH"
+
+cp "$LAUNCHER" "$LAUNCHER_SOURCE"
+printf '%s\n' 'if then' >> "$LAUNCHER_SOURCE"
+if run_installer > /dev/null 2> "$FIXTURE/install-syntax.err"; then
+  printf 'launcher test: syntax-invalid installer download unexpectedly succeeded\n' >&2
+  exit 1
+fi
+grep -q 'failed Bash syntax validation' "$FIXTURE/install-syntax.err"
+cmp "$FIXTURE/installed launcher before failures" "$INSTALL_PATH"
+! find "$(dirname "$INSTALL_PATH")" -maxdepth 1 -name '.aiup-install.*' -print | grep -q .
 
 write_runtime "$HOME_FIXTURE/web-dev/aiup/macos/aiup" personal-checkout
 write_runtime "$RUNTIME_SOURCE" fixture-1
@@ -83,6 +155,8 @@ run_public() {
     AIUP_STATE_DIR="$STATE_DIR" \
     AIUP_UPSTREAM_URL='https://example.invalid/macos/aiup' \
     AIUP_MANIFEST_URL='https://example.invalid/macos/catalog/manifest.tsv' \
+    AIUP_LAUNCHER_TEST_FAIL_AT="${AIUP_LAUNCHER_TEST_FAIL_AT:-}" \
+    FAKE_LAUNCHER_SOURCE="$LAUNCHER_SOURCE" \
     FAKE_RUNTIME_SOURCE="$RUNTIME_SOURCE" \
     FAKE_MANIFEST_SOURCE="$MANIFEST_SOURCE" \
     FAKE_CURL_LOG="$CURL_LOG" \
@@ -90,44 +164,87 @@ run_public() {
     "$INSTALL_PATH" "$@"
 }
 
-# Install, PATH persistence, first run, and a HOME containing the former
-# personal checkout convention. Default execution must still use the download.
-grep -Fq 'aiup-launcher -o ~/.local/bin/aiup' "$ROOT/README.md"
-grep -Fq 'aiup-launcher -o ~/.local/bin/aiup' "$ROOT/docs/install.md"
+# First public invocation uses a newly validated generation, not the former
+# maintainer checkout convention or any unpaired legacy cache path.
 [ "$(run_public version)" = fixture-1 ]
 [ "$(run_public only fzf)" = 'runtime fixture-1: only fzf' ]
 ! run_public version | grep -q personal-checkout
 ! grep -q 'web-dev' "$LAUNCHER"
-[ -x "$STATE_DIR/aiup-live" ]
-[ -s "$STATE_DIR/catalog/manifest.tsv" ]
-[ "$(run_public manifest)" = "$STATE_DIR/catalog/manifest.tsv" ]
+first_generation="$(sed -n '1p' "$STATE_DIR/current-generation")"
+first_dir="$STATE_DIR/generations/$first_generation"
+[ -x "$first_dir/aiup" ]
+[ -s "$first_dir/manifest.tsv" ]
+[ "$(run_public manifest)" = "$STATE_DIR/generations/$(sed -n '1p' "$STATE_DIR/current-generation")/manifest.tsv" ]
 
-# A later invocation refreshes and activates the newer validated pair.
+# Establish one known pair, then retain exact byte copies and its pointer while
+# each activation boundary fails before the atomic current-pointer switch.
 write_runtime "$RUNTIME_SOURCE" fixture-2
 write_manifest "$MANIFEST_SOURCE" fixture-2
 [ "$(run_public version)" = fixture-2 ]
-grep -q '^AIUP_VERSION="fixture-2"$' "$STATE_DIR/aiup-live"
-cp "$STATE_DIR/aiup-live" "$FIXTURE/cached runtime"
-cp "$STATE_DIR/catalog/manifest.tsv" "$FIXTURE/cached manifest"
+cached_generation="$(sed -n '1p' "$STATE_DIR/current-generation")"
+cached_dir="$STATE_DIR/generations/$cached_generation"
+generation_count_before_failures="$(find "$STATE_DIR/generations" -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' | wc -l | tr -d ' ')"
+cp "$cached_dir/aiup" "$FIXTURE/cached runtime"
+cp "$cached_dir/manifest.tsv" "$FIXTURE/cached manifest"
 
-# Offline/failed refresh never executes or replaces the last validated cache.
+assert_cached_pair_unchanged() {
+  [ "$(sed -n '1p' "$STATE_DIR/current-generation")" = "$cached_generation" ]
+  cmp "$FIXTURE/cached runtime" "$cached_dir/aiup"
+  cmp "$FIXTURE/cached manifest" "$cached_dir/manifest.tsv"
+  grep -q '^AIUP_VERSION="fixture-2"$' "$cached_dir/aiup"
+  grep -q '^# aiup-runtime-version: fixture-2$' "$cached_dir/manifest.tsv"
+  ! find "$STATE_DIR/generations" -maxdepth 1 -name '.staging-*' -print | grep -q .
+  [ "$(find "$STATE_DIR/generations" -mindepth 1 -maxdepth 1 -type d ! -name '.staging-*' | wc -l | tr -d ' ')" = "$generation_count_before_failures" ]
+  ! find "$STATE_DIR" -maxdepth 1 \( -name '.current-generation.*' -o -name '.previous-generation.*' \) -print | grep -q .
+}
+
+write_runtime "$RUNTIME_SOURCE" never-execute-runtime-failure
+write_manifest "$MANIFEST_SOURCE" never-execute-runtime-failure
+if AIUP_LAUNCHER_TEST_FAIL_AT=runtime-activation run_public version > "$FIXTURE/runtime-activation.out" 2> "$FIXTURE/runtime-activation.err"; then
+  printf 'launcher test: runtime activation failure unexpectedly succeeded\n' >&2
+  exit 1
+fi
+[ ! -s "$FIXTURE/runtime-activation.out" ]
+grep -q 'injected launcher failure at runtime-activation' "$FIXTURE/runtime-activation.err"
+assert_cached_pair_unchanged
+
+write_runtime "$RUNTIME_SOURCE" never-execute-manifest-failure
+write_manifest "$MANIFEST_SOURCE" never-execute-manifest-failure
+if AIUP_LAUNCHER_TEST_FAIL_AT=manifest-activation run_public version > "$FIXTURE/manifest-activation.out" 2> "$FIXTURE/manifest-activation.err"; then
+  printf 'launcher test: manifest activation failure unexpectedly succeeded\n' >&2
+  exit 1
+fi
+[ ! -s "$FIXTURE/manifest-activation.out" ]
+grep -q 'injected launcher failure at manifest-activation' "$FIXTURE/manifest-activation.err"
+assert_cached_pair_unchanged
+
+write_runtime "$RUNTIME_SOURCE" never-execute-before-switch
+write_manifest "$MANIFEST_SOURCE" never-execute-before-switch
+if AIUP_LAUNCHER_TEST_FAIL_AT=before-switch run_public version > "$FIXTURE/before-switch.out" 2> "$FIXTURE/before-switch.err"; then
+  printf 'launcher test: before-switch failure unexpectedly succeeded\n' >&2
+  exit 1
+fi
+[ ! -s "$FIXTURE/before-switch.out" ]
+grep -q 'injected launcher failure at before-switch' "$FIXTURE/before-switch.err"
+assert_cached_pair_unchanged
+
+# Offline/failed refresh stops without executing either the download or stale pair.
 if FAKE_CURL_MODE=fail run_public version > "$FIXTURE/offline.out" 2> "$FIXTURE/offline.err"; then
   printf 'launcher test: offline refresh unexpectedly succeeded\n' >&2
   exit 1
 fi
 [ ! -s "$FIXTURE/offline.out" ]
 grep -q 'could not fetch the live public runtime' "$FIXTURE/offline.err"
-cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
-cmp "$FIXTURE/cached manifest" "$STATE_DIR/catalog/manifest.tsv"
+assert_cached_pair_unchanged
 
-# Empty, invalid, and partial downloads fail before activation.
+# Empty, invalid, syntax-invalid, and mismatched downloads also fail before activation.
 : > "$RUNTIME_SOURCE"
 if run_public version > /dev/null 2> "$FIXTURE/empty.err"; then
   printf 'launcher test: empty runtime unexpectedly succeeded\n' >&2
   exit 1
 fi
 grep -q 'runtime was empty' "$FIXTURE/empty.err"
-cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+assert_cached_pair_unchanged
 
 printf '%s\n' '#!/usr/bin/env bash' 'printf "no version\\n"' > "$RUNTIME_SOURCE"
 if run_public version > /dev/null 2> "$FIXTURE/invalid.err"; then
@@ -135,7 +252,7 @@ if run_public version > /dev/null 2> "$FIXTURE/invalid.err"; then
   exit 1
 fi
 grep -q 'did not declare an aiup version' "$FIXTURE/invalid.err"
-cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+assert_cached_pair_unchanged
 
 printf '%s\n' '#!/usr/bin/env bash' 'AIUP_VERSION="broken-syntax"' 'if then' > "$RUNTIME_SOURCE"
 write_manifest "$MANIFEST_SOURCE" broken-syntax
@@ -144,17 +261,28 @@ if run_public version > /dev/null 2> "$FIXTURE/syntax.err"; then
   exit 1
 fi
 grep -q 'failed shell syntax validation' "$FIXTURE/syntax.err"
-cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
+assert_cached_pair_unchanged
 
-write_runtime "$RUNTIME_SOURCE" fixture-3
-write_manifest "$MANIFEST_SOURCE" wrong-version
+write_runtime "$RUNTIME_SOURCE" mismatched-runtime
+write_manifest "$MANIFEST_SOURCE" mismatched-manifest
 if run_public version > /dev/null 2> "$FIXTURE/partial.err"; then
-  printf 'launcher test: partial runtime pair unexpectedly succeeded\n' >&2
+  printf 'launcher test: mismatched runtime pair unexpectedly succeeded\n' >&2
   exit 1
 fi
 grep -q 'versions did not match' "$FIXTURE/partial.err"
-cmp "$FIXTURE/cached runtime" "$STATE_DIR/aiup-live"
-cmp "$FIXTURE/cached manifest" "$STATE_DIR/catalog/manifest.tsv"
+assert_cached_pair_unchanged
+
+# A successful later refresh recovers, while the exact former active pair remains
+# reachable through the previous-generation pointer as recovery evidence.
+write_runtime "$RUNTIME_SOURCE" recovered
+write_manifest "$MANIFEST_SOURCE" recovered
+[ "$(run_public version)" = recovered ]
+[ "$(sed -n '1p' "$STATE_DIR/previous-generation")" = "$cached_generation" ]
+cmp "$FIXTURE/cached runtime" "$cached_dir/aiup"
+cmp "$FIXTURE/cached manifest" "$cached_dir/manifest.tsv"
+recovered_generation="$(sed -n '1p' "$STATE_DIR/current-generation")"
+grep -q '^AIUP_VERSION="recovered"$' "$STATE_DIR/generations/$recovered_generation/aiup"
+grep -q '^# aiup-runtime-version: recovered$' "$STATE_DIR/generations/$recovered_generation/manifest.tsv"
 
 # A missing downloader and an explicit missing source both fail without fallback.
 if env HOME="$HOME_FIXTURE" PATH="$NO_CURL_BIN" AIUP_STATE_DIR="$STATE_DIR" \
@@ -182,18 +310,18 @@ curl_count_before="$(wc -l < "$CURL_LOG" | tr -d ' ')"
   "$INSTALL_PATH" version)" = local-development ]
 [ "$(wc -l < "$CURL_LOG" | tr -d ' ')" = "$curl_count_before" ]
 
-# The documented uninstall scope removes aiup and its PATH blocks, not other data.
+# The documented uninstall scope removes aiup and aiup-owned state/PATH blocks only.
 printf 'keep\n' > "$HOME_FIXTURE/keep-me"
 printf '\n# >>> aiup PATH >>>\nexport PATH="example"\n# <<< aiup PATH <<<\n' > "$HOME_FIXTURE/.zshrc"
 rm -f "$INSTALL_PATH"
 rm -rf "$STATE_DIR"
-for profile in "$HOME_FIXTURE/.zprofile" "$HOME_FIXTURE/.zshrc"; do
+for profile in "$PROFILE_PATH" "$HOME_FIXTURE/.zshrc"; do
   [ -f "$profile" ] || continue
   sed -i '' '/# >>> aiup PATH >>>/,/# <<< aiup PATH <<</d' "$profile"
 done
 [ ! -e "$INSTALL_PATH" ]
 [ ! -e "$STATE_DIR" ]
-! grep -q '# >>> aiup PATH >>>' "$HOME_FIXTURE/.zprofile" "$HOME_FIXTURE/.zshrc"
+! grep -q '# >>> aiup PATH >>>' "$PROFILE_PATH" "$HOME_FIXTURE/.zshrc"
 [ "$(cat "$HOME_FIXTURE/keep-me")" = keep ]
 
 printf 'aiup launcher tests: ok\n'

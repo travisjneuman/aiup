@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.08.25-01",
+  "version": "2026.08.25-02",
   "categories": [
     {
       "id": "infra",
@@ -186,16 +186,16 @@
           "id": "gemini",
           "category": "coding-agents",
           "kind": "special",
-          "lifecycle": "sunset",
+          "lifecycle": "active",
           "docs": "https://github.com/google-gemini/gemini-cli",
-          "label": "Google Gemini CLI (legacy; Antigravity is preferred)"
+          "label": "Google Gemini CLI — official npm package (macOS 15+)"
         },
         {
           "id": "pi",
           "category": "coding-agents",
           "kind": "special",
           "lifecycle": "active",
-          "docs": "https://github.com/badlogic/pi-mono",
+          "docs": "https://github.com/earendil-works/pi",
           "label": "Pi coding agent — @earendil-works/pi-coding-agent"
         },
         {
@@ -211,7 +211,7 @@
           "category": "coding-agents",
           "kind": "special",
           "lifecycle": "active",
-          "docs": "https://github.com/opengsd/gsd-pi",
+          "docs": "https://github.com/open-gsd/gsd-pi",
           "label": "GSD (gsd-pi) — @opengsd/gsd-pi"
         },
         {
@@ -219,7 +219,7 @@
           "category": "coding-agents",
           "kind": "special",
           "lifecycle": "active",
-          "docs": "https://github.com/sst/opencode",
+          "docs": "https://github.com/anomalyco/opencode",
           "label": "OpenCode — official installer"
         },
         {
@@ -229,14 +229,6 @@
           "lifecycle": "active",
           "docs": "https://github.com/NousResearch/hermes-agent",
           "label": "Hermes Agent — Nous Research"
-        },
-        {
-          "id": "omp",
-          "category": "coding-agents",
-          "kind": "special",
-          "lifecycle": "active",
-          "docs": "https://pi.dev/",
-          "label": "Oh My Pi (omp) standalone binary"
         },
         {
           "id": "warp",
@@ -259,8 +251,8 @@
           "category": "coding-agents",
           "kind": "special",
           "lifecycle": "active",
-          "docs": "https://github.com/block/goose",
-          "label": "Goose — Block open-source agent CLI"
+          "docs": "https://github.com/aaif-goose/goose",
+          "label": "Goose — open-source agent CLI"
         },
         {
           "id": "cursor",
@@ -327,14 +319,6 @@
           "label": "OpenClaw — personal/local AI assistant CLI"
         },
         {
-          "id": "plandex",
-          "category": "coding-agents",
-          "kind": "curl-installer",
-          "lifecycle": "maintenance",
-          "docs": "https://github.com/plandex-ai/plandex",
-          "label": "Plandex — large-task planning CLI (quieter upstream)"
-        },
-        {
           "id": "cline",
           "category": "coding-agents",
           "kind": "aiup-npm",
@@ -346,9 +330,9 @@
           "id": "continue",
           "category": "coding-agents",
           "kind": "aiup-npm",
-          "lifecycle": "sunset",
+          "lifecycle": "active",
           "docs": "https://github.com/continuedev/continue",
-          "label": "[SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only"
+          "label": "Continue CLI — @continuedev/cli"
         },
         {
           "id": "interpreter",
@@ -424,10 +408,10 @@
         {
           "id": "n8n",
           "category": "workspaces",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/n8n-io/n8n",
-          "label": "n8n — workflow automation (often used with local LLMs)"
+          "label": "n8n — workflow automation via the official npm package"
         }
       ]
     },
@@ -589,9 +573,9 @@
           "id": "gpt4all",
           "category": "local-ai",
           "kind": "brew-cask",
-          "lifecycle": "active",
+          "lifecycle": "maintenance",
           "docs": "https://github.com/nomic-ai/gpt4all",
-          "label": "GPT4All — local LLM desktop app"
+          "label": "GPT4All — local LLM desktop app (maintenance-only)"
         },
         {
           "id": "anythingllm",
@@ -945,16 +929,16 @@
       "id": "gemini",
       "category": "coding-agents",
       "kind": "special",
-      "lifecycle": "sunset",
+      "lifecycle": "active",
       "docs": "https://github.com/google-gemini/gemini-cli",
-      "label": "Google Gemini CLI (legacy; Antigravity is preferred)"
+      "label": "Google Gemini CLI — official npm package (macOS 15+)"
     },
     {
       "id": "pi",
       "category": "coding-agents",
       "kind": "special",
       "lifecycle": "active",
-      "docs": "https://github.com/badlogic/pi-mono",
+      "docs": "https://github.com/earendil-works/pi",
       "label": "Pi coding agent — @earendil-works/pi-coding-agent"
     },
     {
@@ -970,7 +954,7 @@
       "category": "coding-agents",
       "kind": "special",
       "lifecycle": "active",
-      "docs": "https://github.com/opengsd/gsd-pi",
+      "docs": "https://github.com/open-gsd/gsd-pi",
       "label": "GSD (gsd-pi) — @opengsd/gsd-pi"
     },
     {
@@ -978,7 +962,7 @@
       "category": "coding-agents",
       "kind": "special",
       "lifecycle": "active",
-      "docs": "https://github.com/sst/opencode",
+      "docs": "https://github.com/anomalyco/opencode",
       "label": "OpenCode — official installer"
     },
     {
@@ -988,14 +972,6 @@
       "lifecycle": "active",
       "docs": "https://github.com/NousResearch/hermes-agent",
       "label": "Hermes Agent — Nous Research"
-    },
-    {
-      "id": "omp",
-      "category": "coding-agents",
-      "kind": "special",
-      "lifecycle": "active",
-      "docs": "https://pi.dev/",
-      "label": "Oh My Pi (omp) standalone binary"
     },
     {
       "id": "warp",
@@ -1018,8 +994,8 @@
       "category": "coding-agents",
       "kind": "special",
       "lifecycle": "active",
-      "docs": "https://github.com/block/goose",
-      "label": "Goose — Block open-source agent CLI"
+      "docs": "https://github.com/aaif-goose/goose",
+      "label": "Goose — open-source agent CLI"
     },
     {
       "id": "cursor",
@@ -1086,14 +1062,6 @@
       "label": "OpenClaw — personal/local AI assistant CLI"
     },
     {
-      "id": "plandex",
-      "category": "coding-agents",
-      "kind": "curl-installer",
-      "lifecycle": "maintenance",
-      "docs": "https://github.com/plandex-ai/plandex",
-      "label": "Plandex — large-task planning CLI (quieter upstream)"
-    },
-    {
       "id": "cline",
       "category": "coding-agents",
       "kind": "aiup-npm",
@@ -1105,9 +1073,9 @@
       "id": "continue",
       "category": "coding-agents",
       "kind": "aiup-npm",
-      "lifecycle": "sunset",
+      "lifecycle": "active",
       "docs": "https://github.com/continuedev/continue",
-      "label": "[SUNSET] Continue CLI — acquired by Cursor Jun 2026, repo read-only"
+      "label": "Continue CLI — @continuedev/cli"
     },
     {
       "id": "pi-acp",
@@ -1185,9 +1153,9 @@
       "id": "gpt4all",
       "category": "local-ai",
       "kind": "brew-cask",
-      "lifecycle": "active",
+      "lifecycle": "maintenance",
       "docs": "https://github.com/nomic-ai/gpt4all",
-      "label": "GPT4All — local LLM desktop app"
+      "label": "GPT4All — local LLM desktop app (maintenance-only)"
     },
     {
       "id": "anythingllm",
@@ -1384,10 +1352,10 @@
     {
       "id": "n8n",
       "category": "workspaces",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/n8n-io/n8n",
-      "label": "n8n — workflow automation (often used with local LLMs)"
+      "label": "n8n — workflow automation via the official npm package"
     },
     {
       "id": "interpreter",
