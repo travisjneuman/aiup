@@ -50,3 +50,22 @@ readme = re.sub(
 (root / "README.md").write_text(readme)
 print(f"synced catalog {data['version']} ({len(data['tools'])} tools)")
 PY
+
+python3 - "$ROOT" <<'PY'
+import pathlib, shutil, sys
+
+root = pathlib.Path(sys.argv[1])
+source = root / "docs" / "media"
+destination = root / "site" / "media"
+destination.mkdir(parents=True, exist_ok=True)
+names = [
+    "aiup-list.gif", "aiup-list-poster.png", "aiup-list-collapsed.png",
+    "aiup-list-homebrew.png", "aiup-list-adopt.png", "aiup-list-search.png",
+]
+for name in names:
+    source_path = source / name
+    if not source_path.is_file():
+        raise SystemExit(f"missing canonical media asset: {source_path}")
+    shutil.copyfile(source_path, destination / name)
+print(f"synced {len(names)} canonical media assets")
+PY

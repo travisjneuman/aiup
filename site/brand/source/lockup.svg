@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="480" viewBox="0 0 1280 480" role="img" aria-labelledby="title desc">
+  <title id="title">aiup</title>
+  <desc id="desc">The aiup terminal mark beside the aiup wordmark.</desc>
+  <defs>
+    <linearGradient id="frame" x1="70" y1="80" x2="452" y2="430" gradientUnits="userSpaceOnUse"><stop stop-color="#c084fc"/><stop offset=".52" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/></linearGradient>
+    <linearGradient id="command" x1="142" y1="200" x2="342" y2="310" gradientUnits="userSpaceOnUse"><stop stop-color="#c084fc"/><stop offset=".58" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/></linearGradient>
+    <linearGradient id="letters" x1="46" y1="58" x2="680" y2="265" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset=".55" stop-color="#e8e9ff"/><stop offset="1" stop-color="#c9c8ff"/></linearGradient>
+  </defs>
+  <g transform="translate(24 -16) scale(.94)">
+    <path d="M168 64h176c58 0 104 46 104 104v60M448 300v44c0 58-46 104-104 104H168C110 448 64 402 64 344V168C64 110 110 64 168 64" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="132" cy="142" r="13" fill="#ff6ba9"/><circle cx="180" cy="142" r="13" fill="#4de0ff"/><circle cx="228" cy="142" r="13" fill="#ffbd4a"/>
+    <path d="m150 218 58 42-58 42M254 310h92" fill="none" stroke="url(#command)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g transform="translate(526 80)">
+    <g fill="none" stroke="url(#letters)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M190 104c-20-30-55-42-88-27-34 15-49 56-36 94 13 39 50 62 86 49 19-7 31-21 38-37M190 87v137"/>
+      <path d="M270 112v112"/><path d="M350 100v78c0 31 22 51 55 51 35 0 61-22 61-55v-74"/>
+      <path d="M552 102v170M554 129c16-30 48-48 80-39 36 10 53 49 43 85-10 37-46 61-82 49-19-6-32-20-41-38"/>
+    </g>
+    <circle cx="270" cy="64" r="22" fill="#ffffff"/>
+  </g>
+</svg>

@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""Build and validate aiup brand derivatives from canonical SVG sources."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import pathlib
+import shutil
+import subprocess
+
+from PIL import Image
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+BRAND = ROOT / "site" / "brand"
+SOURCE = BRAND / "source"
+DERIVED = BRAND / "derived"
+ORIGINAL = BRAND / "original" / "aiup-logo.png"
+ORIGINAL_SHA256 = "726b5f4c1a9e518055bbdeb1807c6bb42700fd0bb5631fb514e3bd9c5f39b5c8"
+SVG_COPIES = ("mark.svg", "wordmark.svg", "lockup.svg", "favicon.svg")
+PNG_SPECS = {
+    "mark.png": ("mark.svg", (512, 512), "RGBA"),
+    "wordmark.png": ("wordmark.svg", (720, 320), "RGBA"),
+    "lockup.png": ("lockup.svg", (1200, 450), "RGBA"),
+    "favicon-16.png": ("favicon.svg", (16, 16), "RGBA"),
+    "favicon-32.png": ("favicon.svg", (32, 32), "RGBA"),
+    "favicon-48.png": ("favicon.svg", (48, 48), "RGBA"),
+    "favicon-192.png": ("favicon.svg", (192, 192), "RGBA"),
+    "apple-touch-icon.png": ("app-icon.svg", (180, 180), "RGB"),
+    "icon-192.png": ("app-icon.svg", (192, 192), "RGB"),
+    "icon-512.png": ("app-icon.svg", (512, 512), "RGB"),
+    "maskable-192.png": ("maskable-icon.svg", (192, 192), "RGB"),
+    "maskable-512.png": ("maskable-icon.svg", (512, 512), "RGB"),
+    "og.png": ("og.svg", (1200, 630), "RGB"),
+    "github-social-preview.png": ("github-social-preview.svg", (1280, 640), "RGB"),
+}
+ROOT_MIRRORS = {
+    "favicon.ico": "favicon.ico",
+    "favicon-16.png": "favicon-16.png",
+    "favicon-32.png": "favicon-32.png",
+    "favicon-48.png": "favicon-48.png",
+    "apple-touch-icon.png": "apple-touch-icon.png",
+}
+
+
+def sha256(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def render_svg(source: pathlib.Path, destination: pathlib.Path, size: tuple[int, int], mode: str, work: pathlib.Path) -> None:
+    raw = work / f"{destination.stem}-raw.png"
+    command = ["sips", "-s", "format", "png", str(source), "--out", str(raw)]
+    subprocess.run(command, check=True, cwd=ROOT, stdout=subprocess.DEVNULL)
+    with Image.open(raw) as image:
+        normalized = image.convert(mode).resize(size, Image.Resampling.LANCZOS)
+        normalized.save(destination, format="PNG", optimize=True)
+
+
+def build() -> None:
+    if sha256(ORIGINAL) != ORIGINAL_SHA256:
+        raise RuntimeError("archived original logo changed")
+    if shutil.which("sips") is None:
+        raise RuntimeError("the existing macOS sips command is required to render brand SVG sources")
+    DERIVED.mkdir(parents=True, exist_ok=True)
+    work = BRAND / f".build.{os.getpid()}"
+    work.mkdir()
+    try:
+        for name in SVG_COPIES:
+            shutil.copyfile(SOURCE / name, DERIVED / name)
+        for name, (source_name, size, mode) in PNG_SPECS.items():
+            render_svg(SOURCE / source_name, DERIVED / name, size, mode, work)
+        with Image.open(DERIVED / "favicon-48.png") as image:
+            image.save(DERIVED / "favicon.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48)])
+        for root_name, derived_name in ROOT_MIRRORS.items():
+            shutil.copyfile(DERIVED / derived_name, ROOT / "site" / root_name)
+        write_manifest()
+    finally:
+        shutil.rmtree(work)
+    validate()
+
+
+def write_manifest() -> None:
+    assets: dict[str, object] = {}
+    for path in sorted(DERIVED.iterdir()):
+        if not path.is_file():
+            continue
+        entry: dict[str, object] = {"bytes": path.stat().st_size, "sha256": sha256(path)}
+        if path.suffix.lower() in {".png", ".ico"}:
+            with Image.open(path) as image:
+                entry["dimensions"] = list(image.size)
+                entry["mode"] = image.mode
+        assets[path.name] = entry
+    manifest = {
+        "schema": 1,
+        "canonical_sources": sorted(path.name for path in SOURCE.glob("*.svg")),
+        "archived_original_sha256": ORIGINAL_SHA256,
+        "renderer": "macOS sips SVG rendering plus Pillow PNG normalization",
+        "palette": {
+            "navy": "#0b0c23", "mist": "#e8e9ff", "cyan": "#4de0ff",
+            "mint": "#4ef0c4", "purple": "#c084fc", "pink": "#ff6ba9", "amber": "#ffbd4a",
+        },
+        "maskable_safe_zone": "visible mark remains within the central 60 percent of each square canvas",
+        "assets": assets,
+    }
+    (BRAND / "brand-manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def validate() -> None:
+    if sha256(ORIGINAL) != ORIGINAL_SHA256:
+        raise RuntimeError("archived original logo changed")
+    for name in SVG_COPIES:
+        if (SOURCE / name).read_bytes() != (DERIVED / name).read_bytes():
+            raise RuntimeError(f"derived SVG drift: {name}")
+    for name, (_, size, mode) in PNG_SPECS.items():
+        path = DERIVED / name
+        if not path.is_file():
+            raise RuntimeError(f"missing brand asset: {name}")
+        with Image.open(path) as image:
+            if image.size != size:
+                raise RuntimeError(f"wrong dimensions for {name}: {image.size}")
+            if image.mode != mode:
+                raise RuntimeError(f"wrong mode for {name}: {image.mode}")
+            if mode == "RGBA":
+                alpha_min, alpha_max = image.getchannel("A").getextrema()
+                if alpha_min != 0 or alpha_max != 255:
+                    raise RuntimeError(f"transparent asset lacks expected alpha range: {name}")
+    with Image.open(DERIVED / "favicon.ico") as icon:
+        sizes = set(icon.ico.sizes())
+        if sizes != {(16, 16), (32, 32), (48, 48)}:
+            raise RuntimeError(f"favicon.ico sizes are wrong: {sorted(sizes)}")
+    if (DERIVED / "github-social-preview.png").stat().st_size >= 1024 * 1024:
+        raise RuntimeError("GitHub social preview exceeds 1 MiB")
+    for root_name, derived_name in ROOT_MIRRORS.items():
+        if (ROOT / "site" / root_name).read_bytes() != (DERIVED / derived_name).read_bytes():
+            raise RuntimeError(f"site-root brand mirror drift: {root_name}")
+    manifest = json.loads((BRAND / "brand-manifest.json").read_text(encoding="utf-8"))
+    for name, entry in manifest["assets"].items():
+        if sha256(DERIVED / name) != entry["sha256"]:
+            raise RuntimeError(f"brand manifest hash drift: {name}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+    if args.check:
+        validate()
+    else:
+        build()
+    print("brand assets: ok")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

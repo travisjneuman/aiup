@@ -1,0 +1,178 @@
+{
+  "archived_original_sha256": "726b5f4c1a9e518055bbdeb1807c6bb42700fd0bb5631fb514e3bd9c5f39b5c8",
+  "assets": {
+    "apple-touch-icon.png": {
+      "bytes": 12947,
+      "dimensions": [
+        180,
+        180
+      ],
+      "mode": "RGB",
+      "sha256": "cf74bb32aa7eec5916d8e9ea95ed2518e1df7c1792b828633ca46efc0879e755"
+    },
+    "favicon-16.png": {
+      "bytes": 815,
+      "dimensions": [
+        16,
+        16
+      ],
+      "mode": "RGBA",
+      "sha256": "e52d119433caa7f69b00a873d2084d233cb3f19f7f3832998d4084b900b16ae6"
+    },
+    "favicon-192.png": {
+      "bytes": 17949,
+      "dimensions": [
+        192,
+        192
+      ],
+      "mode": "RGBA",
+      "sha256": "5df25f2f0c1db9b926b38933b60b184775fa9c4200fab566da0883941438cd68"
+    },
+    "favicon-32.png": {
+      "bytes": 1937,
+      "dimensions": [
+        32,
+        32
+      ],
+      "mode": "RGBA",
+      "sha256": "0e911143ebd1a4d71774d359b90a667ac2146d9ea1d9fefc01d41d0c63f57673"
+    },
+    "favicon-48.png": {
+      "bytes": 3196,
+      "dimensions": [
+        48,
+        48
+      ],
+      "mode": "RGBA",
+      "sha256": "04aaf2d157749c72a00be84e1e4c08fa089a16c686bcf61c00fa05ab1e42c96a"
+    },
+    "favicon.ico": {
+      "bytes": 6078,
+      "dimensions": [
+        48,
+        48
+      ],
+      "mode": "RGBA",
+      "sha256": "4d7a4bf027b88db761e679ccdb7dc532317a7c50281ae0c3b30f83a0bae93555"
+    },
+    "favicon.svg": {
+      "bytes": 833,
+      "sha256": "074d59cc9a48ab631f39fa8a972095913586b5bd52f1681d32be30c8c3c0d821"
+    },
+    "github-social-preview.png": {
+      "bytes": 311884,
+      "dimensions": [
+        1280,
+        640
+      ],
+      "mode": "RGB",
+      "sha256": "d1c351994521ee91d95166bb57b42de1518c5772158e4367de5b1dcbfe24fbb6"
+    },
+    "icon-192.png": {
+      "bytes": 14258,
+      "dimensions": [
+        192,
+        192
+      ],
+      "mode": "RGB",
+      "sha256": "574d9e5bcdf19b4fc5e310d524e6b20959f2498eddd6cbd2b041ad64181d96a3"
+    },
+    "icon-512.png": {
+      "bytes": 47812,
+      "dimensions": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "f4a99a662fa594d5f316f34909f76ff1eed750f2b68e0392067e2b8ab3e8bb06"
+    },
+    "lockup.png": {
+      "bytes": 123210,
+      "dimensions": [
+        1200,
+        450
+      ],
+      "mode": "RGBA",
+      "sha256": "20521fdfc19bf0ebf4e12baee2dd57b17da14b71e531e4a56810612e0c18479e"
+    },
+    "lockup.svg": {
+      "bytes": 2045,
+      "sha256": "32b160dab5434ba0a6bec927bf100ad534d337597215614caf0df9682469fd81"
+    },
+    "mark.png": {
+      "bytes": 52934,
+      "dimensions": [
+        512,
+        512
+      ],
+      "mode": "RGBA",
+      "sha256": "578a04ced75d4e972f80eb6a33c960687eeebf2c4ad9e0ea143984e0e4cefe43"
+    },
+    "mark.svg": {
+      "bytes": 1321,
+      "sha256": "a5e068286f263440757fb8f3bba5f42e4dc484151bc2b7ae0179c31afade0a4e"
+    },
+    "maskable-192.png": {
+      "bytes": 21430,
+      "dimensions": [
+        192,
+        192
+      ],
+      "mode": "RGB",
+      "sha256": "061ec2c13ca932cf69e3277a8ca03f4285f8fb1053898a00327c9bf952f2d96b"
+    },
+    "maskable-512.png": {
+      "bytes": 108050,
+      "dimensions": [
+        512,
+        512
+      ],
+      "mode": "RGB",
+      "sha256": "675fcee94c01f6b152b3c5d369e47f241f5d52b4f8e784d9640bd4b4829423e8"
+    },
+    "og.png": {
+      "bytes": 203770,
+      "dimensions": [
+        1200,
+        630
+      ],
+      "mode": "RGB",
+      "sha256": "56e67768e2adad282e89aebaf22493944c397964455cacf09f0ce0b2a79a7bbd"
+    },
+    "wordmark.png": {
+      "bytes": 44937,
+      "dimensions": [
+        720,
+        320
+      ],
+      "mode": "RGBA",
+      "sha256": "c131795caabb1f8ce389772286045e752898bdf7dc2d9849be25a0ca2bd6d767"
+    },
+    "wordmark.svg": {
+      "bytes": 903,
+      "sha256": "54cf4602c151405ad2f9e25a1788030d8408eb52d959998f0a7100e1331ecb28"
+    }
+  },
+  "canonical_sources": [
+    "app-icon.svg",
+    "favicon.svg",
+    "github-social-preview.svg",
+    "lockup.svg",
+    "mark.svg",
+    "maskable-icon.svg",
+    "og.svg",
+    "wordmark.svg"
+  ],
+  "maskable_safe_zone": "visible mark remains within the central 60 percent of each square canvas",
+  "palette": {
+    "amber": "#ffbd4a",
+    "cyan": "#4de0ff",
+    "mint": "#4ef0c4",
+    "mist": "#e8e9ff",
+    "navy": "#0b0c23",
+    "pink": "#ff6ba9",
+    "purple": "#c084fc"
+  },
+  "renderer": "macOS sips SVG rendering plus Pillow PNG normalization",
+  "schema": 1
+}

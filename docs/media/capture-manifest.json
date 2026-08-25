@@ -1,0 +1,82 @@
+{
+  "assets": {
+    "aiup-list-adopt.png": {
+      "bytes": 28343,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "1e998ec9ff86b935b04f324d8e3663226a75921a2cd6eccb8ea1589bdd45ecce"
+    },
+    "aiup-list-collapsed.png": {
+      "bytes": 101973,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "52fbbd3a7f79fff990bce19f5c03c9c67de46364a82c788160b4043d0b5d95dd"
+    },
+    "aiup-list-homebrew.png": {
+      "bytes": 95418,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "70179350723fbe7568fabcdd1f9205be92537263d2048daabf218fbccf714984"
+    },
+    "aiup-list-poster.png": {
+      "bytes": 102909,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "4296ec7858db8a340640e7af85d2c25f9ced0f2a1223ca94553cba7efb31f8f5"
+    },
+    "aiup-list-search.png": {
+      "bytes": 102913,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "b7b07ee8943f6ea629d4ce5cf286f5cdacde989e67ea2853fe7111f7ee5a869f"
+    },
+    "aiup-list.gif": {
+      "bytes": 187983,
+      "dimensions": [
+        1280,
+        720
+      ],
+      "sha256": "f3676bea9e2f710446cd32560410f999e5fc8d666328af8d561f3c412e5635e6"
+    }
+  },
+  "external_commands_observed": [
+    "brew list --formula",
+    "brew list --cask",
+    "brew info --json=v2 --cask raycast"
+  ],
+  "fixture": "scripts/fixtures/capture",
+  "font": "JetBrainsMonoNerdFontMono-Regular.ttf",
+  "font_sha256": "474634cb9b0697a3a10b3da589e896794e1128b0c7c9b49678ec2e03194ce45a",
+  "font_size_px": 15,
+  "fzf_palette": "fg:#cdd6f4,bg:#0b0c23,hl:#4de0ff,fg+:#e8e9ff,bg+:#1a1b3a,hl+:#4ef0c4,info:#9aa0d4,prompt:#c084fc,pointer:#4ef0c4,marker:#ffb86c,spinner:#4de0ff,header:#9aa0d4,border:#4de0ff,label:#c084fc,query:#e8e9ff",
+  "gif_duration_ms": 4900,
+  "gif_frames": 4,
+  "locale": "en_US.UTF-8",
+  "managed_entries": 81,
+  "output_pixels": [
+    1280,
+    720
+  ],
+  "runtime_version": "2026.08.25-02",
+  "schema": 1,
+  "software_mutation": "none; fake Homebrew rejects mutating verbs and adoption was cancelled at the first confirmation",
+  "source_commit": "be76e09420e8a2d39b7be259b30be47186994473",
+  "terminal_cells": [
+    128,
+    40
+  ],
+  "terminal_profile": {
+    "background": "#0b0c23",
+    "foreground": "#e8e9ff"
+  }
+}

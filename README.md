@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="site/brand/derived/lockup.png" alt="aiup" width="560" />
+  <img src="site/brand/derived/lockup.svg" alt="aiup terminal mark and wordmark" width="560" height="210" />
 </p>
 
 <p align="center">
@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img alt="macOS" src="https://img.shields.io/badge/macOS-catalog-39FF14?style=for-the-badge&logo=apple&logoColor=black&labelColor=111" />
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-catalog-4EF0C4?style=for-the-badge&logo=apple&logoColor=E8E9FF&labelColor=0B0C23" />
   <img alt="local only" src="https://img.shields.io/badge/scan-local%20only-5CE1FF?style=for-the-badge&labelColor=111" />
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-d67bff?style=for-the-badge&labelColor=111" />
   <img alt="aiup does not invoke sudo" src="https://img.shields.io/badge/aiup_sudo-not_invoked-ffb347?style=for-the-badge&labelColor=111" />
@@ -29,7 +29,10 @@
 ---
 
 <p align="center">
-  <img src="docs/media/aiup-list.gif" alt="aiup list — collapsible catalog, neon installed rows, Homebrew extras" width="960" />
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png" />
+    <img src="docs/media/aiup-list.gif" alt="aiup 2026.08.25-02 catalog: collapsed categories, a Gemini search with update preview, restored overview, and cancelled result" width="960" height="540" />
+  </picture>
 </p>
 
 <p align="center"><em>⏎ install or expand &nbsp;·&nbsp; ⌃D uninstall &nbsp;·&nbsp; ⌃O docs &nbsp;·&nbsp; esc done</em></p>
@@ -98,8 +101,12 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
 
 <p align="center">
-  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Collapsed catalog" />
-  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Homebrew recommended" />
+  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Bordered collapsed aiup overview showing 81 managed entries and Detected last with 2 app, 2 npm, 1 uv, and 3 PATH demo detections" />
+  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Homebrew recommended view with Raycast on disk and switch-to-Homebrew, Docker install, and lazygit install actions" />
+</p>
+
+<p align="center">
+  <img src="docs/media/aiup-list-search.png" alt="Search inside collapsed categories revealing installed Gemini with its active lifecycle, update action, official docs, and dependency preview" width="720" height="405" />
 </p>
 
 ## 🎛️ Keys
@@ -124,14 +131,14 @@ Use `--view installed` for a compact maintenance view, `--view managed` to hide 
 
 For Homebrew extras outside the managed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. The overview intentionally does not load thousands of Homebrew rows: it says “not loaded” rather than showing a misleading zero. The full view is generated from the Homebrew taps already on the Mac, places `font-*` casks under `Homebrew > fonts`, and delegates dependency resolution back to Homebrew; managed catalog items remain in their normal categories.
 
-Installed rows glow **neon green**. Each category has a color bar. Categories start collapsed.
+Installed rows use **mint green**. Each category has a color bar. Categories start collapsed.
 
 ## 🍺 Already installed — just not via Homebrew?
 
 Same app. Not a second copy.
 
 <p align="center">
-  <img src="docs/media/aiup-list-adopt.png" alt="Switch an existing app to Homebrew without requesting a data zap" width="720" />
+  <img src="docs/media/aiup-list-adopt.png" alt="Raycast pre-action adoption confirmation stating that aiup does not pass --zap or directly delete ~/Library, warning that installer behavior may vary, and awaiting cancellation" width="720" height="405" />
 </p>
 
 | State | Meaning |

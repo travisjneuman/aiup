@@ -1,13 +1,15 @@
 {
   "name": "aiup",
   "short_name": "aiup",
-  "description": "A local catalog for AI tools on macOS.",
+  "description": "A local-first macOS catalog for 81 reviewed AI and developer-tool lifecycle entries.",
   "start_url": "/",
   "display": "browser",
   "background_color": "#0b0c23",
   "theme_color": "#0b0c23",
   "icons": [
-    { "src": "brand/derived/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "brand/derived/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "brand/derived/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "brand/derived/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "brand/derived/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "brand/derived/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

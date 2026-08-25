@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">aiup terminal mark</title>
+  <desc id="desc">An open rounded terminal frame with a command chevron, underscore, and three status dots.</desc>
+  <defs>
+    <linearGradient id="frame" x1="70" y1="80" x2="452" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c084fc"/><stop offset="0.52" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/>
+    </linearGradient>
+    <linearGradient id="command" x1="142" y1="200" x2="342" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c084fc"/><stop offset="0.58" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/>
+    </linearGradient>
+  </defs>
+  <path d="M168 64h176c58 0 104 46 104 104v60M448 300v44c0 58-46 104-104 104H168C110 448 64 402 64 344V168C64 110 110 64 168 64" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="132" cy="142" r="13" fill="#ff6ba9"/>
+  <circle cx="180" cy="142" r="13" fill="#4de0ff"/>
+  <circle cx="228" cy="142" r="13" fill="#ffbd4a"/>
+  <path d="m150 218 58 42-58 42M254 310h92" fill="none" stroke="url(#command)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

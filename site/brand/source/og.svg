@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs><radialGradient id="bg" cx="25%" cy="22%" r="95%"><stop stop-color="#20235a"/><stop offset=".54" stop-color="#0b0c23"/></radialGradient><linearGradient id="frame" x1="74" y1="84" x2="430" y2="430" gradientUnits="userSpaceOnUse"><stop stop-color="#c084fc"/><stop offset=".52" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/></linearGradient></defs>
+  <rect width="1200" height="630" fill="url(#bg)"/><circle cx="1070" cy="90" r="220" fill="#4de0ff" opacity=".06"/><circle cx="1060" cy="610" r="280" fill="#c084fc" opacity=".07"/>
+  <g transform="translate(80 68) scale(.82)"><path d="M168 64h176c58 0 104 46 104 104v60M448 300v44c0 58-46 104-104 104H168C110 448 64 402 64 344V168C64 110 110 64 168 64" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round"/><circle cx="132" cy="142" r="13" fill="#ff6ba9"/><circle cx="180" cy="142" r="13" fill="#4de0ff"/><circle cx="228" cy="142" r="13" fill="#ffbd4a"/><path d="m150 218 58 42-58 42M254 310h92" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="520" y="270" fill="#f7f7ff" font-family="JetBrains Mono, Menlo, monospace" font-size="112" font-weight="700" letter-spacing="-8">aiup</text>
+  <text x="526" y="344" fill="#e8e9ff" font-family="JetBrains Mono, Menlo, monospace" font-size="32">Your tool stack. One list.</text>
+  <text x="526" y="402" fill="#9aa0d4" font-family="JetBrains Mono, Menlo, monospace" font-size="24">81 managed entries · local inventory</text>
+</svg>

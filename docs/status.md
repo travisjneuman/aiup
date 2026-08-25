@@ -21,7 +21,11 @@ The macOS implementation has passed the documented source and regression checks 
 - retain the previous complete validated generation as recovery evidence without executing it as an offline fallback;
 - serialize finalization, pointer replacement, and exact pruning so repeated successful refreshes retain only current and previous while overlapping hidden staging remains untouched;
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in;
-- fail closed on offline, failed, empty, invalid, mismatched, or partial public refreshes.
+- fail closed on offline, failed, empty, invalid, mismatched, or partial public refreshes;
+- capture the real current TUI through a deterministic public-safe, mutation-free fixture;
+- keep `docs/media/` canonical and verify byte-identical `site/media/` mirrors;
+- provide a scalable brand source plus complete favicon, PWA, maskable, social-card, README, and site derivatives;
+- serve the static TUI poster instead of the animated GIF when reduced motion is requested.
 
 The 2026-08-25 closure added a validated atomic launcher installer and network-free regression coverage for clean public HOME/state fixtures, paths containing spaces, first install, safe replacement, install/PATH persistence, runtime and manifest activation failures, pre-switch and current-pointer failure, offline refusal, explicit local development, exact uninstall scope, invalid/partial refresh rejection, prior-pair preservation, bounded repeated-success retention, dead-lock recovery, overlapping activation safety, and later recovery. The same date's primary-source catalog audit recorded a disposition for all 83 starting entries and left 81 managed entries with executable contracts. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; individual products can impose stricter constraints recorded in the [dated audit](catalog-accuracy-2026-08-25.md).
 
@@ -34,39 +38,34 @@ aiup is not a finished cross-platform or tagged 1.0 product:
 - A normal public invocation is not offline-capable: it must refresh from GitHub and deliberately refuses to execute a stale cache. Offline development requires an explicit local checkout path.
 - There is no repository CI workflow. Current validation is local and intentionally small relative to the Bash runtime.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, and trust requirements change.
-- The public site still uses TUI media captured on 2026-08-20, before the current navigation, dynamic views, detected inventory, collapsed-category search, action badges, and result classifications.
+- Browser/device/accessibility and owner acceptance remain evidence lanes separate from source, asset, publication, and public-HTTP checks.
 
 ## Site status
 
-As of the separate 2026-08-24 site review, `https://aiup.neuman.dev` was live from the established Cloudflare Pages project and that reviewed source commit had a successful Pages check. The static page, metadata, headers, crawler files, catalog JSON, and referenced assets resolved successfully. Source publication and current browser/device acceptance remain separate evidence from this installation-contract change.
+The checked-in site now uses the current `2026.08.25-02` media, rebuilt brand suite, exact image dimensions, descriptive alt text, lazy-loaded non-hero stills, cache-busted metadata assets, and a reduced-motion `<picture>` source. Publication remains on the established GitHub-connected Cloudflare Pages path; a source push, provider receipt, public HTTP/hash readback, browser/device evidence, and owner acceptance remain separate claims.
 
-The site is therefore **live and mechanically complete as a small product poster**, but it is **not content-current or visually complete** until the TUI media is replaced and the refreshed desktop/mobile presentation receives visual review. An HTTP 200 and source-level responsive CSS are not browser/device or owner acceptance.
+Thread 3 makes the current media and brand suite source-complete. Thread 4 now owns the broader site UX, content structure, and SEO overhaul; Thread 5 still owns GitHub About/topics/social-preview settings.
 
-## Media decision
+## Media and brand completion
 
-Replace the current GIF and TUI stills. Keep the logo, favicon, Open Graph image, and restrained poster layout unless a separate brand review finds a real problem.
+The real TUI capture uses source commit `be76e09420e8a2d39b7be259b30be47186994473`, a 128 × 40 PTY, 1280 × 720 output, a fixed JetBrains Mono Nerd Font Mono profile, a fixed fzf palette, and public demo indexes. The fixture records read-only Homebrew queries, rejects mutating verbs, bypasses host inventory, and cancels adoption at the first confirmation. Exact provenance, hashes, dimensions, timing, and limitations are in [`media/README.md`](media/README.md) and [`media/capture-manifest.json`](media/capture-manifest.json).
 
-The replacement set should be captured from the real current TUI, not recreated as an illustration:
+The completed set is:
 
 1. `aiup-list.gif` — compact overview, a query that finds a row inside a collapsed category, preview visibility, then a clean cancel.
 2. `aiup-list-collapsed.png` — current full-screen overview with current categories, counts, border, and navigation hints.
 3. `aiup-list-homebrew.png` — focused Homebrew/recommended view with current action labels.
 4. `aiup-list-adopt.png` — the real pre-action adoption confirmation, cancelled before mutation.
-5. Optional `aiup-list-search.png` — a still that makes collapsed-category search obvious if the GIF does not communicate it clearly.
+5. `aiup-list-search.png` — a still that makes collapsed-category search and the current Gemini preview explicit.
+6. `aiup-list-poster.png` — the corresponding static reduced-motion presentation.
 
-Capture requirements:
-
-- use one named source commit and record it with the capture;
-- use a deterministic public-demo terminal size and fzf color configuration;
-- show only public-safe managed/demo data—no personal paths, account data, or private inventory;
-- perform no install, update, remove, or adoption during capture;
-- verify the GIF loop, still readability, alt text, desktop layout, mobile layout, and reduced-motion presentation before calling the site current.
+The brand review retained the recognizable open terminal, chevron, underscore, and cyan/mint/purple identity. It introduced scalable canonical sources, a simplified 16-pixel favicon, ordinary and maskable PWA compositions, 1200 × 630 Open Graph art, and a 1280 × 640 GitHub social-preview file below 1 MiB. The archived original remains byte-identical. See [`../site/brand/README.md`](../site/brand/README.md).
 
 ## Ordered closure sequence
 
 1. **Catalog/provider audit accepted** — completed in 2026.08.25-02 with all 83 starting dispositions recorded.
-2. **Current TUI media and brand suite** — capture and accept the real current interface without software mutation.
-3. **Site UX/SEO** — revise and visually review the site using the accepted current media.
+2. **Current TUI media and brand suite** — completed from the real current interface without software mutation.
+3. **Site UX/SEO** — Thread 4 is next: revise and visually review the site using the accepted current media.
 4. **GitHub public-presence overhaul** — improve repository presentation only after product/site truth is current.
 
 The product should remain maintenance-led. New catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries; tagged-release, CI, and cross-platform decisions remain separate future scopes.

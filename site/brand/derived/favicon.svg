@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">aiup compact terminal mark</title>
+  <defs>
+    <linearGradient id="frame" x1="80" y1="70" x2="442" y2="444" gradientUnits="userSpaceOnUse"><stop stop-color="#c084fc"/><stop offset=".5" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/></linearGradient>
+  </defs>
+  <rect x="12" y="12" width="488" height="488" rx="108" fill="#0b0c23"/>
+  <path d="M168 86h174c50 0 84 34 84 84v48M426 302v40c0 50-34 84-84 84H170c-50 0-84-34-84-84V170c0-50 34-84 84-84" fill="none" stroke="url(#frame)" stroke-width="42" stroke-linecap="round"/>
+  <path d="m158 208 60 48-60 48M264 316h86" fill="none" stroke="url(#frame)" stroke-width="46" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

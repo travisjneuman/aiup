@@ -5,13 +5,15 @@ Static files for **https://aiup.neuman.dev**. Cloudflare Pages root is this dire
 | Path | What |
 |---|---|
 | `brand/original/` | Unmodified logo copy. Do not edit. |
-| `brand/derived/` | Favicon, OG image, cropped mark and lockup |
-| `media/` | Product stills and GIF |
+| `brand/source/` | Canonical scalable mark, wordmark, lockup, icon, and social-card sources |
+| `brand/derived/` | Deterministic favicon, PWA, maskable, social-card, mark, wordmark, and lockup derivatives |
+| `media/` | Byte-identical mirrors of the canonical real-TUI media in `docs/media/` |
 | `robots.txt` / `sitemap.xml` / `llms.txt` | Crawlers |
 
 Install and how-to live in the GitHub README.
 
-The site shell is live, but the checked-in TUI media predates the current
-navigation, search, detected-inventory, and result UX. The replacement decision,
-capture requirements, and remaining acceptance gates are documented in
-[`docs/status.md`](../docs/status.md).
+The checked-in media represents aiup `2026.08.25-02` and its 81-entry catalog.
+The motion-sensitive hero uses the static search poster when
+`prefers-reduced-motion: reduce` is active. Capture and brand provenance live in
+[`docs/media/README.md`](../docs/media/README.md) and
+[`brand/README.md`](brand/README.md). Thread 4 owns the next site UX/SEO pass.

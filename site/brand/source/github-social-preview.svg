@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse"><stop stop-color="#16183f"/><stop offset=".58" stop-color="#0b0c23"/></linearGradient><linearGradient id="frame" x1="68" y1="78" x2="448" y2="438" gradientUnits="userSpaceOnUse"><stop stop-color="#c084fc"/><stop offset=".52" stop-color="#4de0ff"/><stop offset="1" stop-color="#4ef0c4"/></linearGradient></defs>
+  <rect width="1280" height="640" fill="url(#bg)"/><path d="M0 596C240 522 370 684 640 584s420 10 640-70v126H0Z" fill="#4ef0c4" opacity=".06"/>
+  <g transform="translate(92 64) scale(.86)"><path d="M168 64h176c58 0 104 46 104 104v60M448 300v44c0 58-46 104-104 104H168C110 448 64 402 64 344V168C64 110 110 64 168 64" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round"/><circle cx="132" cy="142" r="13" fill="#ff6ba9"/><circle cx="180" cy="142" r="13" fill="#4de0ff"/><circle cx="228" cy="142" r="13" fill="#ffbd4a"/><path d="m150 218 58 42-58 42M254 310h92" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="560" y="272" fill="#f7f7ff" font-family="JetBrains Mono, Menlo, monospace" font-size="124" font-weight="700" letter-spacing="-9">aiup</text>
+  <text x="566" y="356" fill="#e8e9ff" font-family="JetBrains Mono, Menlo, monospace" font-size="34">Scan locally. Maintain deliberately.</text>
+  <text x="566" y="418" fill="#9aa0d4" font-family="JetBrains Mono, Menlo, monospace" font-size="24">macOS · 81 managed entries · MIT</text>
+</svg>
