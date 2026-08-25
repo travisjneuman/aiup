@@ -464,6 +464,8 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         homebrew.wait_for("Raycast launcher")
         homebrew.wait_for("category  homebrew")
         homebrew.send(b"\x0e")
+        homebrew.wait_for("category  homebrew/recommended")
+        homebrew.send(b"\x0e")
         homebrew.wait_for("action   switch to Homebrew")
         homebrew.pump(0.4)
         check_public_text("homebrew", homebrew.term.text())
