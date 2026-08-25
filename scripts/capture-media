@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import codecs
+import collections
 import dataclasses
 import fcntl
 import hashlib
@@ -12,6 +13,7 @@ import json
 import os
 import pathlib
 import pty
+import re
 import select
 import shutil
 import signal
@@ -23,7 +25,7 @@ import termios
 import time
 import unicodedata
 
-from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
+from PIL import Image, ImageDraw, ImageFont, ImageSequence, PngImagePlugin
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -58,6 +60,36 @@ MEDIA_NAMES = (
     "aiup-list-search.png",
 )
 
+CATEGORY_INDEXES = {
+    "infra": 39,
+    "coding-agents": 171,
+    "workspaces": 219,
+    "editors": 111,
+    "terminals": 81,
+    "chat": 51,
+    "local-ai": 48,
+    "llm-utils": 208,
+    "adapters": 220,
+    "detected": 250,
+    "homebrew": 214,
+}
+HOMEBREW_INDEXES = {
+    "homebrew": 214,
+    "casks": 208,
+    "fonts": 176,
+    "formulae": 178,
+    "libraries": 180,
+    "recommended": 220,
+}
+FZF_RGB = {
+    "cyan": (77, 224, 255),
+    "mint": (78, 240, 196),
+    "purple": (192, 132, 252),
+    "selected-bg": (26, 27, 58),
+}
+STATE_GREEN = (57, 255, 20)
+ABSENT_GRAY = (138, 138, 138)
+
 
 def xterm_256(index: int) -> tuple[int, int, int]:
     base = (
@@ -74,6 +106,136 @@ def xterm_256(index: int) -> tuple[int, int, int]:
         return levels[value // 36], levels[(value // 6) % 6], levels[value % 6]
     gray = 8 + (index - 232) * 10
     return gray, gray, gray
+
+
+def rgb_hex(rgb: tuple[int, int, int]) -> str:
+    return "#" + "".join(f"{component:02x}" for component in rgb)
+
+
+def raw_indexed_sgr(raw: bytes) -> tuple[collections.Counter[int], dict[int, set[str]]]:
+    counts: collections.Counter[int] = collections.Counter()
+    forms: dict[int, set[str]] = collections.defaultdict(set)
+    for match in re.finditer(rb"\x1b\[([0-9;]*)m", raw):
+        raw_params = match.group(1).decode("ascii")
+        params = [int(value) if value else 0 for value in raw_params.split(";")]
+        for offset in range(len(params) - 2):
+            if params[offset:offset + 2] == [38, 5]:
+                index = params[offset + 2]
+                counts[index] += 1
+                forms[index].add(f"CSI {raw_params} m")
+    return counts, forms
+
+
+def visible_style_counts(term: "Terminal", attribute: str) -> collections.Counter[tuple[int, int, int]]:
+    return collections.Counter(
+        getattr(cell.style, attribute)
+        for row in term.cells
+        for cell in row
+        if cell.char.strip()
+    )
+
+
+def semantic_palette_evidence(
+    label: str,
+    session: "Session",
+    expected_fg: dict[str, tuple[int, int, int]],
+    expected_bg: dict[str, tuple[int, int, int]] | None = None,
+    required_text: tuple[str, ...] = (),
+    expected_indexes: dict[str, int] | None = None,
+) -> dict[str, object]:
+    text = session.term.text()
+    for needle in required_text:
+        if needle not in text:
+            raise RuntimeError(f"{label} semantic capture omitted {needle!r}")
+    fg_counts = visible_style_counts(session.term, "fg")
+    bg_counts = visible_style_counts(session.term, "bg")
+    observed_fg: dict[str, object] = {}
+    for name, rgb in expected_fg.items():
+        count = fg_counts[rgb]
+        if count == 0:
+            raise RuntimeError(f"{label} semantic capture omitted foreground {name} {rgb_hex(rgb)}")
+        observed_fg[name] = {"rgb": rgb_hex(rgb), "styled_cells": count}
+    observed_bg: dict[str, object] = {}
+    for name, rgb in (expected_bg or {}).items():
+        count = bg_counts[rgb]
+        if count == 0:
+            raise RuntimeError(f"{label} semantic capture omitted background {name} {rgb_hex(rgb)}")
+        observed_bg[name] = {"rgb": rgb_hex(rgb), "styled_cells": count}
+    raw_counts, raw_forms = raw_indexed_sgr(bytes(session.raw))
+    observed_sgr: dict[str, object] = {}
+    for name, index in (expected_indexes or {}).items():
+        count = raw_counts[index]
+        if count == 0:
+            raise RuntimeError(f"{label} raw PTY omitted indexed SGR 38;5;{index} for {name}")
+        observed_sgr[name] = {
+            "escape_forms": sorted(raw_forms[index]),
+            "occurrences": count,
+        }
+    return {
+        "foreground": observed_fg,
+        "background": observed_bg,
+        "raw_expected_sgr": observed_sgr,
+        "raw_indexed_sgr_counts": {str(index): count for index, count in sorted(raw_counts.items())},
+        "required_text": list(required_text),
+    }
+
+
+def color_distance(left: tuple[int, int, int], right: tuple[int, int, int]) -> int:
+    return sum((a - b) ** 2 for a, b in zip(left, right))
+
+
+def raster_palette_evidence(
+    label: str,
+    image: Image.Image,
+    expected: dict[str, tuple[int, int, int]],
+    tolerance: int = 12,
+) -> dict[str, object]:
+    rgb_image = image.convert("RGB")
+    counts = collections.Counter(rgb_image.get_flattened_data())
+    colors = tuple(counts)
+    evidence: dict[str, object] = {}
+    for name, target in expected.items():
+        nearest = min(colors, key=lambda candidate: color_distance(candidate, target))
+        distance = color_distance(nearest, target) ** 0.5
+        count = sum(
+            pixel_count for pixel, pixel_count in counts.items()
+            if color_distance(pixel, target) <= tolerance ** 2
+        )
+        if count == 0:
+            raise RuntimeError(
+                f"{label} raster omitted {name} {rgb_hex(target)}; "
+                f"nearest was {rgb_hex(nearest)} at distance {distance:.1f}"
+            )
+        evidence[name] = {
+            "expected_rgb": rgb_hex(target),
+            "matching_pixels": count,
+            "nearest_rgb": rgb_hex(nearest),
+            "nearest_distance": round(distance, 2),
+        }
+    return evidence
+
+
+def expected_raster_palettes() -> dict[str, dict[str, tuple[int, int, int]]]:
+    collapsed = {
+        name: xterm_256(index) for name, index in CATEGORY_INDEXES.items()
+    }
+    search = {
+        "coding-agents": xterm_256(CATEGORY_INDEXES["coding-agents"]),
+        "installed-action": STATE_GREEN,
+        "query-highlight": FZF_RGB["mint"],
+        "preview-label": FZF_RGB["purple"],
+        "border": FZF_RGB["cyan"],
+    }
+    homebrew = {
+        name: xterm_256(index) for name, index in HOMEBREW_INDEXES.items()
+    }
+    homebrew.update({
+        "on-disk-action": STATE_GREEN,
+        "absent-action": ABSENT_GRAY,
+        "preview-label": FZF_RGB["purple"],
+        "border": FZF_RGB["cyan"],
+    })
+    return {"collapsed": collapsed, "search": search, "homebrew": homebrew}
 
 
 @dataclasses.dataclass
@@ -332,6 +494,11 @@ class Session:
         self.work = work
         self.command_log = work / "commands.log"
         env = os.environ.copy()
+        # The capture harness may itself run with NO_COLOR. The real aiup TUI is
+        # chromatic, and fzf honors this variable by discarding ANSI input
+        # styles before emitting its PTY stream. Keep the fixture equivalent to
+        # the documented xterm-256color production surface.
+        env.pop("NO_COLOR", None)
         env.update({
             "HOME": str(work / "home"),
             "TMPDIR": str(work / "tmp"),
@@ -426,6 +593,27 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     states: dict[str, Image.Image] = {}
     gif_frames: list[Image.Image] = []
     gif_durations: list[int] = []
+    semantic_evidence: dict[str, object] = {}
+
+    collapsed_fg = {
+        name: xterm_256(index) for name, index in CATEGORY_INDEXES.items()
+    }
+    search_fg = {
+        "coding-agents": xterm_256(CATEGORY_INDEXES["coding-agents"]),
+        "installed-action": STATE_GREEN,
+        "query-highlight": FZF_RGB["mint"],
+        "preview-label": FZF_RGB["purple"],
+        "border": FZF_RGB["cyan"],
+    }
+    homebrew_fg = {
+        name: xterm_256(index) for name, index in HOMEBREW_INDEXES.items()
+    }
+    homebrew_fg.update({
+        "on-disk-action": STATE_GREEN,
+        "absent-action": ABSENT_GRAY,
+        "preview-label": FZF_RGB["purple"],
+        "border": FZF_RGB["cyan"],
+    })
 
     main = Session(work / "main", ["list"])
     try:
@@ -434,6 +622,12 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         main.pump(0.5)
         states["collapsed"] = main.term.render(font, bold_font)
         check_public_text("collapsed", main.term.text())
+        semantic_evidence["collapsed"] = semantic_palette_evidence(
+            "collapsed", main, collapsed_fg,
+            {"selected-row": FZF_RGB["selected-bg"]},
+            ("detected software", "2 apps · 2 npm · 1 uv · 3 PATH"),
+            CATEGORY_INDEXES,
+        )
         gif_frames.append(states["collapsed"]); gif_durations.append(900)
         query = ""
         for char in "gemini":
@@ -445,6 +639,12 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         main.pump(0.35)
         states["search"] = main.term.render(font, bold_font)
         check_public_text("search", main.term.text())
+        semantic_evidence["search"] = semantic_palette_evidence(
+            "search", main, search_fg,
+            {"selected-row": FZF_RGB["selected-bg"]},
+            ("gemini · coding-agents · installed · active", "action   update"),
+            {"coding-agents": CATEGORY_INDEXES["coding-agents"]},
+        )
         gif_frames.append(states["search"]); gif_durations.append(1800)
         main.send(b"\x15")
         main.wait_for("category  infra")
@@ -458,17 +658,27 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     finally:
         main.finish()
 
-    homebrew = Session(work / "homebrew", ["list", "--category", "homebrew/recommended"])
+    homebrew = Session(work / "homebrew", ["list", "--category", "homebrew"])
     try:
         homebrew.wait_for("aiup browse>")
-        homebrew.wait_for("Raycast launcher")
         homebrew.wait_for("category  homebrew")
-        homebrew.send(b"\x0e")
+        for _ in range(5):
+            homebrew.send(b"\x0e")
+            homebrew.pump(0.15)
         homebrew.wait_for("category  homebrew/recommended")
+        homebrew.send(b"\x05")
+        homebrew.wait_for("Raycast launcher")
+        homebrew.pump(0.3)
         homebrew.send(b"\x0e")
         homebrew.wait_for("action   switch to Homebrew")
         homebrew.pump(0.4)
         check_public_text("homebrew", homebrew.term.text())
+        semantic_evidence["homebrew"] = semantic_palette_evidence(
+            "homebrew", homebrew, homebrew_fg,
+            {"selected-row": FZF_RGB["selected-bg"]},
+            ("recommended", "switch to Homebrew", "directly deleting ~/Library."),
+            HOMEBREW_INDEXES,
+        )
         states["homebrew"] = homebrew.term.render(font, bold_font)
         homebrew.send(b"\x1b")
     finally:
@@ -486,6 +696,14 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         adopt.wait_for("Switch raycast to Homebrew without requesting a data zap?")
         adopt.pump(0.3)
         check_public_text("adopt", adopt.term.text())
+        semantic_evidence["adoption"] = semantic_palette_evidence(
+            "adoption", adopt, {}, required_text=(
+                "[INFO] Letting Homebrew manage raycast.",
+                "aiup will not pass --zap or directly delete ~/Library.",
+                "[WARN] Homebrew and vendor-specific installer behavior may vary.",
+                "Switch raycast to Homebrew without requesting a data zap? [y/N]",
+            ),
+        )
         states["adopt"] = adopt.term.render(font, bold_font)
         adopt.send(b"n\n")
         adopt.wait_for("aiup browse>")
@@ -506,12 +724,39 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     save_png(states["search"], DOCS_MEDIA / "aiup-list-poster.png", source_commit, "reduced-motion poster")
     save_png(states["homebrew"], DOCS_MEDIA / "aiup-list-homebrew.png", source_commit, "Homebrew recommended")
     save_png(states["adopt"], DOCS_MEDIA / "aiup-list-adopt.png", source_commit, "pre-action adoption confirmation")
-    gif_frames[0].save(
-        DOCS_MEDIA / "aiup-list.gif", save_all=True, append_images=gif_frames[1:],
-        duration=gif_durations, loop=0, disposal=1, optimize=True,
+    gif_palette_frames = [
+        frame.quantize(
+            colors=256,
+            method=Image.Quantize.MAXCOVERAGE,
+            dither=Image.Dither.NONE,
+        )
+        for frame in gif_frames
+    ]
+    gif_palette_frames[0].save(
+        DOCS_MEDIA / "aiup-list.gif", save_all=True, append_images=gif_palette_frames[1:],
+        duration=gif_durations, loop=0, disposal=1, optimize=False,
+        include_color_table=True,
     )
     if (DOCS_MEDIA / "aiup-list.gif").stat().st_size >= 5 * 1024 * 1024:
         raise RuntimeError("aiup-list.gif exceeded the 5 MiB target")
+
+    raster_evidence = {
+        "collapsed": raster_palette_evidence("collapsed", states["collapsed"], collapsed_fg),
+        "search": raster_palette_evidence("search", states["search"], search_fg),
+        "poster": raster_palette_evidence("poster", states["search"], search_fg),
+        "homebrew": raster_palette_evidence("homebrew", states["homebrew"], homebrew_fg),
+    }
+    with Image.open(DOCS_MEDIA / "aiup-list.gif") as gif:
+        encoded_frames = [frame.convert("RGB") for frame in ImageSequence.Iterator(gif)]
+    raster_evidence["gif-collapsed-1"] = raster_palette_evidence(
+        "GIF collapsed frame 1", encoded_frames[0], collapsed_fg, tolerance=8,
+    )
+    raster_evidence["gif-search"] = raster_palette_evidence(
+        "GIF search frame", encoded_frames[1], search_fg, tolerance=8,
+    )
+    raster_evidence["gif-collapsed-2"] = raster_palette_evidence(
+        "GIF collapsed frame 2", encoded_frames[2], collapsed_fg, tolerance=8,
+    )
 
     SITE_MEDIA.mkdir(parents=True, exist_ok=True)
     for name in MEDIA_NAMES:
@@ -526,7 +771,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             "dimensions": [WIDTH, HEIGHT],
         }
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "source_commit": source_commit,
         "runtime_version": "2026.08.25-02",
         "managed_entries": 81,
@@ -538,6 +783,13 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         "locale": "en_US.UTF-8",
         "terminal_profile": {"background": "#0b0c23", "foreground": "#e8e9ff"},
         "fzf_palette": FZF_COLORS,
+        "color_fidelity": {
+            "cause_corrected": "inherited NO_COLOR made fzf strip ANSI input styles before PTY capture",
+            "capture_environment": "NO_COLOR removed; TERM=xterm-256color; COLORTERM=truecolor",
+            "semantic_cells": semantic_evidence,
+            "rendered_pixels": raster_evidence,
+            "adoption_roles": "production output distinguishes INFO, WARN, and the confirmation prompt textually; it emits no role-specific SGR",
+        },
         "gif_frames": len(gif_frames),
         "gif_duration_ms": sum(gif_durations),
         "fixture": "scripts/fixtures/capture",
@@ -552,6 +804,9 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
 
 def validate_existing() -> None:
     manifest = json.loads((DOCS_MEDIA / "capture-manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("schema") != 2:
+        raise RuntimeError("capture manifest lacks color-fidelity schema 2 evidence")
+    palettes = expected_raster_palettes()
     for name in MEDIA_NAMES:
         docs = DOCS_MEDIA / name
         site = SITE_MEDIA / name
@@ -561,6 +816,45 @@ def validate_existing() -> None:
             if image.size != (WIDTH, HEIGHT): raise RuntimeError(f"wrong dimensions for {name}: {image.size}")
         digest = hashlib.sha256(docs.read_bytes()).hexdigest()
         if digest != manifest["assets"][name]["sha256"]: raise RuntimeError(f"manifest hash drift: {name}")
+    png_states = {
+        "aiup-list-collapsed.png": ("collapsed", palettes["collapsed"]),
+        "aiup-list-search.png": ("search", palettes["search"]),
+        "aiup-list-poster.png": ("poster", palettes["search"]),
+        "aiup-list-homebrew.png": ("homebrew", palettes["homebrew"]),
+    }
+    for name, (label, expected) in png_states.items():
+        with Image.open(DOCS_MEDIA / name) as image:
+            raster_palette_evidence(label, image, expected)
+    with Image.open(DOCS_MEDIA / "aiup-list-search.png") as search_image, \
+         Image.open(DOCS_MEDIA / "aiup-list-poster.png") as poster_image:
+        if search_image.convert("RGB").tobytes() != poster_image.convert("RGB").tobytes():
+            raise RuntimeError("reduced-motion poster pixels drift from the accepted search state")
+    with Image.open(DOCS_MEDIA / "aiup-list.gif") as gif:
+        frames = []
+        durations = []
+        for frame in ImageSequence.Iterator(gif):
+            durations.append(frame.info.get("duration", 0))
+            frames.append(frame.convert("RGB"))
+        loop = gif.info.get("loop")
+    if len(frames) != manifest["gif_frames"] or len(frames) != 4:
+        raise RuntimeError(f"wrong GIF frame count: {len(frames)}")
+    if sum(durations) != manifest["gif_duration_ms"]:
+        raise RuntimeError(f"wrong GIF duration: {sum(durations)} ms")
+    if loop != 0:
+        raise RuntimeError(f"GIF does not loop indefinitely: {loop!r}")
+    raster_palette_evidence("GIF collapsed frame 1", frames[0], palettes["collapsed"], tolerance=8)
+    raster_palette_evidence("GIF search frame", frames[1], palettes["search"], tolerance=8)
+    raster_palette_evidence("GIF collapsed frame 2", frames[2], palettes["collapsed"], tolerance=8)
+    fidelity = manifest.get("color_fidelity", {})
+    for state in ("collapsed", "search", "homebrew", "adoption"):
+        if state not in fidelity.get("semantic_cells", {}):
+            raise RuntimeError(f"manifest omitted semantic cell evidence for {state}")
+    for state in (
+        "collapsed", "search", "poster", "homebrew",
+        "gif-collapsed-1", "gif-search", "gif-collapsed-2",
+    ):
+        if state not in fidelity.get("rendered_pixels", {}):
+            raise RuntimeError(f"manifest omitted rendered palette evidence for {state}")
 
 
 def git_output(*args: str) -> str:
