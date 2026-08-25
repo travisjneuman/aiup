@@ -463,6 +463,8 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         homebrew.wait_for("aiup browse>")
         homebrew.wait_for("Raycast launcher")
         homebrew.wait_for("category  homebrew")
+        homebrew.send(b"\x1b[B")
+        homebrew.wait_for("action   switch to Homebrew")
         homebrew.pump(0.4)
         check_public_text("homebrew", homebrew.term.text())
         states["homebrew"] = homebrew.term.render(font, bold_font)
