@@ -441,7 +441,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             main.wait_for(f"aiup browse> {query}")
             main.pump(0.7)
             gif_frames.append(main.term.render(font, bold_font)); gif_durations.append(180)
-        main.wait_for("Official Gemini CLI")
+        main.wait_for("gemini · coding-agents · installed · active")
         main.pump(0.35)
         states["search"] = main.term.render(font, bold_font)
         check_public_text("search", main.term.text())
