@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -u
+
+if [ -n "${AIUP_CAPTURE_COMMAND_LOG:-}" ]; then
+  printf 'brew %s\n' "$*" >> "$AIUP_CAPTURE_COMMAND_LOG"
+fi
+
+case "${1:-}" in
+  install|upgrade|uninstall|trust)
+    printf 'capture fixture refused mutating Homebrew command: brew %s\n' "$*" >&2
+    exit 91
+    ;;
+  list)
+    exit 0
+    ;;
+  tap)
+    [ "$#" -eq 1 ] && exit 0
+    printf 'capture fixture refused Homebrew tap mutation: brew %s\n' "$*" >&2
+    exit 91
+    ;;
+  *)
+    exit 0
+    ;;
+esac

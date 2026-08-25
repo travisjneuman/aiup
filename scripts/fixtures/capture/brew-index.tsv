@@ -1,0 +1,7 @@
+homebrew/casks	installed	bc:obsidian	Obsidian notes
+homebrew/fonts	installed	bc:font-jetbrains-mono	JetBrains Mono font
+homebrew/formulae	installed	bf:htop	htop process viewer
+homebrew/libraries	installed	bf:openssl@3	OpenSSL library
+homebrew/recommended	on-disk	bc:raycast	Raycast launcher
+homebrew/recommended	absent	bc:docker	Docker Desktop
+homebrew/recommended	absent	bf:lazygit	lazygit

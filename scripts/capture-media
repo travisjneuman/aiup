@@ -1,0 +1,586 @@
+#!/usr/bin/env python3
+"""Capture deterministic public media from aiup's real fzf TUI."""
+
+from __future__ import annotations
+
+import argparse
+import codecs
+import dataclasses
+import fcntl
+import hashlib
+import json
+import os
+import pathlib
+import pty
+import select
+import shutil
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import termios
+import time
+import unicodedata
+
+from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+FIXTURE = ROOT / "scripts" / "fixtures" / "capture"
+DOCS_MEDIA = ROOT / "docs" / "media"
+SITE_MEDIA = ROOT / "site" / "media"
+FONT = pathlib.Path.home() / "Library/Fonts/JetBrainsMonoNerdFontMono-Regular.ttf"
+WIDTH, HEIGHT = 1280, 720
+COLS, ROWS = 128, 40
+CELL_W, CELL_H = 10, 18
+FONT_SIZE = 15
+DEFAULT_FG = (232, 233, 255)
+DEFAULT_BG = (11, 12, 35)
+FZF_COLORS = (
+    "fg:#cdd6f4,bg:#0b0c23,hl:#4de0ff,"
+    "fg+:#e8e9ff,bg+:#1a1b3a,hl+:#4ef0c4,"
+    "info:#9aa0d4,prompt:#c084fc,pointer:#4ef0c4,"
+    "marker:#ffb86c,spinner:#4de0ff,header:#9aa0d4,"
+    "border:#4de0ff,label:#c084fc,query:#e8e9ff"
+)
+FZF_DEFAULT_OPTS = (
+    "--no-mouse --layout=reverse --border=rounded --info=inline-right "
+    "--preview-label=' current preview ' --list-label=' current aiup catalog ' "
+    f"--color={FZF_COLORS}"
+)
+MEDIA_NAMES = (
+    "aiup-list.gif",
+    "aiup-list-poster.png",
+    "aiup-list-collapsed.png",
+    "aiup-list-homebrew.png",
+    "aiup-list-adopt.png",
+    "aiup-list-search.png",
+)
+
+
+def xterm_256(index: int) -> tuple[int, int, int]:
+    base = (
+        (0, 0, 0), (205, 49, 49), (13, 188, 121), (229, 229, 16),
+        (36, 114, 200), (188, 63, 188), (17, 168, 205), (229, 229, 229),
+        (102, 102, 102), (241, 76, 76), (35, 209, 139), (245, 245, 67),
+        (59, 142, 234), (214, 112, 214), (41, 184, 219), (255, 255, 255),
+    )
+    if index < 16:
+        return base[index]
+    if index < 232:
+        value = index - 16
+        levels = (0, 95, 135, 175, 215, 255)
+        return levels[value // 36], levels[(value // 6) % 6], levels[value % 6]
+    gray = 8 + (index - 232) * 10
+    return gray, gray, gray
+
+
+@dataclasses.dataclass
+class Style:
+    fg: tuple[int, int, int] = DEFAULT_FG
+    bg: tuple[int, int, int] = DEFAULT_BG
+    bold: bool = False
+    reverse: bool = False
+
+
+@dataclasses.dataclass
+class Cell:
+    char: str = " "
+    style: Style = dataclasses.field(default_factory=Style)
+
+
+class Terminal:
+    def __init__(self) -> None:
+        self.cells = [[Cell() for _ in range(COLS)] for _ in range(ROWS)]
+        self.row = 0
+        self.col = 0
+        self.saved = (0, 0)
+        self.scroll_top = 0
+        self.scroll_bottom = ROWS - 1
+        self.style = Style()
+        self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
+        self.pending = ""
+
+    def clear(self) -> None:
+        self.cells = [[Cell() for _ in range(COLS)] for _ in range(ROWS)]
+        self.row = self.col = 0
+
+    def blank_cell(self) -> Cell:
+        return Cell(" ", dataclasses.replace(self.style))
+
+    def feed(self, payload: bytes) -> None:
+        self.pending += self.decoder.decode(payload)
+        text = self.pending
+        self.pending = ""
+        i = 0
+        while i < len(text):
+            char = text[i]
+            if char == "\x1b":
+                if i + 1 >= len(text):
+                    self.pending = text[i:]
+                    break
+                nxt = text[i + 1]
+                if nxt == "[":
+                    end = i + 2
+                    while end < len(text) and not ("@" <= text[end] <= "~"):
+                        end += 1
+                    if end >= len(text):
+                        self.pending = text[i:]
+                        break
+                    self.csi(text[i + 2:end], text[end])
+                    i = end + 1
+                    continue
+                if nxt == "]":
+                    end = i + 2
+                    while end < len(text):
+                        if text[end] == "\x07":
+                            end += 1
+                            break
+                        if text[end:end + 2] == "\x1b\\":
+                            end += 2
+                            break
+                        end += 1
+                    if end > len(text):
+                        self.pending = text[i:]
+                        break
+                    i = end
+                    continue
+                if nxt in "78":
+                    if nxt == "7":
+                        self.saved = (self.row, self.col)
+                    else:
+                        self.row, self.col = self.saved
+                    i += 2
+                    continue
+                if nxt == "c":
+                    self.clear()
+                    self.style = Style()
+                    i += 2
+                    continue
+                if nxt in "()" and i + 2 < len(text):
+                    i += 3
+                    continue
+                i += 2
+                continue
+            if char == "\r":
+                self.col = 0
+            elif char == "\n":
+                self.newline()
+            elif char == "\b":
+                self.col = max(0, self.col - 1)
+            elif char == "\t":
+                self.col = min(COLS - 1, ((self.col // 8) + 1) * 8)
+            elif ord(char) >= 32 and char != "\x7f":
+                self.put(char)
+            i += 1
+
+    def put(self, char: str) -> None:
+        if unicodedata.combining(char):
+            if self.col:
+                self.cells[self.row][self.col - 1].char += char
+            return
+        if self.col >= COLS:
+            self.col = 0
+            self.newline()
+        self.cells[self.row][self.col] = Cell(char, dataclasses.replace(self.style))
+        width = 2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1
+        if width == 2 and self.col + 1 < COLS:
+            self.cells[self.row][self.col + 1] = Cell("", dataclasses.replace(self.style))
+        self.col += width
+
+    def newline(self) -> None:
+        if self.row == self.scroll_bottom:
+            del self.cells[self.scroll_top]
+            self.cells.insert(self.scroll_bottom, [Cell() for _ in range(COLS)])
+        else:
+            self.row = min(ROWS - 1, self.row + 1)
+
+    @staticmethod
+    def number(value: str, default: int = 1) -> int:
+        try:
+            return int(value) if value else default
+        except ValueError:
+            return default
+
+    def csi(self, raw: str, final: str) -> None:
+        private = raw.startswith("?")
+        if private:
+            raw = raw[1:]
+        parts = raw.split(";") if raw else [""]
+        nums = [self.number(part) for part in parts]
+        if final in "Hf":
+            self.row = max(0, min(ROWS - 1, nums[0] - 1))
+            self.col = max(0, min(COLS - 1, (nums[1] if len(nums) > 1 else 1) - 1))
+        elif final == "A":
+            self.row = max(self.scroll_top, self.row - nums[0])
+        elif final in "BE":
+            self.row = min(self.scroll_bottom, self.row + nums[0])
+            if final == "E": self.col = 0
+        elif final == "C":
+            self.col = min(COLS - 1, self.col + nums[0])
+        elif final in "DF":
+            self.row = max(self.scroll_top, self.row - nums[0])
+            if final == "F": self.col = 0
+        elif final in "G`":
+            self.col = max(0, min(COLS - 1, nums[0] - 1))
+        elif final == "d":
+            self.row = max(0, min(ROWS - 1, nums[0] - 1))
+        elif final == "J":
+            mode = nums[0] if raw else 0
+            if mode in (2, 3):
+                self.clear()
+            elif mode == 0:
+                self.erase_line(self.row, self.col, COLS)
+                for row in range(self.row + 1, ROWS): self.erase_line(row, 0, COLS)
+            elif mode == 1:
+                for row in range(0, self.row): self.erase_line(row, 0, COLS)
+                self.erase_line(self.row, 0, self.col + 1)
+        elif final == "K":
+            mode = nums[0] if raw else 0
+            if mode == 0: self.erase_line(self.row, self.col, COLS)
+            elif mode == 1: self.erase_line(self.row, 0, self.col + 1)
+            elif mode == 2: self.erase_line(self.row, 0, COLS)
+        elif final == "m":
+            self.sgr(raw)
+        elif final == "s":
+            self.saved = (self.row, self.col)
+        elif final == "u":
+            self.row, self.col = self.saved
+        elif final == "r":
+            top = nums[0] - 1 if raw else 0
+            bottom = (nums[1] - 1) if len(nums) > 1 else ROWS - 1
+            self.scroll_top = max(0, min(ROWS - 1, top))
+            self.scroll_bottom = max(self.scroll_top, min(ROWS - 1, bottom))
+            self.row, self.col = self.scroll_top, 0
+        elif final == "S":
+            for _ in range(nums[0]):
+                del self.cells[self.scroll_top]
+                self.cells.insert(self.scroll_bottom, [Cell() for _ in range(COLS)])
+        elif final == "T":
+            for _ in range(nums[0]):
+                del self.cells[self.scroll_bottom]
+                self.cells.insert(self.scroll_top, [Cell() for _ in range(COLS)])
+        elif final == "P":
+            count = nums[0]
+            line = self.cells[self.row]
+            del line[self.col:self.col + count]
+            line.extend(Cell() for _ in range(count))
+        elif final == "@":
+            count = nums[0]
+            line = self.cells[self.row]
+            for _ in range(count): line.insert(self.col, Cell())
+            del line[COLS:]
+        elif final in "hl" and private and 1049 in nums:
+            if final == "h": self.clear()
+
+    def erase_line(self, row: int, start: int, end: int) -> None:
+        for col in range(max(0, start), min(COLS, end)):
+            self.cells[row][col] = self.blank_cell()
+
+    def sgr(self, raw: str) -> None:
+        params = [self.number(part, 0) for part in raw.split(";")] if raw else [0]
+        i = 0
+        while i < len(params):
+            value = params[i]
+            if value == 0: self.style = Style()
+            elif value == 1: self.style.bold = True
+            elif value == 22: self.style.bold = False
+            elif value == 7: self.style.reverse = True
+            elif value == 27: self.style.reverse = False
+            elif value == 39: self.style.fg = DEFAULT_FG
+            elif value == 49: self.style.bg = DEFAULT_BG
+            elif 30 <= value <= 37: self.style.fg = xterm_256(value - 30)
+            elif 90 <= value <= 97: self.style.fg = xterm_256(value - 90 + 8)
+            elif 40 <= value <= 47: self.style.bg = xterm_256(value - 40)
+            elif 100 <= value <= 107: self.style.bg = xterm_256(value - 100 + 8)
+            elif value in (38, 48) and i + 1 < len(params):
+                target = "fg" if value == 38 else "bg"
+                if params[i + 1] == 5 and i + 2 < len(params):
+                    setattr(self.style, target, xterm_256(params[i + 2]))
+                    i += 2
+                elif params[i + 1] == 2 and i + 4 < len(params):
+                    setattr(self.style, target, tuple(params[i + 2:i + 5]))
+                    i += 4
+            i += 1
+
+    def text(self) -> str:
+        return "\n".join("".join(cell.char for cell in row).rstrip() for row in self.cells)
+
+    def render(self, font: ImageFont.FreeTypeFont, bold_font: ImageFont.FreeTypeFont) -> Image.Image:
+        image = Image.new("RGB", (WIDTH, HEIGHT), DEFAULT_BG)
+        draw = ImageDraw.Draw(image)
+        for row_index, row in enumerate(self.cells):
+            for col_index, cell in enumerate(row):
+                fg, bg = cell.style.fg, cell.style.bg
+                if cell.style.reverse: fg, bg = bg, fg
+                x, y = col_index * CELL_W, row_index * CELL_H
+                if bg != DEFAULT_BG:
+                    draw.rectangle((x, y, x + CELL_W - 1, y + CELL_H - 1), fill=bg)
+                if cell.char:
+                    selected_font = bold_font if cell.style.bold else font
+                    bbox = draw.textbbox((0, 0), cell.char, font=selected_font)
+                    text_w = bbox[2] - bbox[0]
+                    draw.text((x + max(0, (CELL_W - text_w) / 2), y - 1), cell.char, font=selected_font, fill=fg)
+        return image
+
+
+class Session:
+    def __init__(self, work: pathlib.Path, args: list[str]) -> None:
+        self.term = Terminal()
+        self.work = work
+        self.command_log = work / "commands.log"
+        env = os.environ.copy()
+        env.update({
+            "HOME": str(work / "home"),
+            "TMPDIR": str(work / "tmp"),
+            "AIUP_STATE_DIR": str(work / "state"),
+            "AIUP_CAPTURE_FIXTURE_DIR": str(FIXTURE),
+            "AIUP_CAPTURE_COMMAND_LOG": str(self.command_log),
+            "AIUP_INVENTORY_CACHE_TTL": "0",
+            "FZF_DEFAULT_OPTS": FZF_DEFAULT_OPTS,
+            "TERM": "xterm-256color",
+            "COLORTERM": "truecolor",
+            "LANG": "en_US.UTF-8",
+            "LC_ALL": "en_US.UTF-8",
+            "PATH": f"{FIXTURE / 'bin'}:{ROOT / 'macos'}:/opt/homebrew/bin:/usr/bin:/bin",
+        })
+        for directory in (work / "home", work / "tmp", work / "state"):
+            directory.mkdir(parents=True, exist_ok=True)
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:
+            os.chdir(ROOT)
+            os.execve("/bin/bash", ["bash", str(ROOT / "macos" / "aiup"), *args], env)
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
+        os.set_blocking(self.fd, False)
+        self.closed = False
+
+    def pump(self, seconds: float) -> None:
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline and not self.closed:
+            ready, _, _ = select.select([self.fd], [], [], min(0.05, max(0, deadline - time.monotonic())))
+            if not ready:
+                continue
+            try:
+                payload = os.read(self.fd, 65536)
+            except (BlockingIOError, OSError):
+                payload = b""
+            if payload:
+                self.term.feed(payload)
+            else:
+                self.closed = True
+
+    def wait_for(self, needle: str, timeout: float = 10.0) -> None:
+        deadline = time.monotonic() + timeout
+        while needle not in self.term.text():
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"capture timed out waiting for {needle!r}\n{self.term.text()}")
+            self.pump(0.1)
+
+    def send(self, value: bytes) -> None:
+        os.write(self.fd, value)
+
+    def finish(self) -> None:
+        self.pump(0.3)
+        if not self.closed:
+            try: os.kill(self.pid, signal.SIGTERM)
+            except ProcessLookupError: pass
+        try: os.waitpid(self.pid, 0)
+        except ChildProcessError: pass
+        try: os.close(self.fd)
+        except OSError: pass
+        self.closed = True
+
+
+def png_info(source_commit: str, state: str) -> PngImagePlugin.PngInfo:
+    info = PngImagePlugin.PngInfo()
+    info.add_text("aiup-source-commit", source_commit)
+    info.add_text("aiup-capture-state", state)
+    info.add_text("aiup-terminal", f"{COLS}x{ROWS} cells; {WIDTH}x{HEIGHT}px")
+    return info
+
+
+def save_png(image: Image.Image, path: pathlib.Path, source_commit: str, state: str) -> None:
+    image.save(path, format="PNG", optimize=True, pnginfo=png_info(source_commit, state))
+
+
+def check_public_text(label: str, text: str) -> None:
+    banned = [
+        "/Users/", str(pathlib.Path.home()), socket.gethostname(), "tjn", "TJNMPM",
+        "settings always stay", "~/Library is never deleted",
+        "The app stays. Notes, vaults, and settings stay.", "omp", "plandex",
+    ]
+    lowered = text.lower()
+    for needle in banned:
+        if needle and needle.lower() in lowered:
+            raise RuntimeError(f"{label} capture contained forbidden text: {needle}")
+
+
+def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
+    font = ImageFont.truetype(str(FONT), FONT_SIZE)
+    bold_path = FONT.with_name(FONT.name.replace("-Regular", "-SemiBold"))
+    bold_font = ImageFont.truetype(str(bold_path), FONT_SIZE)
+    states: dict[str, Image.Image] = {}
+    gif_frames: list[Image.Image] = []
+    gif_durations: list[int] = []
+
+    main = Session(work / "main", ["list"])
+    try:
+        main.wait_for("aiup browse>")
+        main.pump(0.5)
+        states["collapsed"] = main.term.render(font, bold_font)
+        check_public_text("collapsed", main.term.text())
+        gif_frames.append(states["collapsed"]); gif_durations.append(900)
+        for char in "gemini":
+            main.send(char.encode())
+            main.pump(0.18)
+            gif_frames.append(main.term.render(font, bold_font)); gif_durations.append(180)
+        main.wait_for("Official Gemini CLI")
+        main.pump(0.35)
+        states["search"] = main.term.render(font, bold_font)
+        check_public_text("search", main.term.text())
+        gif_frames.append(states["search"]); gif_durations.append(1300)
+        main.send(b"\x15")
+        main.pump(0.8)
+        gif_frames.append(main.term.render(font, bold_font)); gif_durations.append(800)
+        main.send(b"\x1b")
+        main.wait_for("cancelled")
+        main.pump(0.25)
+        check_public_text("cancelled", main.term.text())
+        gif_frames.append(main.term.render(font, bold_font)); gif_durations.append(1300)
+    finally:
+        main.finish()
+
+    homebrew = Session(work / "homebrew", ["list", "--category", "homebrew/recommended"])
+    try:
+        homebrew.wait_for("aiup browse>")
+        homebrew.wait_for("Raycast launcher")
+        homebrew.pump(0.4)
+        check_public_text("homebrew", homebrew.term.text())
+        states["homebrew"] = homebrew.term.render(font, bold_font)
+        homebrew.send(b"\x1b")
+    finally:
+        homebrew.finish()
+
+    adopt = Session(work / "adopt", ["list", "--category", "homebrew/recommended"])
+    try:
+        adopt.wait_for("aiup browse>")
+        for char in "raycast":
+            adopt.send(char.encode())
+            adopt.pump(0.12)
+        adopt.wait_for("switch to Homebrew")
+        adopt.send(b"\r")
+        adopt.wait_for("Switch raycast to Homebrew without requesting a data zap?")
+        adopt.pump(0.3)
+        check_public_text("adopt", adopt.term.text())
+        states["adopt"] = adopt.term.render(font, bold_font)
+        adopt.send(b"n\n")
+        adopt.wait_for("aiup browse>")
+        adopt.send(b"\x1b")
+    finally:
+        adopt.finish()
+
+    command_logs = []
+    for log_path in work.rglob("commands.log"):
+        if log_path.exists(): command_logs.extend(log_path.read_text(encoding="utf-8").splitlines())
+    forbidden_commands = (" install", " upgrade", " uninstall", " trust")
+    if any(any(word in line for word in forbidden_commands) for line in command_logs):
+        raise RuntimeError(f"capture attempted a mutating fixture command: {command_logs}")
+
+    DOCS_MEDIA.mkdir(parents=True, exist_ok=True)
+    save_png(states["collapsed"], DOCS_MEDIA / "aiup-list-collapsed.png", source_commit, "collapsed overview")
+    save_png(states["search"], DOCS_MEDIA / "aiup-list-search.png", source_commit, "collapsed-category search")
+    save_png(states["search"], DOCS_MEDIA / "aiup-list-poster.png", source_commit, "reduced-motion poster")
+    save_png(states["homebrew"], DOCS_MEDIA / "aiup-list-homebrew.png", source_commit, "Homebrew recommended")
+    save_png(states["adopt"], DOCS_MEDIA / "aiup-list-adopt.png", source_commit, "pre-action adoption confirmation")
+    gif_frames[0].save(
+        DOCS_MEDIA / "aiup-list.gif", save_all=True, append_images=gif_frames[1:],
+        duration=gif_durations, loop=0, disposal=1, optimize=True,
+    )
+    if (DOCS_MEDIA / "aiup-list.gif").stat().st_size >= 5 * 1024 * 1024:
+        raise RuntimeError("aiup-list.gif exceeded the 5 MiB target")
+
+    SITE_MEDIA.mkdir(parents=True, exist_ok=True)
+    for name in MEDIA_NAMES:
+        shutil.copyfile(DOCS_MEDIA / name, SITE_MEDIA / name)
+
+    assets = {}
+    for name in MEDIA_NAMES:
+        payload = (DOCS_MEDIA / name).read_bytes()
+        assets[name] = {
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "bytes": len(payload),
+            "dimensions": [WIDTH, HEIGHT],
+        }
+    manifest = {
+        "schema": 1,
+        "source_commit": source_commit,
+        "runtime_version": "2026.08.25-02",
+        "managed_entries": 81,
+        "terminal_cells": [COLS, ROWS],
+        "output_pixels": [WIDTH, HEIGHT],
+        "font": str(FONT.name),
+        "font_sha256": hashlib.sha256(FONT.read_bytes()).hexdigest(),
+        "font_size_px": FONT_SIZE,
+        "locale": "en_US.UTF-8",
+        "terminal_profile": {"background": "#0b0c23", "foreground": "#e8e9ff"},
+        "fzf_palette": FZF_COLORS,
+        "gif_frames": len(gif_frames),
+        "gif_duration_ms": sum(gif_durations),
+        "fixture": "scripts/fixtures/capture",
+        "external_commands_observed": command_logs,
+        "software_mutation": "none; fake Homebrew rejects mutating verbs and adoption was cancelled at the first confirmation",
+        "assets": assets,
+    }
+    manifest_path = DOCS_MEDIA / "capture-manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return manifest
+
+
+def validate_existing() -> None:
+    manifest = json.loads((DOCS_MEDIA / "capture-manifest.json").read_text(encoding="utf-8"))
+    for name in MEDIA_NAMES:
+        docs = DOCS_MEDIA / name
+        site = SITE_MEDIA / name
+        if not docs.is_file() or not site.is_file(): raise RuntimeError(f"missing media asset: {name}")
+        if docs.read_bytes() != site.read_bytes(): raise RuntimeError(f"docs/site media drift: {name}")
+        with Image.open(docs) as image:
+            if image.size != (WIDTH, HEIGHT): raise RuntimeError(f"wrong dimensions for {name}: {image.size}")
+        digest = hashlib.sha256(docs.read_bytes()).hexdigest()
+        if digest != manifest["assets"][name]["sha256"]: raise RuntimeError(f"manifest hash drift: {name}")
+
+
+def git_output(*args: str) -> str:
+    return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    parser.add_argument("--source-commit")
+    args = parser.parse_args()
+    if args.check:
+        validate_existing()
+        print("capture media: ok")
+        return 0
+    if not FONT.is_file(): raise RuntimeError(f"required fixed font is unavailable: {FONT}")
+    for command in ("fzf",):
+        if shutil.which(command) is None: raise RuntimeError(f"required existing capture command is unavailable: {command}")
+    source_commit = args.source_commit or git_output("rev-parse", "HEAD")
+    tracked_sources = ["macos/aiup", "macos/catalog/manifest.tsv", "scripts/capture-media", "scripts/fixtures/capture"]
+    if subprocess.run(["git", "diff", "--quiet", source_commit, "--", *tracked_sources], cwd=ROOT).returncode:
+        raise RuntimeError("capture sources differ from the named source commit")
+    work = ROOT / f".capture-work.{os.getpid()}"
+    if work.exists(): raise RuntimeError(f"capture work path already exists: {work}")
+    work.mkdir()
+    try:
+        manifest = capture(source_commit, work)
+        validate_existing()
+    finally:
+        shutil.rmtree(work)
+    print(f"capture media: ok ({manifest['gif_frames']} frames, {manifest['gif_duration_ms']} ms)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

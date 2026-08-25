@@ -8,6 +8,7 @@ AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
 AIUP_NPM_PREFIX="${AIUP_NPM_PREFIX:-$STATE_DIR/npm}"
+AIUP_CAPTURE_FIXTURE_DIR="${AIUP_CAPTURE_FIXTURE_DIR:-}"
 AIUP_NPM_BIN="$AIUP_NPM_PREFIX/bin"
 AIUP_NPM_NODE_MODULES="$AIUP_NPM_PREFIX/lib/node_modules"
 OPENCODE_BIN_DIR="${AIUP_OPENCODE_BIN_DIR:-$HOME/.opencode/bin}"
@@ -160,6 +161,34 @@ require_tool_macos_major() {
 
 command_path() {
   type -P "$1" 2>/dev/null || command -v "$1" 2>/dev/null || true
+}
+
+capture_fixture_enabled() {
+  [ -n "$AIUP_CAPTURE_FIXTURE_DIR" ]
+}
+
+capture_fixture_require() {
+  capture_fixture_enabled || return 1
+  [ -d "$AIUP_CAPTURE_FIXTURE_DIR" ] && \
+    [ -f "$AIUP_CAPTURE_FIXTURE_DIR/PUBLIC-SAFE" ] && \
+    grep -Fxq 'aiup public-safe capture fixture' "$AIUP_CAPTURE_FIXTURE_DIR/PUBLIC-SAFE" || {
+      error "AIUP_CAPTURE_FIXTURE_DIR is not a marked public-safe capture fixture"
+      return 1
+    }
+  local fixture_name
+  for fixture_name in catalog-index.tsv brew-index.tsv inventory-index.tsv apps.tsv; do
+    [ -f "$AIUP_CAPTURE_FIXTURE_DIR/$fixture_name" ] || {
+      error "capture fixture is missing $fixture_name"
+      return 1
+    }
+  done
+}
+
+capture_fixture_copy() {
+  local fixture_name="$1"
+  local destination="$2"
+  capture_fixture_require || return 1
+  cp "$AIUP_CAPTURE_FIXTURE_DIR/$fixture_name" "$destination"
 }
 
 tty_usable() {
@@ -1729,6 +1758,12 @@ catalog_action_for_state() {
 catalog_state_for_tool() {
   local tool="$1"
   local cask app
+  if capture_fixture_enabled; then
+    capture_fixture_require || return 1
+    awk -F '\t' -v tool="$tool" '$3==tool {print $2; found=1; exit} END {if (!found) print "absent"}' \
+      "$AIUP_CAPTURE_FIXTURE_DIR/catalog-index.tsv"
+    return 0
+  fi
   if ! tool_is_present "$tool"; then
     printf 'absent\n'
     return 0
@@ -2061,6 +2096,13 @@ brew_is_library() {
 app_path_for_cask() {
   local name="$1"
   local app=""
+  if capture_fixture_enabled; then
+    capture_fixture_require || return 1
+    app="$(awk -F '\t' -v name="$name" '$1==name {print $2; exit}' "$AIUP_CAPTURE_FIXTURE_DIR/apps.tsv")"
+    [ -n "$app" ] || return 1
+    printf '%s\n' "$app"
+    return 0
+  fi
   case "$name" in
     obsidian) app='Obsidian.app' ;;
     raycast) app='Raycast.app' ;;
@@ -2293,6 +2335,11 @@ format_brew_extra_display() {
 
 scan_brew_index() {
   local name rec child
+  if capture_fixture_enabled; then
+    capture_fixture_copy brew-index.tsv "$BREW_INDEX"
+    rm -f "$BREW_AVAILABLE_MARKER"
+    return 0
+  fi
   : > "$BREW_INDEX"
   brew_cache_load
   if homebrew_available_mode; then
@@ -2386,6 +2433,7 @@ brew_cask_adopt() {
     return $?
   fi
   info "Letting Homebrew manage $name. aiup will not pass --zap or directly delete ~/Library."
+  warn "Homebrew and vendor-specific installer behavior may vary."
   if [ -n "$app" ]; then
     info "Current app: $app"
   fi
@@ -3285,6 +3333,11 @@ inventory_scan_path_bins() {
 scan_inventory_index() {
   local final_index="$INVENTORY_INDEX"
   local temp_index="${INVENTORY_INDEX}.tmp.$$"
+  if capture_fixture_enabled; then
+    ensure_dir "$STATE_DIR"
+    capture_fixture_copy inventory-index.tsv "$final_index"
+    return 0
+  fi
   if inventory_cache_valid; then
     return 0
   fi
@@ -5264,6 +5317,12 @@ scan_catalog_index() {
   local tool state cat
   local n="${#TOOLS_CATALOG[@]}"
   ensure_dir "$STATE_DIR"
+  if capture_fixture_enabled; then
+    capture_fixture_copy catalog-index.tsv "$CATALOG_INDEX"
+    capture_fixture_copy brew-index.tsv "$BREW_INDEX"
+    capture_fixture_copy inventory-index.tsv "$INVENTORY_INDEX"
+    return 0
+  fi
   : > "$CATALOG_INDEX"
   progress_start "$((n + 5))" "Looking for tools on your Mac"
   progress_tick "Reading your Homebrew inventory"

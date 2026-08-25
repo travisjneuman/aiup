@@ -1,0 +1,8 @@
+detected	detected	di:app:com.example.demo-canvas	[app] Demo Canvas	2.4.0	app bundle	/Applications/Demo Canvas.app
+detected	detected	di:app:com.example.review-board	[app] Review Board	1.8.2	app bundle	/Applications/Review Board.app
+detected	detected	di:npm:demo-review	[npm] demo-review	3.1.0	npm (user)	demo-review
+detected	detected	di:npm:sample-agent	[npm] sample-agent	0.9.4	npm (user)	sample-agent
+detected	detected	di:uv:demo-notes	[uv] demo-notes	1.2.1	uv tool	demo-notes
+detected	detected	di:path:demo-lint	[path] demo-lint	unknown	PATH executable	/usr/local/bin/demo-lint
+detected	detected	di:path:sample-check	[path] sample-check	unknown	PATH executable	/usr/local/bin/sample-check
+detected	detected	di:path:tool-preview	[path] tool-preview	unknown	PATH executable	/usr/local/bin/tool-preview
