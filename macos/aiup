@@ -964,7 +964,7 @@ catalog_category_blurb() {
     homebrew/fonts) printf 'Fonts installed via Homebrew, plus available font casks in the full catalog view\n' ;;
     homebrew/formulae) printf 'CLI formulae Homebrew already installed on your Mac\n' ;;
     homebrew/libraries) printf 'Libraries Homebrew already installed on your Mac\n' ;;
-    homebrew/recommended) printf 'Popular extras you can add — or switch to Homebrew without losing settings\n' ;;
+    homebrew/recommended) printf 'Popular extras you can add — aiup does not pass --zap or directly delete ~/Library; Homebrew/vendor behavior can vary\n' ;;
     homebrew/available) printf 'Formulae and non-font casks available from your installed Homebrew taps\n' ;;
     *) printf '\n' ;;
   esac

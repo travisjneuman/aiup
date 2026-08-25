@@ -53,6 +53,6 @@ The brand suite retains the open terminal, chevron, underscore, and cyan/mint/pu
 
 Issues are the public intake surface. Bug reports and catalog/tool requests have structured forms; pull requests have a scoped checklist. Contribution, support, and security policies are published at the repository root. Empty Wiki and Projects surfaces are disabled, Discussions remain disabled, and no release or CI workflow has been manufactured.
 
-The generated Homebrew `recommended` blurb still says “switch to Homebrew without losing settings.” That runtime-provided wording is broader than aiup's documented guarantee. The accurate contract is that aiup does not pass `--zap` or directly delete `~/Library`, while Homebrew and vendor behavior may vary. [Issue #1](https://github.com/travisjneuman/aiup/issues/1) tracks the canonical runtime/catalog correction.
+The generated Homebrew `recommended` blurb now states aiup's narrow guarantee: aiup does not pass `--zap` or directly delete `~/Library`, while Homebrew and vendor behavior may vary. [Issue #1](https://github.com/travisjneuman/aiup/issues/1) records the correction.
 
 Future tagged-release, CI, and cross-platform decisions remain separate scopes. Catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries.

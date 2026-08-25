@@ -156,7 +156,7 @@ Homebrew extras outside the managed catalog, plus a short recommended list
 | `fonts` | Fonts installed via Homebrew, plus available font casks in the full catalog view |
 | `formulae` | CLI formulae Homebrew already installed on your Mac |
 | `libraries` | Libraries Homebrew already installed on your Mac |
-| `recommended` | Popular extras you can add — or switch to Homebrew without losing settings |
+| `recommended` | Popular extras you can add — aiup does not pass --zap or directly delete ~/Library; Homebrew/vendor behavior can vary |
 | `available` | Formulae and non-font casks available from your installed Homebrew taps |
 
 Recommended extras:

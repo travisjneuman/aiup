@@ -746,7 +746,7 @@
     {
       "id": "homebrew/recommended",
       "emoji": "⭐",
-      "blurb": "Popular extras you can add — or switch to Homebrew without losing settings",
+      "blurb": "Popular extras you can add — aiup does not pass --zap or directly delete ~/Library; Homebrew/vendor behavior can vary",
       "tools": []
     },
     {
