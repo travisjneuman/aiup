@@ -38,21 +38,20 @@ aiup is not a finished cross-platform or tagged 1.0 product:
 - A normal public invocation is not offline-capable: it must refresh from GitHub and deliberately refuses to execute a stale cache. Offline development requires an explicit local checkout path.
 - There is no repository CI workflow. Current validation is local and intentionally small relative to the Bash runtime.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, and trust requirements change.
-- Browser/device/accessibility and owner acceptance remain evidence lanes separate from source, asset, publication, and public-HTTP checks.
-- The corrected Thread 3 media candidate still requires owner visual acceptance; the muted `d629ca3` media was rejected and is not accepted evidence.
+- Browser/device/accessibility and owner acceptance remain evidence lanes separate from source, asset, publication, and public-HTTP checks; the Thread 3 media owner-acceptance lane is now satisfied.
+- The muted media at `d629ca3` remains rejected historical evidence. The corrected color-faithful media published at `4c1d980` has received explicit owner visual acceptance.
 
 ## Site status
 
 The checked-in site now uses the current `2026.08.25-02` media, rebuilt brand suite, exact image dimensions, descriptive alt text, lazy-loaded non-hero stills, cache-busted metadata assets, and a reduced-motion `<picture>` source. Publication remains on the established GitHub-connected Cloudflare Pages path; a source push, provider receipt, public HTTP/hash readback, browser/device evidence, and owner acceptance remain separate claims.
 
-The focused Thread 3 source/media correction is complete in this candidate, but
-owner visual acceptance is pending. Thread 4 must not begin until that corrected
-appearance is accepted. Thread 5 still owns GitHub About/topics/social-preview
-settings.
+Thread 3 is complete: its corrected media is published and owner accepted.
+Thread 4 site UX/SEO is unblocked, while Thread 5 still owns GitHub
+About/topics/social-preview settings.
 
-## Media correction candidate and brand status
+## Accepted media correction and brand status
 
-The corrected real-TUI capture uses source commit `04fe3b62c2d6d665774097a582677cae08c50ce4`, a 128 × 40 PTY, 1280 × 720 output, a fixed JetBrains Mono Nerd Font Mono profile, the production indexed category palette, fixed fzf chrome colors, and public demo indexes. The first Thread 3 set inherited `NO_COLOR=1`, causing fzf to remove input ANSI styles before PTY capture; those muted files failed owner acceptance. The corrected session explicitly removes that inherited variable, asserts raw SGR forms and parsed cell styles, then verifies expected PNG pixels and GIF palette retention. The fixture still records read-only Homebrew queries, rejects mutating verbs, bypasses host inventory, and cancels adoption at the first confirmation. Exact provenance, hashes, dimensions, timing, and limitations are in [`media/README.md`](media/README.md) and [`media/capture-manifest.json`](media/capture-manifest.json).
+The owner-accepted corrected real-TUI media was published at `4c1d980` from capture source commit `04fe3b62c2d6d665774097a582677cae08c50ce4`. It uses a 128 × 40 PTY, 1280 × 720 output, a fixed JetBrains Mono Nerd Font Mono profile, the production indexed category palette, fixed fzf chrome colors, and public demo indexes. The first Thread 3 set inherited `NO_COLOR=1`, causing fzf to remove input ANSI styles before PTY capture; those muted files at `d629ca3` failed owner acceptance and remain historical rejection evidence. The corrected session explicitly removes that inherited variable, asserts raw SGR forms and parsed cell styles, then verifies expected PNG pixels and GIF palette retention. The fixture still records read-only Homebrew queries, rejects mutating verbs, bypasses host inventory, and cancels adoption at the first confirmation. Exact provenance, hashes, dimensions, timing, and limitations are in [`media/README.md`](media/README.md) and [`media/capture-manifest.json`](media/capture-manifest.json).
 
 The completed set is:
 
@@ -68,8 +67,8 @@ The brand review retained the recognizable open terminal, chevron, underscore, a
 ## Ordered closure sequence
 
 1. **Catalog/provider audit accepted** — completed in 2026.08.25-02 with all 83 starting dispositions recorded.
-2. **Current TUI media and brand suite** — corrected source/media candidate published from the real current interface without software mutation; owner visual acceptance is pending.
-3. **Site UX/SEO** — Thread 4 remains blocked until the corrected Thread 3 media receives explicit owner acceptance.
+2. **Current TUI media and brand suite** — corrected media published at `4c1d980` from the real current interface without software mutation and explicitly owner accepted; Thread 3 is complete.
+3. **Site UX/SEO** — Thread 4 is unblocked and is the next separately scoped implementation thread.
 4. **GitHub public-presence overhaul** — improve repository presentation only after product/site truth is current.
 
 The product should remain maintenance-led. New catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries; tagged-release, CI, and cross-platform decisions remain separate future scopes.

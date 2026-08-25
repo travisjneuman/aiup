@@ -192,12 +192,12 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The public site is live; its checked-in TUI captures are scheduled for replacement because they predate the current navigation, search, detected-inventory, and result UX. See **[scope, completion, and next work](docs/status.md)**.
+The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The public site is live with the owner-accepted, color-faithful current TUI captures published at `4c1d980`; Thread 3 is complete and the separately scoped Thread 4 site UX/SEO work is unblocked. See **[scope, completion, and next work](docs/status.md)**.
 
 | Surface | Status |
 |---|---|
 | 🍎 macOS | Current daily-use implementation — `macos/aiup` |
-| 🌐 Site | Live; current-TUI media refresh pending |
+| 🌐 Site | Live with owner-accepted current-TUI media; Thread 4 UX/SEO is next |
 | 🐧 Linux | Coming |
 | 🪟 Windows | Coming |
 

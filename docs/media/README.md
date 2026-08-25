@@ -7,7 +7,10 @@ script repeats that one-way media sync alongside generated catalog output.
 
 The corrected color-faithful set was captured from source commit
 `04fe3b62c2d6d665774097a582677cae08c50ce4`, after the bounded
-launcher-retention commit `94ae5f964ebd3133ba260125d3e3311e3ceec3a9`. Reproduce it from that source with:
+launcher-retention commit `94ae5f964ebd3133ba260125d3e3311e3ceec3a9`.
+The resulting media published at `4c1d980d68c2b0d22592ae3a4e587b603c598156`
+received explicit owner visual acceptance on 2026-08-25. Reproduce it from that
+source with:
 
 ```bash
 NO_COLOR=1 scripts/capture-media --source-commit 04fe3b62c2d6d665774097a582677cae08c50ce4
