@@ -1,0 +1,41 @@
+name: Catalog or tool request
+description: Propose a reviewed macOS tool or a correction to an existing catalog contract.
+title: "[Catalog] "
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: Tool and stable identifier
+      placeholder: Example Tool (`example-tool`)
+    validations:
+      required: true
+  - type: input
+    id: canonical
+    attributes:
+      label: Canonical project URL
+      description: Link to the official repository or vendor documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: lifecycle
+    attributes:
+      label: macOS lifecycle evidence
+      description: Document official install, version/update, and remove paths. Note architecture, macOS, account, and package-manager requirements.
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Why it belongs
+      description: Explain the category fit and how the proposal avoids duplicating an existing entry.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Contract boundaries
+      options:
+        - label: I am not proposing unsupported Linux or Windows behavior.
+          required: true
+        - label: I have not assumed telemetry, privilege escalation, destructive cleanup, or universal settings preservation.
+          required: true

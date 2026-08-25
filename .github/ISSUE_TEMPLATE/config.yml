@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation and usage
+    url: https://github.com/travisjneuman/aiup/blob/main/docs/install.md
+    about: Review prerequisites, PATH, online behavior, local development, and uninstall steps.
+  - name: Security vulnerability
+    url: https://github.com/travisjneuman/aiup/security/advisories/new
+    about: Report vulnerabilities privately instead of opening a public issue.

@@ -79,4 +79,4 @@
 
 ## 2026.08.20-10
 
-- First public release.
+- Initial public source revision. No version tag or packaged installer was created.

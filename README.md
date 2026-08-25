@@ -3,13 +3,13 @@
 </p>
 
 <p align="center">
-  <strong>Scan your Mac. Update what you already have. Install or remove from a full-screen list.</strong><br/>
-  Local inventory is never uploaded. aiup itself requires no account.
+  <strong>A macOS-only TUI to scan, update, install, remove, and browse reviewed AI and developer tools.</strong><br/>
+  Inventory stays on your Mac. The public launcher refreshes from GitHub at the start of every run.
 </p>
 
 <p align="center">
   <img alt="macOS" src="https://img.shields.io/badge/macOS-catalog-4EF0C4?style=for-the-badge&logo=apple&logoColor=E8E9FF&labelColor=0B0C23" />
-  <img alt="local only" src="https://img.shields.io/badge/scan-local%20only-5CE1FF?style=for-the-badge&labelColor=111" />
+  <img alt="inventory stays local" src="https://img.shields.io/badge/inventory-stays%20local-5CE1FF?style=for-the-badge&labelColor=111" />
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-d67bff?style=for-the-badge&labelColor=111" />
   <img alt="aiup does not invoke sudo" src="https://img.shields.io/badge/aiup_sudo-not_invoked-ffb347?style=for-the-badge&labelColor=111" />
 </p>
@@ -24,6 +24,12 @@
   <a href="docs/catalog.md">📚 Catalog</a>
   ·
   <a href="docs/privacy.md">🔒 Privacy</a>
+  ·
+  <a href="docs/status.md">🗺️ Status</a>
+  ·
+  <a href="CONTRIBUTING.md">🤝 Contribute</a>
+  ·
+  <a href="SECURITY.md">🛡️ Security</a>
 </p>
 
 ---
@@ -51,6 +57,7 @@ aiup list
 | `aiup` | 🔍 Ensure fzf, scan your Mac → update **installed** tools |
 | `aiup list` | 🎛️ Full-screen catalog |
 | `aiup only grok` | 📦 Install or update one tool |
+| `aiup remove grok` | 🗑️ Confirm and remove one managed tool |
 | `aiup doctor` | 🩺 How each tool was detected |
 
 ### 🔄 Always live
@@ -192,15 +199,15 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The public site now has a complete product, installation, real-TUI, catalog, safety, accessibility, and technical-SEO foundation built around the owner-accepted media. See **[scope, completion, and next work](docs/status.md)**.
+The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The live public site and its desktop/375px presentation have been reviewed around the accepted real-TUI media; Safari, physical-device, screen-reader, and assistive-technology acceptance remain separate. See **[scope, completion, and next work](docs/status.md)**.
 
 | Surface | Status |
 |---|---|
 | 🍎 macOS | Current daily-use implementation — `macos/aiup` |
-| 🌐 Site | Complete Thread 4 product-site source; publication, browser, and owner evidence remain separate |
+| 🌐 Site | Live; desktop and 375px browser review passed |
 | 🐧 Linux | Not implemented |
 | 🪟 Windows | Not implemented |
 
 ## 📜 License
 
-[MIT](LICENSE) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)
+[MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)

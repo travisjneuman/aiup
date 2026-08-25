@@ -1,6 +1,6 @@
 # aiup brand assets
 
-`original/aiup-logo.png` is the archived pre-Thread-3 source and remains
+`original/aiup-logo.png` is the archived pre-vector source and remains
 byte-for-byte unchanged at SHA-256
 `726b5f4c1a9e518055bbdeb1807c6bb42700fd0bb5631fb514e3bd9c5f39b5c8`.
 It is preservation evidence, not the derivative source.

@@ -1,5 +1,5 @@
 # Windows
 
-Not implemented yet. A historical PowerShell sketch existed and will be rewritten to match the macOS scan / install / remove model.
+Not implemented. The macOS runtime and launcher do not support Windows.
 
-Until then, Windows users should not expect `aiup` to manage tools.
+No Windows dependency, privilege, package-manager, installation, or removal contract has been accepted. Do not infer portability from the macOS documentation.
