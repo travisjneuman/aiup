@@ -434,9 +434,12 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         states["collapsed"] = main.term.render(font, bold_font)
         check_public_text("collapsed", main.term.text())
         gif_frames.append(states["collapsed"]); gif_durations.append(900)
+        query = ""
         for char in "gemini":
+            query += char
             main.send(char.encode())
-            main.pump(0.18)
+            main.wait_for(f"aiup browse> {query}")
+            main.pump(0.7)
             gif_frames.append(main.term.render(font, bold_font)); gif_durations.append(180)
         main.wait_for("Official Gemini CLI")
         main.pump(0.35)
@@ -470,7 +473,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         adopt.wait_for("aiup browse>")
         for char in "raycast":
             adopt.send(char.encode())
-            adopt.pump(0.12)
+            adopt.pump(0.7)
         adopt.wait_for("switch to Homebrew")
         adopt.send(b"\r")
         adopt.wait_for("Switch raycast to Homebrew without requesting a data zap?")
