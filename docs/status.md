@@ -25,7 +25,16 @@ The macOS implementation has passed the documented source and regression checks 
 - capture the real current TUI through a deterministic public-safe, mutation-free fixture while preserving its ANSI category and state colors;
 - keep `docs/media/` canonical and verify byte-identical `site/media/` mirrors;
 - provide a scalable brand source plus complete favicon, PWA, maskable, social-card, README, and site derivatives;
-- serve the static TUI poster instead of the animated GIF when reduced motion is requested.
+- serve the static TUI poster instead of the animated GIF when reduced motion is requested;
+- provide a complete static product site with semantic navigation, a descriptive
+  install path, plain-language lifecycle explanation, captioned real-TUI media,
+  generated catalog summaries, safety/privacy boundaries, requirements, FAQ,
+  progressive copy and animation controls, and a branded 404;
+- keep essential content indexable and usable without JavaScript, remove the
+  external font request, and add dependency-free deterministic site validation;
+- provide aligned title/description/social metadata, truthful WebSite and
+  SoftwareApplication JSON-LD, crawler files, a manifest, and narrowly scoped
+  static-site security headers.
 
 The 2026-08-25 closure added a validated atomic launcher installer and network-free regression coverage for clean public HOME/state fixtures, paths containing spaces, first install, safe replacement, install/PATH persistence, runtime and manifest activation failures, pre-switch and current-pointer failure, offline refusal, explicit local development, exact uninstall scope, invalid/partial refresh rejection, prior-pair preservation, bounded repeated-success retention, dead-lock recovery, overlapping activation safety, and later recovery. The same date's primary-source catalog audit recorded a disposition for all 83 starting entries and left 81 managed entries with executable contracts. The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl; individual products can impose stricter constraints recorded in the [dated audit](catalog-accuracy-2026-08-25.md).
 
@@ -38,16 +47,42 @@ aiup is not a finished cross-platform or tagged 1.0 product:
 - A normal public invocation is not offline-capable: it must refresh from GitHub and deliberately refuses to execute a stale cache. Offline development requires an explicit local checkout path.
 - There is no repository CI workflow. Current validation is local and intentionally small relative to the Bash runtime.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, and trust requirements change.
-- Browser/device/accessibility and owner acceptance remain evidence lanes separate from source, asset, publication, and public-HTTP checks; the Thread 3 media owner-acceptance lane is now satisfied.
+- Browser/device/assistive-technology and owner acceptance remain evidence lanes separate from source, asset, publication, and public-HTTP checks; the Thread 3 media owner-acceptance lane is satisfied, but Thread 4 site visual/accessibility acceptance is not.
 - The muted media at `d629ca3` remains rejected historical evidence. The corrected color-faithful media published at `4c1d980` has received explicit owner visual acceptance.
 
 ## Site status
 
-The checked-in site now uses the current `2026.08.25-02` media, rebuilt brand suite, exact image dimensions, descriptive alt text, lazy-loaded non-hero stills, cache-busted metadata assets, and a reduced-motion `<picture>` source. Publication remains on the established GitHub-connected Cloudflare Pages path; a source push, provider receipt, public HTTP/hash readback, browser/device evidence, and owner acceptance remain separate claims.
+Thread 4 source implementation is complete in this revision. The single-page
+information architecture now covers product state, per-run activation, the real
+TUI, generated catalog scope, safety/privacy, requirements, installation, FAQ,
+and durable source/documentation links. It uses semantic landmarks, one H1, a
+main-targeting skip link, visible focus, 44-pixel controls, meaningful image
+alternatives/captions, a reduced-motion poster and explicit animation control,
+and a no-JavaScript install fallback. The page uses system fonts, no framework,
+no external runtime dependency, no analytics, no cookies, no tracker, and no
+service worker.
 
-Thread 3 is complete: its corrected media is published and owner accepted.
-Thread 4 site UX/SEO is unblocked, while Thread 5 still owns GitHub
-About/topics/social-preview settings.
+`scripts/check-site` validates metadata, JSON-LD, manifest and sitemap parsing,
+local references, ids and anchors, image dimensions, generated version/count and
+category facts, reduced-motion wiring, headers, accepted media mirrors, and
+public-safety boundaries. `scripts/sync-public-docs` now owns the index catalog
+summary as well as the README, generated catalog documents, catalog JSON, and
+media mirrors.
+
+The T3 collaborative preview loaded the local root and returned the new title,
+but its screenshot, resize, DOM-evaluation, and interaction calls timed out in
+this implementation run. Source validation is therefore not visual, keyboard,
+device, Safari, screen-reader, or assistive-technology acceptance. No owner
+visual/accessibility acceptance has been provided for Thread 4.
+
+Publication remains exclusively on the established GitHub-connected Cloudflare
+Pages path. A source push, authenticated Pages receipt, public HTTP/hash
+readback, browser/device evidence, and owner acceptance remain separate claims;
+this checked-in source file alone does not prove any later promotion.
+
+Thread 3 is complete and owner accepted. Thread 5 still separately owns GitHub
+About, topics, social-preview settings, repository settings, tags, releases, and
+the broader GitHub public-presence overhaul.
 
 ## Accepted media correction and brand status
 
@@ -68,7 +103,7 @@ The brand review retained the recognizable open terminal, chevron, underscore, a
 
 1. **Catalog/provider audit accepted** — completed in 2026.08.25-02 with all 83 starting dispositions recorded.
 2. **Current TUI media and brand suite** — corrected media published at `4c1d980` from the real current interface without software mutation and explicitly owner accepted; Thread 3 is complete.
-3. **Site UX/SEO** — Thread 4 is unblocked and is the next separately scoped implementation thread.
-4. **GitHub public-presence overhaul** — improve repository presentation only after product/site truth is current.
+3. **Site UX/SEO** — Thread 4 source implementation and deterministic validation are complete; publication, browser/device, assistive-technology, search-indexing, social-cache, and owner acceptance stay separate evidence lanes.
+4. **GitHub public-presence overhaul** — Thread 5 remains separate and must not begin from Thread 4.
 
 The product should remain maintenance-led. New catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries; tagged-release, CI, and cross-platform decisions remain separate future scopes.

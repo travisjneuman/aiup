@@ -1,9 +1,12 @@
 {
-  "name": "aiup",
+  "id": "/",
+  "name": "aiup — macOS AI tool catalog",
   "short_name": "aiup",
-  "description": "A local-first macOS catalog for 81 reviewed AI and developer-tool lifecycle entries.",
+  "description": "Scan, update, install, remove, and browse 81 reviewed AI and developer-tool entries from one searchable macOS terminal catalog.",
   "start_url": "/",
+  "scope": "/",
   "display": "browser",
+  "lang": "en-US",
   "background_color": "#0b0c23",
   "theme_color": "#0b0c23",
   "icons": [

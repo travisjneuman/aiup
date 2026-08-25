@@ -1,11 +1,17 @@
 # aiup
 
-> A local catalog for AI tools on macOS.
+> A local-first macOS terminal catalog for reviewed AI and developer tools.
 
-Local inventory is never uploaded. The public CLI refreshes its runtime and catalog from GitHub before each run; install/update actions may contact Homebrew or the selected vendor.
+aiup scans local tool state, updates installed managed tools, and provides an fzf interface for deliberate install, remove, adoption, documentation, and catalog actions. Version 2026.08.25-02 contains 81 reviewed entries. macOS 14+, Bash 3+, Python 3, and curl are required; fzf is required infrastructure managed through Homebrew.
+
+Local inventory is never uploaded. A normal public invocation refreshes and validates the runtime plus matching catalog manifest from GitHub before it runs and does not execute an offline stale-cache fallback. Selected maintenance actions may contact GitHub, Homebrew, npm, uv, or the applicable vendor. aiup does not invoke sudo itself, although upstream installers may request administrator authentication.
+
+Linux and Windows are not implemented. There is no tagged 1.0 release or packaged installer.
 
 - Site: https://aiup.neuman.dev/
 - Source: https://github.com/travisjneuman/aiup
+- Install: https://github.com/travisjneuman/aiup/blob/main/docs/install.md
+- Catalog: https://github.com/travisjneuman/aiup/blob/main/docs/catalog.md
+- Status: https://github.com/travisjneuman/aiup/blob/main/docs/status.md
+- Privacy: https://github.com/travisjneuman/aiup/blob/main/docs/privacy.md
 - License: MIT
-
-Install and how-to live in the GitHub README.

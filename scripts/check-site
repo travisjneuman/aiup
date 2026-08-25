@@ -1,0 +1,365 @@
+#!/usr/bin/env python3
+"""Dependency-free checks for aiup's checked-in static site."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import pathlib
+import re
+import struct
+import subprocess
+import sys
+import urllib.parse
+import xml.etree.ElementTree as ET
+from collections import Counter
+from html.parser import HTMLParser
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+SITE = ROOT / "site"
+PRODUCTION = "https://aiup.neuman.dev/"
+INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/install-aiup | bash"
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
+class Document(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.start_tags: list[tuple[str, dict[str, str]]] = []
+        self.ids: list[str] = []
+        self.hrefs: list[str] = []
+        self.references: list[tuple[str, str, str]] = []
+        self.images: list[dict[str, str]] = []
+        self.buttons: list[dict[str, str]] = []
+        self.meta: list[dict[str, str]] = []
+        self.links: list[dict[str, str]] = []
+        self.headings: list[str] = []
+        self.landmarks: Counter[str] = Counter()
+        self.title_parts: list[str] = []
+        self.json_ld_parts: list[list[str]] = []
+        self._in_title = False
+        self._json_ld: list[str] | None = None
+        self._button_text: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = {key: value or "" for key, value in attrs}
+        self.start_tags.append((tag, values))
+        if values.get("id"):
+            self.ids.append(values["id"])
+        if tag in {"header", "nav", "main", "section", "footer"}:
+            self.landmarks[tag] += 1
+        if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            self.headings.append(tag)
+        if tag == "a" and values.get("href"):
+            self.hrefs.append(values["href"])
+        if tag == "img":
+            self.images.append(values)
+        if tag == "button":
+            self.buttons.append(values)
+            self._button_text = []
+        if tag == "meta":
+            self.meta.append(values)
+        if tag == "link":
+            self.links.append(values)
+        if tag == "title":
+            self._in_title = True
+        if tag == "script" and values.get("type") == "application/ld+json":
+            self._json_ld = []
+            self.json_ld_parts.append(self._json_ld)
+        for attribute in ("href", "src"):
+            if values.get(attribute):
+                self.references.append((tag, attribute, values[attribute]))
+        if values.get("srcset"):
+            for candidate in values["srcset"].split(","):
+                url = candidate.strip().split()[0]
+                self.references.append((tag, "srcset", url))
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
+        if tag == "script":
+            self._json_ld = None
+        if tag == "button":
+            if self.buttons and self._button_text is not None:
+                self.buttons[-1]["_text"] = "".join(self._button_text).strip()
+            self._button_text = None
+
+    def handle_data(self, data: str) -> None:
+        if self._in_title:
+            self.title_parts.append(data)
+        if self._json_ld is not None:
+            self._json_ld.append(data)
+        if self._button_text is not None:
+            self._button_text.append(data)
+
+    @property
+    def title(self) -> str:
+        return "".join(self.title_parts).strip()
+
+
+def parse_html(path: pathlib.Path) -> tuple[str, Document]:
+    text = path.read_text(encoding="utf-8")
+    document = Document()
+    document.feed(text)
+    document.close()
+    return text, document
+
+
+def meta_value(document: Document, key: str, *, property_name: bool = False) -> str:
+    attribute = "property" if property_name else "name"
+    matches = [item.get("content", "") for item in document.meta if item.get(attribute) == key]
+    require(len(matches) == 1, f"expected one {attribute}={key}, found {len(matches)}")
+    require(bool(matches[0].strip()), f"empty metadata: {key}")
+    return matches[0]
+
+
+def link_value(document: Document, rel: str) -> str:
+    matches = [item.get("href", "") for item in document.links if rel in item.get("rel", "").split()]
+    require(len(matches) == 1, f"expected one rel={rel}, found {len(matches)}")
+    return matches[0]
+
+
+def local_path(url: str) -> pathlib.Path | None:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme or parsed.netloc or url.startswith(("mailto:", "tel:")):
+        return None
+    if parsed.path in {"", "/"}:
+        return SITE / "index.html"
+    relative = parsed.path.lstrip("/")
+    return SITE / relative
+
+
+def image_dimensions(path: pathlib.Path) -> tuple[int, int] | None:
+    data = path.read_bytes()[:32]
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return struct.unpack(">II", data[16:24])
+    if data[:6] in {b"GIF87a", b"GIF89a"}:
+        return struct.unpack("<HH", data[6:10])
+    return None
+
+
+def sha256(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def validate_index() -> tuple[str, Document, dict[str, object]]:
+    text, document = parse_html(SITE / "index.html")
+    require(document.title != "aiup" and "macOS" in document.title, "title is not descriptive")
+    require(len(document.title) <= 60, "title exceeds 60 characters")
+    require(document.headings.count("h1") == 1, "index must contain exactly one h1")
+    require(document.headings and document.headings[0] == "h1", "first heading must be h1")
+    require(document.landmarks["header"] == 1, "index must contain one header")
+    require(document.landmarks["main"] == 1, "index must contain one main")
+    require(document.landmarks["footer"] == 1, "index must contain one footer")
+    require(document.landmarks["nav"] >= 2, "index must contain primary and footer navigation")
+
+    duplicates = sorted(key for key, count in Counter(document.ids).items() if count > 1)
+    require(not duplicates, f"duplicate ids: {duplicates}")
+    require("main-content" in document.ids, "main-content id is missing")
+    require(any(href == "#main-content" for href in document.hrefs), "skip link does not target main")
+    for href in document.hrefs:
+        if href.startswith("#") and len(href) > 1:
+            require(href[1:] in document.ids, f"broken internal anchor: {href}")
+
+    description = meta_value(document, "description")
+    robots = meta_value(document, "robots")
+    require("index" in robots and "follow" in robots, "index robots metadata is wrong")
+    require(link_value(document, "canonical") == PRODUCTION, "canonical URL drifted")
+    require(meta_value(document, "og:title", property_name=True) == document.title, "Open Graph title drifted")
+    require(meta_value(document, "twitter:title") == document.title, "Twitter title drifted")
+    require(meta_value(document, "og:description", property_name=True) == description, "Open Graph description drifted")
+    require(meta_value(document, "twitter:description") == description, "Twitter description drifted")
+    require(meta_value(document, "og:url", property_name=True) == PRODUCTION, "Open Graph URL drifted")
+    require(meta_value(document, "og:image:type", property_name=True) == "image/png", "Open Graph image MIME drifted")
+    require(meta_value(document, "og:image:width", property_name=True) == "1200", "Open Graph width drifted")
+    require(meta_value(document, "og:image:height", property_name=True) == "630", "Open Graph height drifted")
+    for key, property_name in (("og:image", True), ("og:image:secure_url", True), ("twitter:image", False)):
+        value = meta_value(document, key, property_name=property_name)
+        require(value.startswith(PRODUCTION), f"{key} must use an absolute production URL")
+    require(meta_value(document, "og:image:alt", property_name=True), "Open Graph image alt is missing")
+    require(meta_value(document, "twitter:image:alt"), "Twitter image alt is missing")
+
+    require(len(document.json_ld_parts) == 1, "expected exactly one JSON-LD block")
+    structured = json.loads("".join(document.json_ld_parts[0]))
+    graph = structured.get("@graph", [])
+    by_type = {entry.get("@type"): entry for entry in graph}
+    require({"WebSite", "SoftwareApplication", "Person"} <= set(by_type), "JSON-LD graph types are incomplete")
+    software = by_type["SoftwareApplication"]
+    require(software.get("operatingSystem") == "macOS 14 or later", "JSON-LD operating system drifted")
+    require(software.get("applicationCategory") == "DeveloperApplication", "JSON-LD category drifted")
+    require(software.get("codeRepository") == "https://github.com/travisjneuman/aiup", "JSON-LD repository drifted")
+    require(software.get("license", "").endswith("/LICENSE"), "JSON-LD license is missing")
+    require(software.get("offers", {}).get("price") == "0", "JSON-LD free offer is missing")
+
+    for image in document.images:
+        require("alt" in image, f"image lacks alt: {image.get('src', '<unknown>')}")
+        if image.get("alt") == "":
+            require(image.get("aria-hidden") == "true", f"empty alt image must be decorative: {image.get('src')}")
+        require(image.get("width", "").isdigit() and int(image["width"]) > 0, f"image width missing: {image.get('src')}")
+        require(image.get("height", "").isdigit() and int(image["height"]) > 0, f"image height missing: {image.get('src')}")
+        path = local_path(image.get("src", ""))
+        if path and path.suffix.lower() in {".png", ".gif"}:
+            require(path.is_file(), f"missing image: {path.relative_to(ROOT)}")
+            actual = image_dimensions(path)
+            declared = (int(image["width"]), int(image["height"]))
+            require(actual == declared, f"image dimensions drifted for {path.relative_to(ROOT)}: {actual} != {declared}")
+
+    for button in document.buttons:
+        require(bool(button.get("aria-label") or button.get("_text")), "button lacks an accessible name")
+    require('role="status" aria-live="polite"' in text, "copy feedback live region is missing")
+    require(INSTALL_COMMAND in text, "canonical install command is missing")
+    require('data-copy-target="install-command" hidden' in text, "copy control is not progressive enhancement")
+    require('media="(prefers-reduced-motion: reduce)"' in text, "reduced-motion source is missing")
+    require("aiup-list-poster.png" in text and 'data-poster-src="/media/aiup-list-poster.png' in text, "reduced-motion poster wiring is missing")
+    require('id="animation-toggle"' in text and 'aria-controls="motion-demo-image"' in text, "animation control wiring is missing")
+
+    return text, document, structured
+
+
+def validate_support_files(index_description: str, catalog: dict[str, object]) -> None:
+    manifest = json.loads((SITE / "manifest.webmanifest").read_text(encoding="utf-8"))
+    require(manifest.get("description") == index_description, "manifest description drifted from the page")
+    require(manifest.get("start_url") == manifest.get("scope") == "/", "manifest start URL or scope drifted")
+    for icon in manifest.get("icons", []):
+        path = SITE / icon["src"]
+        require(path.is_file(), f"manifest icon is missing: {icon['src']}")
+        expected = tuple(map(int, icon["sizes"].split("x")))
+        require(image_dimensions(path) == expected, f"manifest icon dimensions drifted: {icon['src']}")
+        require(icon.get("type") == "image/png", f"manifest icon MIME drifted: {icon['src']}")
+
+    root = ET.parse(SITE / "sitemap.xml").getroot()
+    namespace = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    locations = [element.text for element in root.findall("s:url/s:loc", namespace)]
+    require(locations == [PRODUCTION], f"sitemap URLs drifted: {locations}")
+    robots = (SITE / "robots.txt").read_text(encoding="utf-8")
+    require("User-agent: *" in robots and "Allow: /" in robots, "robots policy drifted")
+    require(f"Sitemap: {PRODUCTION}sitemap.xml" in robots, "robots sitemap URL drifted")
+
+    llms = (SITE / "llms.txt").read_text(encoding="utf-8")
+    require(str(catalog["version"]) in llms, "llms.txt catalog version drifted")
+    require(f"{len(catalog['tools'])} reviewed entries" in llms, "llms.txt catalog count drifted")
+
+    headers = (SITE / "_headers").read_text(encoding="utf-8")
+    for required in (
+        "Content-Security-Policy:", "Permissions-Policy:", "X-Content-Type-Options: nosniff",
+        "Referrer-Policy: strict-origin-when-cross-origin", "frame-ancestors 'none'", "script-src 'self'",
+    ):
+        require(required in headers, f"security header is missing: {required}")
+    for forbidden in ("Strict-Transport-Security", "Cross-Origin-Opener-Policy", "Cross-Origin-Embedder-Policy"):
+        require(forbidden not in headers, f"broad unapproved policy present: {forbidden}")
+
+    redirects = (SITE / "_redirects").read_text(encoding="utf-8").splitlines()
+    for line in redirects:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        parts = line.split()
+        require(len(parts) >= 2, f"invalid redirect line: {line}")
+        target = local_path(parts[1])
+        require(target is None or target.is_file(), f"redirect target is missing: {parts[1]}")
+
+
+def validate_references(document: Document, error_document: Document) -> None:
+    for source_name, parsed in (("index.html", document), ("404.html", error_document)):
+        for tag, attribute, url in parsed.references:
+            if url.startswith("#"):
+                continue
+            path = local_path(url)
+            if path is not None:
+                require(path.is_file(), f"{source_name} references missing local asset via {tag}[{attribute}]: {url}")
+
+    resource_tags = {"img", "script", "source"}
+    for tag, _, url in document.references:
+        if tag in resource_tags:
+            require(not urllib.parse.urlsplit(url).scheme, f"remote runtime resource is forbidden: {url}")
+    for link in document.links:
+        rels = set(link.get("rel", "").split())
+        if rels & {"stylesheet", "icon", "manifest"}:
+            require(not urllib.parse.urlsplit(link.get("href", "")).scheme, f"remote linked resource is forbidden: {link.get('href')}")
+
+
+def validate_catalog(index_text: str, structured: dict[str, object]) -> dict[str, object]:
+    checked_in = json.loads((SITE / "catalog.json").read_text(encoding="utf-8"))
+    generated = json.loads(subprocess.check_output([str(ROOT / "macos" / "aiup"), "catalog", "--json"], text=True))
+    require(checked_in == generated, "site/catalog.json drifted from macos/aiup")
+    version = checked_in["version"]
+    count = len(checked_in["tools"])
+    versions = set(re.findall(r"\b20\d{2}\.\d{2}\.\d{2}-\d{2}\b", index_text))
+    require(versions == {version}, f"site version claims drifted: {sorted(versions)} != {version}")
+    count_claims = {int(value) for value in re.findall(r"\b(\d+) (?:reviewed|managed) entries\b", index_text)}
+    require(count_claims == {count}, f"site catalog-count claims drifted: {sorted(count_claims)} != {count}")
+    require(f"<strong>{count}</strong><span>reviewed entries</span>" in index_text, "generated site catalog count is missing")
+    software = next(item for item in structured["@graph"] if item.get("@type") == "SoftwareApplication")
+    require(software.get("softwareVersion") == version, "JSON-LD software version drifted")
+    for category in checked_in["categories"]:
+        if category["id"].startswith("homebrew/"):
+            continue
+        if category["id"] == "homebrew":
+            require('data-category="homebrew"' in index_text and "Your Mac</strong>" in index_text, "Homebrew summary drifted")
+        else:
+            expected = f'data-category="{category["id"]}"'
+            require(expected in index_text, f"site catalog category is missing: {category['id']}")
+            block = index_text.split(expected, 1)[1].split("</li>", 1)[0]
+            require(f"<strong>{len(category.get('tools') or [])}</strong>" in block, f"site category count drifted: {category['id']}")
+    return checked_in
+
+
+def validate_media_and_public_safety() -> None:
+    names = (
+        "aiup-list.gif", "aiup-list-poster.png", "aiup-list-collapsed.png",
+        "aiup-list-homebrew.png", "aiup-list-adopt.png", "aiup-list-search.png",
+    )
+    for name in names:
+        canonical = ROOT / "docs" / "media" / name
+        published = SITE / "media" / name
+        require(canonical.is_file() and published.is_file(), f"media asset is missing: {name}")
+        require(sha256(canonical) == sha256(published), f"docs/site media drift: {name}")
+
+    public_files = [
+        path for path in SITE.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".html", ".css", ".js", ".json", ".txt", ".xml", ".webmanifest"}
+    ] + [SITE / "_headers", SITE / "_redirects"]
+    forbidden = (
+        "/Users/", "/home/", "file://", "localhost", "127.0.0.1", "TJNMPM", "TJN-SERVE",
+        "runtime.zero", "_meta.notes", "PUBLIC-SAFE", "capture fixture", "travis@neuman.dev",
+        "fonts.googleapis.com", "fonts.gstatic.com", "googletagmanager", "google-analytics", "cloudflareinsights",
+    )
+    for path in public_files:
+        content = path.read_text(encoding="utf-8")
+        for needle in forbidden:
+            require(needle.lower() not in content.lower(), f"public-safety string {needle!r} found in {path.relative_to(ROOT)}")
+    styles = (SITE / "styles.css").read_text(encoding="utf-8")
+    require(":focus-visible" in styles, "visible focus styling is missing")
+    require("min-height: 2.75rem" in styles, "minimum primary control target sizing is missing")
+    require("@media (prefers-reduced-motion: reduce)" in styles, "reduced-motion CSS is missing")
+    require("font-family: var(--sans)" in styles and "fonts.googleapis.com" not in styles, "system-font policy drifted")
+    require(not (SITE / "sw.js").exists(), "service worker is forbidden for this site")
+
+
+def main() -> int:
+    index_text, index_document, structured = validate_index()
+    error_text, error_document = parse_html(SITE / "404.html")
+    require(error_document.title == "Page not found — aiup", "404 title drifted")
+    require(error_document.headings.count("h1") == 1, "404 must contain one h1")
+    require("noindex" in meta_value(error_document, "robots"), "404 must be noindex")
+    require("main-content" in error_document.ids, "404 main target is missing")
+    require("Return to aiup" in error_text, "404 recovery action is missing")
+
+    catalog = validate_catalog(index_text, structured)
+    validate_support_files(meta_value(index_document, "description"), catalog)
+    validate_references(index_document, error_document)
+    validate_media_and_public_safety()
+    print(f"site checks: ok ({catalog['version']}, {len(catalog['tools'])} reviewed entries)")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (AssertionError, json.JSONDecodeError, ET.ParseError, subprocess.CalledProcessError) as error:
+        print(f"site checks: failed: {error}", file=sys.stderr)
+        raise SystemExit(1)

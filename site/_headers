@@ -1,28 +1,35 @@
-/
-  Cache-Control: public, max-age=0, must-revalidate
+/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), screen-wake-lock=(), usb=()
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; manifest-src 'self'; object-src 'none'; script-src 'self'; style-src 'self'; upgrade-insecure-requests
 
-/favicon.ico
-  Cache-Control: public, max-age=0, must-revalidate
-
-/favicon-32.png
-  Cache-Control: public, max-age=0, must-revalidate
-
-/favicon-16.png
-  Cache-Control: public, max-age=0, must-revalidate
-
-/favicon-48.png
-  Cache-Control: public, max-age=0, must-revalidate
-
-/apple-touch-icon.png
-  Cache-Control: public, max-age=0, must-revalidate
-
-/manifest.webmanifest
+/
   Cache-Control: public, max-age=0, must-revalidate
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+
+/404.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/favicon.ico
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/favicon-16.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/favicon-32.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/favicon-48.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/apple-touch-icon.png
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=300, must-revalidate
 
 /robots.txt
   Cache-Control: public, max-age=300, must-revalidate
@@ -35,14 +42,18 @@
   Cache-Control: public, max-age=300, must-revalidate
   Content-Type: text/plain; charset=utf-8
 
-/brand/derived/og.png
-  Cache-Control: public, max-age=86400, must-revalidate
+/catalog.json
+  Cache-Control: public, max-age=300, must-revalidate
+  Content-Type: application/json; charset=utf-8
 
 /*.css
-  Cache-Control: public, max-age=120, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
 /*.js
-  Cache-Control: public, max-age=120, must-revalidate
+  Cache-Control: public, max-age=300, must-revalidate
 
-/catalog.json
-  Cache-Control: public, max-age=60, must-revalidate
+/media/*
+  Cache-Control: public, max-age=86400, must-revalidate
+
+/brand/*
+  Cache-Control: public, max-age=86400, must-revalidate
