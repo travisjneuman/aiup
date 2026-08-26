@@ -1633,29 +1633,40 @@ catalog_ansi() {
   esac
 }
 
-# Keep in sync with catalog_hotkey_help line count.
-HOTKEY_HELP_LINES=13
-PREVIEW_META_LINES=8
-
-catalog_hotkey_help() {
-  printf 'enter              install/update, expand category, or switch on-disk apps to Homebrew (no --zap)\n'
-  printf 'tab  or  space     check / uncheck\n'
-  printf 'ctrl-a             check all visible rows\n'
-  printf 'ctrl-e             expand/collapse this category\n'
-  printf 'left / right       collapse / expand this category\n'
-  printf 'pgup / pgdn        previous / next category\n'
-  printf 'ctrl-g             jump to a category\n'
-  printf 'alt-e              expand all categories\n'
-  printf 'alt-c              collapse all categories\n'
-  printf 'ctrl-d             uninstall managed items; detected apps preview cleanup\n'
-  printf 'ctrl-r             update only\n'
-  printf 'ctrl-o  f3  alt-o  open docs or a Google search\n'
-  printf 'ctrl-y             copy that URL\n'
-  printf 'esc                leave\n'
+catalog_preview_height() {
+  printf '33%%\n'
 }
 
-catalog_preview_height() {
-  printf '%s\n' "$((PREVIEW_META_LINES + HOTKEY_HELP_LINES))"
+catalog_preview_window() {
+  # fzf recalculates percentages and the threshold alternative on SIGWINCH.
+  # At 24 rows it leaves 11 catalog rows; below the useful threshold it hides.
+  printf 'down,%s,wrap,<7(hidden)\n' "$(catalog_preview_height)"
+}
+
+catalog_header_text() {
+  local columns="${1:-${FZF_COLUMNS:-100}}"
+  case "$columns" in
+    ''|*[!0-9]*) columns=100 ;;
+  esac
+  if [ "$columns" -lt 96 ]; then
+    printf 'search · enter act · ctrl-/ preview · esc close\n'
+  else
+    printf 'type search · enter act/expand · ctrl-g categories · ctrl-/ preview · esc close\n'
+  fi
+}
+
+catalog_preview_controls() {
+  case "$1" in
+    category)
+      printf 'keys     enter/ctrl-e toggle · pgup/pgdn category · ctrl-g jump\n'
+      ;;
+    detected)
+      printf 'keys     ctrl-o search · ctrl-y copy URL · ctrl-/ hide\n'
+      ;;
+    *)
+      printf 'keys     enter act · ctrl-r update · ctrl-d remove · ctrl-o docs · ctrl-/ hide\n'
+      ;;
+  esac
 }
 
 print_catalog_preview() {
@@ -1667,14 +1678,19 @@ print_catalog_preview() {
   fi
   case "$tool" in
     __cat:*)
-      printf 'category  %s\n' "${tool#__cat:}"
-      printf 'enter or ctrl-e  expand / collapse\n'
-      printf 'left / right     collapse / expand\n'
-      printf 'pgup / pgdn      previous / next category\n'
-      printf 'ctrl-g           jump to a category\n'
-      printf 'alt-e expand all   alt-c collapse all\n'
-      printf '\n'
-      catalog_hotkey_help
+      local preview_category preview_state preview_action
+      preview_category="${tool#__cat:}"
+      if category_expanded "$preview_category"; then
+        preview_state='expanded'
+        preview_action='collapse this category'
+      else
+        preview_state='collapsed'
+        preview_action='expand this category'
+      fi
+      printf 'category  %s\n' "$preview_category"
+      printf 'state     %s\n' "$preview_state"
+      printf 'action    %s\n' "$preview_action"
+      catalog_preview_controls category
       return 0
       ;;
     di:*)
@@ -1683,17 +1699,15 @@ print_catalog_preview() {
       [ -n "$record" ] || { error "Detected inventory row is not available: $tool"; return 1; }
       IFS=$'\t' read -r inv_category inv_state inv_id inv_label inv_version inv_source inv_path <<< "$record"
       printf '%s · detected-only · not managed by aiup\n' "$inv_id"
-      printf 'item     %s\n' "$(inventory_item_name "$inv_label")"
-      printf 'version  %s\n' "${inv_version:-unknown}"
+      printf 'item     %s · %s\n' "$(inventory_item_name "$inv_label")" "${inv_version:-unknown}"
+      printf 'action   inspect only · no verified aiup updater/remover contract\n'
       printf 'found via %s\n' "$inv_source"
       printf 'location %s\n' "$inv_path"
+      catalog_preview_controls detected
       printf 'search   %s\n' "$(detected_search_url "$tool")"
-      printf 'why      aiup has no verified updater/remover contract for this item yet, so it will not change it.\n'
       if [[ "$tool" == di:app:* ]]; then
         printf 'cleanup  aiup cleanup %s --apply (preview first; moves exact candidates to Trash)\n' "$tool"
       fi
-      printf '\n'
-      catalog_hotkey_help
       return 0
       ;;
     bc:*|bf:*)
@@ -1709,21 +1723,18 @@ print_catalog_preview() {
       fi
       printf '%s · %s · %s\n' "$tool" "$(catalog_category "$tool")" "$extra_state"
       printf '%s\n' "$(brew_extra_label "$kind" "$name")"
+      printf 'action   %s\n' "$(brew_extra_action "$kind" "$name" "$extra_state")"
       if [ "$kind" = 'cask' ] && extra_app="$(app_path_for_cask "$name")"; then
         if [ "$extra_state" = 'on-disk' ]; then
-          printf 'Found at %s — already on your Mac, not via Homebrew. Enter lets Homebrew manage it without aiup passing --zap or directly deleting ~/Library.\n' "$extra_app"
+          printf 'found    %s\n' "$extra_app"
+          printf 'safety   Homebrew adoption; aiup passes no --zap and does not directly delete ~/Library\n'
         fi
       elif [ "$kind" = 'formula' ] && [ "$extra_state" = 'on-disk' ]; then
-        printf 'A %s command is already on PATH from outside Homebrew. Enter installs a Homebrew copy alongside it. The existing command is not uninstalled.\n' "$(formula_cmd_name "$name")"
+        printf 'found    %s on PATH outside Homebrew; install adds a Homebrew copy alongside it\n' "$(formula_cmd_name "$name")"
       fi
-      if [ "$kind" = 'cask' ]; then
-        printf 'casks / fonts / formulae / libraries = already on your Mac via Homebrew. recommended = a short popular list, not all of Homebrew.\n'
-      fi
+      catalog_preview_controls item
       printf 'website  https://formulae.brew.sh/%s/%s\n' "$kind" "$name"
-      printf 'action   %s\n' "$(brew_extra_action "$kind" "$name" "$extra_state")"
       printf 'needs    brew [%s]\n' "$(tool_is_present brew && printf ready || printf missing)"
-      printf '\n'
-      catalog_hotkey_help
       return 0
       ;;
   esac
@@ -1743,8 +1754,7 @@ print_catalog_preview() {
   printf '%s  %s\n' "$kind" "$url"
   printf 'action   %s\n' "$(catalog_action_for_state "$tool" "$state")"
   catalog_dependency_preview "$tool"
-  printf '\n'
-  catalog_hotkey_help
+  catalog_preview_controls item
 }
 
 catalog_action_for_state() {
@@ -5560,7 +5570,7 @@ pick_catalog_tools() {
 
   local selected=""
   local key="enter"
-  local query_line second_line selected_id initial_pos
+  local query_line second_line selected_id initial_pos tty_columns header_text
   local self
   self="$(command_path aiup)"
   [ -n "$self" ] || self="${BASH_SOURCE[0]:-$0}"
@@ -5575,18 +5585,22 @@ pick_catalog_tools() {
     printf '%s\n' "${rows[@]}" > "$listfile"
     last_query="$(catalog_ui_state_read "$LIST_QUERY_FILE")"
     initial_pos="$(catalog_ui_state_position "$listfile")"
+    tty_columns="$(stty size </dev/tty 2>/dev/null | awk '{print $2}')"
+    header_text="$(catalog_header_text "$tty_columns")"
     [ -n "$last_query" ] && fzf_state_args+=(--query "$last_query")
     [ -n "$initial_pos" ] && fzf_state_args+=(--bind "start:pos($initial_pos)")
     selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --multi --delimiter=$'\t' --with-nth=2 \
       --no-height \
+      --no-hscroll \
       --print-query \
       --prompt "aiup ${mode}> " \
-      --header "type to search · enter install/expand · left/right collapse/expand · pgup/pgdn category · ctrl-g jump · detected-only = no aiup updater · ctrl-/ preview · esc" \
+      --header "$header_text" \
       --preview "$self preview {1}" \
-      --preview-window "down:$(catalog_preview_height):wrap" \
+      --preview-window "$(catalog_preview_window)" \
       --bind 'space:toggle' \
       --bind 'ctrl-a:toggle-all' \
-      --bind 'resize:refresh-preview' \
+      --bind 'ctrl-/:toggle-preview' \
+      --bind "resize:refresh-preview+transform-header($self __fzf-header)" \
       --bind "change:execute-silent($self __search-query {q})+reload-sync($self __fzf-rows)+pos({n})" \
       --bind "enter:transform:$self __enter-action {1} $listfile" \
       --bind "left:execute-silent($self __cat-collapse {1} $listfile)+reload-sync($self __fzf-rows)+pos({n})" \
@@ -6072,6 +6086,9 @@ parse_args() {
     __search-query)
       ensure_dir "$STATE_DIR"
       printf '%s' "${args[*]:1}" > "$LIST_QUERY_FILE"
+      ;;
+    __fzf-header)
+      catalog_header_text "${FZF_COLUMNS:-}"
       ;;
     __cat-toggle)
       toggle_category "${args[1]:-}"

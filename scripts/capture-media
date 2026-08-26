@@ -32,23 +32,29 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "scripts" / "fixtures" / "capture"
 DOCS_MEDIA = ROOT / "docs" / "media"
 SITE_MEDIA = ROOT / "site" / "media"
-FONT = pathlib.Path.home() / "Library/Fonts/JetBrainsMonoNerdFontMono-Regular.ttf"
-WIDTH, HEIGHT = 1280, 720
-COLS, ROWS = 128, 40
-CELL_W, CELL_H = 10, 18
-FONT_SIZE = 15
-DEFAULT_FG = (232, 233, 255)
-DEFAULT_BG = (11, 12, 35)
+FONT = pathlib.Path("/System/Library/Fonts/Supplemental/Andale Mono.ttf")
+FALLBACK_FONT = pathlib.Path("/System/Library/Fonts/Menlo.ttc")
+TITLE_FONT = pathlib.Path("/System/Library/Fonts/SFNS.ttf")
+COLS, ROWS = 100, 30
+SCALE = 2
+CELL_W, CELL_H = 10 * SCALE, 19 * SCALE
+TITLEBAR_H = 30 * SCALE
+WINDOW_PAD = 4 * SCALE
+WIDTH = COLS * CELL_W + WINDOW_PAD * 2
+HEIGHT = ROWS * CELL_H + TITLEBAR_H + WINDOW_PAD
+FONT_SIZE = 16 * SCALE
+DEFAULT_FG = (40, 254, 20)
+DEFAULT_BG = (0, 0, 0)
+CURSOR_RGB = (56, 254, 39)
+WINDOW_CHROME_RGB = (30, 30, 35)
+WINDOW_BORDER_RGB = (82, 82, 91)
 FZF_COLORS = (
-    "fg:#cdd6f4,bg:#0b0c23,hl:#4de0ff,"
-    "fg+:#e8e9ff,bg+:#1a1b3a,hl+:#4ef0c4,"
-    "info:#9aa0d4,prompt:#c084fc,pointer:#4ef0c4,"
-    "marker:#ffb86c,spinner:#4de0ff,header:#9aa0d4,"
-    "border:#4de0ff,label:#c084fc,query:#e8e9ff"
+    "bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8,"
+    "fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc,"
+    "marker:#a6e3a1,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
 )
 FZF_DEFAULT_OPTS = (
-    "--no-mouse --layout=reverse --border=rounded --info=inline-right "
-    "--preview-label=' current preview ' --list-label=' current aiup catalog ' "
+    "--height=45% --layout=reverse --border=rounded "
     f"--color={FZF_COLORS}"
 )
 MEDIA_NAMES = (
@@ -82,10 +88,14 @@ HOMEBREW_INDEXES = {
     "recommended": 220,
 }
 FZF_RGB = {
-    "cyan": (77, 224, 255),
-    "mint": (78, 240, 196),
-    "purple": (192, 132, 252),
-    "selected-bg": (26, 27, 58),
+    "fg": (205, 214, 244),
+    "bg": (30, 30, 46),
+    "highlight": (243, 139, 168),
+    "header": (243, 139, 168),
+    "prompt": (203, 166, 247),
+    "pointer": (245, 224, 220),
+    "marker": (166, 227, 161),
+    "selected-bg": (49, 50, 68),
 }
 STATE_GREEN = (57, 255, 20)
 ABSENT_GRAY = (138, 138, 138)
@@ -219,12 +229,17 @@ def expected_raster_palettes() -> dict[str, dict[str, tuple[int, int, int]]]:
     collapsed = {
         name: xterm_256(index) for name, index in CATEGORY_INDEXES.items()
     }
+    collapsed.update({
+        "header": FZF_RGB["header"],
+        "prompt": FZF_RGB["prompt"],
+        "selected-row": FZF_RGB["selected-bg"],
+    })
     search = {
         "coding-agents": xterm_256(CATEGORY_INDEXES["coding-agents"]),
         "installed-action": STATE_GREEN,
-        "query-highlight": FZF_RGB["mint"],
-        "preview-label": FZF_RGB["purple"],
-        "border": FZF_RGB["cyan"],
+        "query-highlight": FZF_RGB["highlight"],
+        "prompt": FZF_RGB["prompt"],
+        "selected-row": FZF_RGB["selected-bg"],
     }
     homebrew = {
         name: xterm_256(index) for name, index in HOMEBREW_INDEXES.items()
@@ -232,8 +247,8 @@ def expected_raster_palettes() -> dict[str, dict[str, tuple[int, int, int]]]:
     homebrew.update({
         "on-disk-action": STATE_GREEN,
         "absent-action": ABSENT_GRAY,
-        "preview-label": FZF_RGB["purple"],
-        "border": FZF_RGB["cyan"],
+        "prompt": FZF_RGB["prompt"],
+        "selected-row": FZF_RGB["selected-bg"],
     })
     return {"collapsed": collapsed, "search": search, "homebrew": homebrew}
 
@@ -253,19 +268,22 @@ class Cell:
 
 
 class Terminal:
-    def __init__(self) -> None:
-        self.cells = [[Cell() for _ in range(COLS)] for _ in range(ROWS)]
+    def __init__(self, cols: int = COLS, rows: int = ROWS) -> None:
+        self.cols = cols
+        self.rows = rows
+        self.cells = [[Cell() for _ in range(cols)] for _ in range(rows)]
         self.row = 0
         self.col = 0
         self.saved = (0, 0)
         self.scroll_top = 0
-        self.scroll_bottom = ROWS - 1
+        self.scroll_bottom = rows - 1
         self.style = Style()
+        self.cursor_visible = True
         self.decoder = codecs.getincrementaldecoder("utf-8")("replace")
         self.pending = ""
 
     def clear(self) -> None:
-        self.cells = [[Cell() for _ in range(COLS)] for _ in range(ROWS)]
+        self.cells = [[Cell() for _ in range(self.cols)] for _ in range(self.rows)]
         self.row = self.col = 0
 
     def blank_cell(self) -> Cell:
@@ -332,7 +350,7 @@ class Terminal:
             elif char == "\b":
                 self.col = max(0, self.col - 1)
             elif char == "\t":
-                self.col = min(COLS - 1, ((self.col // 8) + 1) * 8)
+                self.col = min(self.cols - 1, ((self.col // 8) + 1) * 8)
             elif ord(char) >= 32 and char != "\x7f":
                 self.put(char)
             i += 1
@@ -342,21 +360,21 @@ class Terminal:
             if self.col:
                 self.cells[self.row][self.col - 1].char += char
             return
-        if self.col >= COLS:
+        if self.col >= self.cols:
             self.col = 0
             self.newline()
         self.cells[self.row][self.col] = Cell(char, dataclasses.replace(self.style))
         width = 2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1
-        if width == 2 and self.col + 1 < COLS:
+        if width == 2 and self.col + 1 < self.cols:
             self.cells[self.row][self.col + 1] = Cell("", dataclasses.replace(self.style))
         self.col += width
 
     def newline(self) -> None:
         if self.row == self.scroll_bottom:
             del self.cells[self.scroll_top]
-            self.cells.insert(self.scroll_bottom, [Cell() for _ in range(COLS)])
+            self.cells.insert(self.scroll_bottom, [Cell() for _ in range(self.cols)])
         else:
-            self.row = min(ROWS - 1, self.row + 1)
+            self.row = min(self.rows - 1, self.row + 1)
 
     @staticmethod
     def number(value: str, default: int = 1) -> int:
@@ -372,37 +390,37 @@ class Terminal:
         parts = raw.split(";") if raw else [""]
         nums = [self.number(part) for part in parts]
         if final in "Hf":
-            self.row = max(0, min(ROWS - 1, nums[0] - 1))
-            self.col = max(0, min(COLS - 1, (nums[1] if len(nums) > 1 else 1) - 1))
+            self.row = max(0, min(self.rows - 1, nums[0] - 1))
+            self.col = max(0, min(self.cols - 1, (nums[1] if len(nums) > 1 else 1) - 1))
         elif final == "A":
             self.row = max(self.scroll_top, self.row - nums[0])
         elif final in "BE":
             self.row = min(self.scroll_bottom, self.row + nums[0])
             if final == "E": self.col = 0
         elif final == "C":
-            self.col = min(COLS - 1, self.col + nums[0])
+            self.col = min(self.cols - 1, self.col + nums[0])
         elif final in "DF":
             self.row = max(self.scroll_top, self.row - nums[0])
             if final == "F": self.col = 0
         elif final in "G`":
-            self.col = max(0, min(COLS - 1, nums[0] - 1))
+            self.col = max(0, min(self.cols - 1, nums[0] - 1))
         elif final == "d":
-            self.row = max(0, min(ROWS - 1, nums[0] - 1))
+            self.row = max(0, min(self.rows - 1, nums[0] - 1))
         elif final == "J":
             mode = nums[0] if raw else 0
             if mode in (2, 3):
                 self.clear()
             elif mode == 0:
-                self.erase_line(self.row, self.col, COLS)
-                for row in range(self.row + 1, ROWS): self.erase_line(row, 0, COLS)
+                self.erase_line(self.row, self.col, self.cols)
+                for row in range(self.row + 1, self.rows): self.erase_line(row, 0, self.cols)
             elif mode == 1:
-                for row in range(0, self.row): self.erase_line(row, 0, COLS)
+                for row in range(0, self.row): self.erase_line(row, 0, self.cols)
                 self.erase_line(self.row, 0, self.col + 1)
         elif final == "K":
             mode = nums[0] if raw else 0
-            if mode == 0: self.erase_line(self.row, self.col, COLS)
+            if mode == 0: self.erase_line(self.row, self.col, self.cols)
             elif mode == 1: self.erase_line(self.row, 0, self.col + 1)
-            elif mode == 2: self.erase_line(self.row, 0, COLS)
+            elif mode == 2: self.erase_line(self.row, 0, self.cols)
         elif final == "m":
             self.sgr(raw)
         elif final == "s":
@@ -411,18 +429,18 @@ class Terminal:
             self.row, self.col = self.saved
         elif final == "r":
             top = nums[0] - 1 if raw else 0
-            bottom = (nums[1] - 1) if len(nums) > 1 else ROWS - 1
-            self.scroll_top = max(0, min(ROWS - 1, top))
-            self.scroll_bottom = max(self.scroll_top, min(ROWS - 1, bottom))
+            bottom = (nums[1] - 1) if len(nums) > 1 else self.rows - 1
+            self.scroll_top = max(0, min(self.rows - 1, top))
+            self.scroll_bottom = max(self.scroll_top, min(self.rows - 1, bottom))
             self.row, self.col = self.scroll_top, 0
         elif final == "S":
             for _ in range(nums[0]):
                 del self.cells[self.scroll_top]
-                self.cells.insert(self.scroll_bottom, [Cell() for _ in range(COLS)])
+                self.cells.insert(self.scroll_bottom, [Cell() for _ in range(self.cols)])
         elif final == "T":
             for _ in range(nums[0]):
                 del self.cells[self.scroll_bottom]
-                self.cells.insert(self.scroll_top, [Cell() for _ in range(COLS)])
+                self.cells.insert(self.scroll_top, [Cell() for _ in range(self.cols)])
         elif final == "P":
             count = nums[0]
             line = self.cells[self.row]
@@ -432,12 +450,15 @@ class Terminal:
             count = nums[0]
             line = self.cells[self.row]
             for _ in range(count): line.insert(self.col, Cell())
-            del line[COLS:]
-        elif final in "hl" and private and 1049 in nums:
-            if final == "h": self.clear()
+            del line[self.cols:]
+        elif final in "hl" and private:
+            if 25 in nums:
+                self.cursor_visible = final == "h"
+            if 1049 in nums and final == "h":
+                self.clear()
 
     def erase_line(self, row: int, start: int, end: int) -> None:
-        for col in range(max(0, start), min(COLS, end)):
+        for col in range(max(0, start), min(self.cols, end)):
             self.cells[row][col] = self.blank_cell()
 
     def sgr(self, raw: str) -> None:
@@ -469,9 +490,17 @@ class Terminal:
     def text(self) -> str:
         return "\n".join("".join(cell.char for cell in row).rstrip() for row in self.cells)
 
-    def render(self, font: ImageFont.FreeTypeFont, bold_font: ImageFont.FreeTypeFont) -> Image.Image:
-        image = Image.new("RGB", (WIDTH, HEIGHT), DEFAULT_BG)
-        draw = ImageDraw.Draw(image)
+    def render(
+        self,
+        font: ImageFont.FreeTypeFont,
+        bold_font: ImageFont.FreeTypeFont,
+        fallback_font: ImageFont.FreeTypeFont,
+        title_font: ImageFont.FreeTypeFont,
+    ) -> Image.Image:
+        content_width = self.cols * CELL_W
+        content_height = self.rows * CELL_H
+        content = Image.new("RGB", (content_width, content_height), DEFAULT_BG)
+        draw = ImageDraw.Draw(content)
         for row_index, row in enumerate(self.cells):
             for col_index, cell in enumerate(row):
                 fg, bg = cell.style.fg, cell.style.bg
@@ -481,15 +510,75 @@ class Terminal:
                     draw.rectangle((x, y, x + CELL_W - 1, y + CELL_H - 1), fill=bg)
                 if cell.char:
                     selected_font = bold_font if cell.style.bold else font
+                    if (
+                        cell.char in "▸▾↳"
+                        or "\u2500" <= cell.char <= "\u257f"
+                        or "\u2800" <= cell.char <= "\u28ff"
+                    ):
+                        selected_font = fallback_font
                     bbox = draw.textbbox((0, 0), cell.char, font=selected_font)
                     text_w = bbox[2] - bbox[0]
-                    draw.text((x + max(0, (CELL_W - text_w) / 2), y - 1), cell.char, font=selected_font, fill=fg)
+                    draw.text((x + max(0, (CELL_W - text_w) / 2), y), cell.char, font=selected_font, fill=fg)
+        if self.cursor_visible:
+            cursor_x = min(self.cols - 1, self.col) * CELL_W
+            cursor_y = min(self.rows - 1, self.row) * CELL_H
+            draw.rectangle(
+                (
+                    cursor_x,
+                    cursor_y + SCALE,
+                    cursor_x + CELL_W - 1,
+                    cursor_y + CELL_H - 2 * SCALE,
+                ),
+                fill=CURSOR_RGB,
+            )
+
+        width = content_width + WINDOW_PAD * 2
+        height = content_height + TITLEBAR_H + WINDOW_PAD
+        image = Image.new("RGB", (width, height), (10, 10, 13))
+        window = ImageDraw.Draw(image)
+        window.rounded_rectangle(
+            (0, 0, width - 1, height - 1),
+            radius=10 * SCALE,
+            fill=WINDOW_CHROME_RGB,
+            outline=WINDOW_BORDER_RGB,
+        )
+        window.line(
+            (0, TITLEBAR_H - SCALE, width, TITLEBAR_H - SCALE),
+            fill=(7, 7, 10),
+            width=SCALE,
+        )
+        for center_x, color in (
+            (15 * SCALE, (255, 95, 87)),
+            (35 * SCALE, (255, 189, 46)),
+            (55 * SCALE, (40, 201, 64)),
+        ):
+            window.ellipse(
+                (
+                    center_x - 6 * SCALE,
+                    9 * SCALE,
+                    center_x + 6 * SCALE,
+                    21 * SCALE,
+                ),
+                fill=color,
+            )
+        title = f"aiup — fzf ‹ aiup list — {self.cols}×{self.rows}"
+        title_box = window.textbbox((0, 0), title, font=title_font)
+        title_width = title_box[2] - title_box[0]
+        window.text(
+            ((width - title_width) / 2, 7 * SCALE),
+            title,
+            font=title_font,
+            fill=(168, 168, 176),
+        )
+        image.paste(content, (WINDOW_PAD, TITLEBAR_H))
         return image
 
 
 class Session:
-    def __init__(self, work: pathlib.Path, args: list[str]) -> None:
-        self.term = Terminal()
+    def __init__(self, work: pathlib.Path, args: list[str], cols: int = COLS, rows: int = ROWS) -> None:
+        self.cols = cols
+        self.rows = rows
+        self.term = Terminal(cols, rows)
         self.raw = bytearray()
         self.work = work
         self.command_log = work / "commands.log"
@@ -519,9 +608,15 @@ class Session:
         if self.pid == 0:
             os.chdir(ROOT)
             os.execve("/bin/bash", ["bash", str(ROOT / "macos" / "aiup"), *args], env)
-        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         os.set_blocking(self.fd, False)
         self.closed = False
+
+    def resize(self, cols: int, rows: int) -> None:
+        self.cols = cols
+        self.rows = rows
+        self.term = Terminal(cols, rows)
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
     def pump(self, seconds: float) -> None:
         deadline = time.monotonic() + seconds
@@ -586,10 +681,89 @@ def check_public_text(label: str, text: str) -> None:
             raise RuntimeError(f"{label} capture contained forbidden text: {needle}")
 
 
+LAYOUT_MATRIX = ((60, 18), (80, 24), (100, 30), (128, 40), (167, 47))
+
+
+def visible_catalog_rows(term: Terminal) -> int:
+    category_colors = {xterm_256(index) for index in CATEGORY_INDEXES.values()}
+    return sum(
+        any(cell.char.strip() and cell.style.fg in category_colors for cell in row)
+        for row in term.cells
+    )
+
+
+def assert_layout_state(session: Session, cols: int, rows: int) -> dict[str, object]:
+    text = session.term.text()
+    expected_header = (
+        "search · enter act · ctrl-/ preview · esc close"
+        if cols < 96
+        else "type search · enter act/expand · ctrl-g categories · ctrl-/ preview · esc close"
+    )
+    if expected_header not in text:
+        raise RuntimeError(f"{cols}x{rows} omitted responsive header: {text}")
+    preview_visible = "category  infra" in text
+    if rows < 22 and preview_visible:
+        raise RuntimeError(f"{cols}x{rows} should start with its preview hidden")
+    if rows >= 22 and not preview_visible:
+        raise RuntimeError(f"{cols}x{rows} should show the responsive preview: {text}")
+    catalog_rows = visible_catalog_rows(session.term)
+    if catalog_rows < 8:
+        raise RuntimeError(f"{cols}x{rows} exposed only {catalog_rows} useful catalog rows")
+    if any(len(line) > cols for line in text.splitlines()):
+        raise RuntimeError(f"{cols}x{rows} produced a cropped logical row")
+    return {
+        "terminal_cells": [cols, rows],
+        "catalog_rows_visible": catalog_rows,
+        "preview_default": "visible" if preview_visible else "hidden",
+        "header_variant": "compact" if cols < 96 else "normal",
+    }
+
+
+def validate_layout_matrix(work: pathlib.Path) -> list[dict[str, object]]:
+    results: list[dict[str, object]] = []
+    for cols, rows in LAYOUT_MATRIX:
+        session = Session(work / f"{cols}x{rows}", ["list"], cols=cols, rows=rows)
+        try:
+            session.wait_for("aiup browse>")
+            if rows >= 22:
+                session.wait_for("category  infra")
+            session.pump(0.5)
+            result = assert_layout_state(session, cols, rows)
+            if rows < 22:
+                session.send(b"\x1f")
+                session.wait_for("category  infra")
+                result["preview_toggle"] = "verified"
+                session.send(b"\x1f")
+                session.pump(0.3)
+            results.append(result)
+            session.send(b"\x1b")
+        finally:
+            session.finish()
+
+    resized = Session(work / "live-resize", ["list"], cols=167, rows=47)
+    try:
+        resized.wait_for("category  infra")
+        resized.resize(60, 18)
+        resized.wait_for("search · enter act · ctrl-/ preview · esc close")
+        resized.pump(0.5)
+        assert_layout_state(resized, 60, 18)
+        resized.resize(100, 30)
+        resized.wait_for("type search · enter act/expand")
+        resized.wait_for("category  infra")
+        resized.pump(0.5)
+        assert_layout_state(resized, 100, 30)
+        resized.send(b"\x1b")
+    finally:
+        resized.finish()
+    return results
+
+
 def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     font = ImageFont.truetype(str(FONT), FONT_SIZE)
-    bold_path = FONT.with_name(FONT.name.replace("-Regular", "-SemiBold"))
-    bold_font = ImageFont.truetype(str(bold_path), FONT_SIZE)
+    bold_font = font
+    fallback_font = ImageFont.truetype(str(FALLBACK_FONT), FONT_SIZE)
+    title_font = ImageFont.truetype(str(TITLE_FONT), 13 * SCALE)
+    layout_evidence = validate_layout_matrix(work / "layout")
     states: dict[str, Image.Image] = {}
     gif_frames: list[Image.Image] = []
     gif_durations: list[int] = []
@@ -598,12 +772,15 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     collapsed_fg = {
         name: xterm_256(index) for name, index in CATEGORY_INDEXES.items()
     }
+    collapsed_fg.update({
+        "header": FZF_RGB["header"],
+        "prompt": FZF_RGB["prompt"],
+    })
     search_fg = {
         "coding-agents": xterm_256(CATEGORY_INDEXES["coding-agents"]),
         "installed-action": STATE_GREEN,
-        "query-highlight": FZF_RGB["mint"],
-        "preview-label": FZF_RGB["purple"],
-        "border": FZF_RGB["cyan"],
+        "query-highlight": FZF_RGB["highlight"],
+        "prompt": FZF_RGB["prompt"],
     }
     homebrew_fg = {
         name: xterm_256(index) for name, index in HOMEBREW_INDEXES.items()
@@ -611,8 +788,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     homebrew_fg.update({
         "on-disk-action": STATE_GREEN,
         "absent-action": ABSENT_GRAY,
-        "preview-label": FZF_RGB["purple"],
-        "border": FZF_RGB["cyan"],
+        "prompt": FZF_RGB["prompt"],
     })
 
     main = Session(work / "main", ["list"])
@@ -620,7 +796,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         main.wait_for("aiup browse>")
         main.wait_for("category  infra")
         main.pump(0.5)
-        states["collapsed"] = main.term.render(font, bold_font)
+        states["collapsed"] = main.term.render(font, bold_font, fallback_font, title_font)
         check_public_text("collapsed", main.term.text())
         semantic_evidence["collapsed"] = semantic_palette_evidence(
             "collapsed", main, collapsed_fg,
@@ -637,7 +813,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             main.pump(0.7)
         main.wait_for("gemini · coding-agents · installed · active")
         main.pump(0.35)
-        states["search"] = main.term.render(font, bold_font)
+        states["search"] = main.term.render(font, bold_font, fallback_font, title_font)
         check_public_text("search", main.term.text())
         semantic_evidence["search"] = semantic_palette_evidence(
             "search", main, search_fg,
@@ -654,7 +830,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         main.wait_for("cancelled")
         main.pump(0.25)
         check_public_text("cancelled", main.term.text())
-        gif_frames.append(main.term.render(font, bold_font)); gif_durations.append(1300)
+        gif_frames.append(main.term.render(font, bold_font, fallback_font, title_font)); gif_durations.append(1300)
     finally:
         main.finish()
 
@@ -676,10 +852,10 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         semantic_evidence["homebrew"] = semantic_palette_evidence(
             "homebrew", homebrew, homebrew_fg,
             {"selected-row": FZF_RGB["selected-bg"]},
-            ("recommended", "switch to Homebrew", "directly deleting ~/Library."),
+            ("recommended", "switch to Homebrew", "does not directly delete ~/Library"),
             HOMEBREW_INDEXES,
         )
-        states["homebrew"] = homebrew.term.render(font, bold_font)
+        states["homebrew"] = homebrew.term.render(font, bold_font, fallback_font, title_font)
         homebrew.send(b"\x1b")
     finally:
         homebrew.finish()
@@ -690,7 +866,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         for char in "raycast":
             adopt.send(char.encode())
             adopt.pump(0.7)
-        adopt.wait_for("Found at /Applications/Raycast.app")
+        adopt.wait_for("found    /Applications/Raycast.app")
         adopt.pump(0.5)
         adopt.send(b"\r")
         adopt.wait_for("Switch raycast to Homebrew without requesting a data zap?")
@@ -699,12 +875,13 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         semantic_evidence["adoption"] = semantic_palette_evidence(
             "adoption", adopt, {}, required_text=(
                 "[INFO] Letting Homebrew manage raycast.",
-                "aiup will not pass --zap or directly delete ~/Library.",
+                "aiup will not pass --zap",
+                "delete ~/Library.",
                 "[WARN] Homebrew and vendor-specific installer behavior may vary.",
                 "Switch raycast to Homebrew without requesting a data zap? [y/N]",
             ),
         )
-        states["adopt"] = adopt.term.render(font, bold_font)
+        states["adopt"] = adopt.term.render(font, bold_font, fallback_font, title_font)
         adopt.send(b"n\n")
         adopt.wait_for("aiup browse>")
         adopt.send(b"\x1b")
@@ -771,24 +948,56 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             "dimensions": [WIDTH, HEIGHT],
         }
     manifest = {
-        "schema": 2,
+        "schema": 3,
         "source_commit": source_commit,
         "runtime_version": "2026.08.25-02",
+        "capture_contract_version": "2026-08-25-03",
         "managed_entries": 81,
         "terminal_cells": [COLS, ROWS],
         "output_pixels": [WIDTH, HEIGHT],
         "font": str(FONT.name),
         "font_sha256": hashlib.sha256(FONT.read_bytes()).hexdigest(),
+        "fallback_font": str(FALLBACK_FONT.name),
+        "fallback_font_sha256": hashlib.sha256(FALLBACK_FONT.read_bytes()).hexdigest(),
         "font_size_px": FONT_SIZE,
+        "retina_scale": SCALE,
         "locale": "en_US.UTF-8",
-        "terminal_profile": {"background": "#0b0c23", "foreground": "#e8e9ff"},
+        "terminal_profile": {
+            "name": "Homebrew",
+            "source": "macOS Terminal profile readback",
+            "background": "#000000",
+            "background_alpha": 0.9,
+            "foreground": "#28fe14",
+            "bold_foreground": "#00f900",
+            "selection": "#0c2eee",
+            "selection_alpha": 0.65,
+            "cursor": "#38fe27",
+            "cursor_type": "block",
+            "cursor_blinks": True,
+            "font": "AndaleMono",
+            "font_size_points": 16,
+            "font_antialias": True,
+        },
+        "window_chrome": {
+            "kind": "reproduced macOS Terminal frame",
+            "title": f"aiup — fzf ‹ aiup list — {COLS}×{ROWS}",
+            "host_metadata": "sanitized",
+        },
         "fzf_palette": FZF_COLORS,
         "color_fidelity": {
-            "cause_corrected": "inherited NO_COLOR made fzf strip ANSI input styles before PTY capture",
             "capture_environment": "NO_COLOR removed; TERM=xterm-256color; COLORTERM=truecolor",
+            "shell_profile_match": "live FZF_DEFAULT_OPTS palette replayed without capture-only chrome labels or colors",
             "semantic_cells": semantic_evidence,
             "rendered_pixels": raster_evidence,
             "adoption_roles": "production output distinguishes INFO, WARN, and the confirmation prompt textually; it emits no role-specific SGR",
+        },
+        "layout_matrix": layout_evidence,
+        "visual_reference": {
+            "kind": "owner-provided macOS Terminal capture",
+            "sha256": "67a6594f32556b1126c05916474f5c24826ff0c3d51a5202a3e7591b1cf67583",
+            "dimensions": [4158, 2394],
+            "color_profile": "Display P3",
+            "measured_fzf_background_srgb": "#1e1e2c",
         },
         "gif_frames": len(gif_frames),
         "gif_duration_ms": sum(gif_durations),
@@ -804,8 +1013,8 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
 
 def validate_existing() -> None:
     manifest = json.loads((DOCS_MEDIA / "capture-manifest.json").read_text(encoding="utf-8"))
-    if manifest.get("schema") != 2:
-        raise RuntimeError("capture manifest lacks color-fidelity schema 2 evidence")
+    if manifest.get("schema") != 3:
+        raise RuntimeError("capture manifest lacks Terminal-fidelity schema 3 evidence")
     palettes = expected_raster_palettes()
     for name in MEDIA_NAMES:
         docs = DOCS_MEDIA / name
@@ -855,6 +1064,9 @@ def validate_existing() -> None:
     ):
         if state not in fidelity.get("rendered_pixels", {}):
             raise RuntimeError(f"manifest omitted rendered palette evidence for {state}")
+    matrix = manifest.get("layout_matrix", [])
+    if [entry.get("terminal_cells") for entry in matrix] != [list(size) for size in LAYOUT_MATRIX]:
+        raise RuntimeError("capture manifest omitted the required PTY-size matrix")
 
 
 def git_output(*args: str) -> str:
@@ -864,11 +1076,28 @@ def git_output(*args: str) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--check-layout", action="store_true")
     parser.add_argument("--source-commit")
     args = parser.parse_args()
     if args.check:
         validate_existing()
         print("capture media: ok")
+        return 0
+    if args.check_layout:
+        work = ROOT / f".layout-work.{os.getpid()}"
+        if work.exists(): raise RuntimeError(f"layout work path already exists: {work}")
+        work.mkdir()
+        try:
+            results = validate_layout_matrix(work)
+        finally:
+            shutil.rmtree(work)
+        print("tui layout matrix: ok")
+        for result in results:
+            cols, rows = result["terminal_cells"]
+            print(
+                f"  {cols}x{rows}: {result['catalog_rows_visible']} catalog rows, "
+                f"preview {result['preview_default']}, {result['header_variant']} header"
+            )
         return 0
     if not FONT.is_file(): raise RuntimeError(f"required fixed font is unavailable: {FONT}")
     for command in ("fzf",):
