@@ -1,6 +1,6 @@
 # Scope, completion, and next work
 
-Status date: **2026-08-25**
+Status date: **2026-08-26**
 
 Current version: **2026.08.25-02**
 
@@ -31,15 +31,17 @@ The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Indiv
 - A normal public invocation is not offline-capable. It refreshes from GitHub and refuses to execute a stale cache. Offline development requires an explicit local checkout path.
 - There is no repository CI workflow. Current validation is local.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, macOS floors, and trust requirements change.
-- Desktop and 375px browser presentation passed independent review. Safari, physical devices, screen readers, and assistive-technology acceptance have not been claimed.
+- The minimal site contract and asset bytes pass local static validation. The T3 collaborative preview opened the local page but its snapshot and interaction automation was unavailable, so desktop, narrow/mobile, reduced-motion, keyboard, JavaScript-disabled, Safari, physical-device, screen-reader, and owner visual acceptance remain separate manual gates.
 
 ## Site and publication status
 
-The static product site at [aiup.neuman.dev](https://aiup.neuman.dev/) covers product state, per-run activation, the real TUI, generated catalog scope, safety/privacy, requirements, installation, FAQ, and durable source/documentation links. Essential content remains usable without JavaScript. The site has no framework, external runtime dependency, analytics, cookies, tracker, or service worker.
+The static site at [aiup.neuman.dev](https://aiup.neuman.dev/) is deliberately minimal and GitHub-first. Its visible homepage contains the aiup lockup, the accepted real TUI GIF as the sole default product media, a poster only for reduced motion or the paused state, one subordinate pause/play control, and one prominent repository link. The GitHub README owns installation, explanation, catalog, lifecycle, and safety content. The expanded marketing site and screenshot reel introduced at `677e1ed2aa245c1bffdcd5835b91ba1b73d58883` are retired.
 
-`scripts/check-site` validates metadata, JSON-LD, manifest and sitemap parsing, local references, ids and anchors, image dimensions, generated version/count/category facts, reduced-motion wiring, headers, canonical media mirrors, and public-safety boundaries. `scripts/sync-public-docs` owns the site catalog summary as well as the README catalog block, generated catalog documents, catalog JSON, and media mirrors.
+Metadata, WebSite/SoftwareApplication/Person JSON-LD, the favicon and manifest suite, robots, sitemap, `llms.txt`, static 404 behavior, and security headers remain behind the restrained page. The site has no framework, external runtime asset, external font, analytics, cookie, tracker, or service worker. The retained OG composition uses the established brand derivation and accepted TUI palette; its copy and 81-entry count remain factual.
 
-Site source `677e1ed2aa245c1bffdcd5835b91ba1b73d58883` was published through the established GitHub-connected Cloudflare Pages path with authenticated provider receipt `1a3f288d-3dfb-4a82-a0be-b2799a43acc7`; exact public HTTP and desktop/375px browser review were verified separately. That record remains historical provenance, but the latest owner direction supersedes its visual acceptance for the expanded site and rebuilt media. Source, GitHub, provider, public HTTP, browser/device, and owner evidence remain distinct claims.
+`scripts/check-site` validates the minimal visible contract, sole GitHub destination, GIF/poster and animation-control wiring, lack of secondary TUI stills and retired sections, metadata and JSON-LD, cache versions, local references, image dimensions, generated catalog data, canonical media mirrors, support files, headers, and public-safety boundaries. `scripts/sync-public-docs` owns the README catalog block, generated catalog documents, catalog JSON, and one-way media mirror; it no longer requires or injects a visible site catalog block.
+
+Site implementation source `86fc20cfd5a702b3eb9deb764f4cad8098bd8115` was published through the established GitHub-connected Cloudflare Pages path. The Cloudflare Workers and Pages GitHub App completed check `98182981181` successfully for deployment `065440d0-898f-41ad-8f29-e3c1bba067b0`. The live HTML and every referenced `v=20260826-01` asset matched committed SHA-256 bytes. Direct authenticated Wrangler readback was unavailable noninteractively and was not replaced with credential work. Source, GitHub, provider-linked check, direct provider readback, public HTTP, browser/device, and owner evidence remain distinct claims.
 
 ## Media and brand status
 

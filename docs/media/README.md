@@ -52,7 +52,7 @@ The four-frame 4.9-second GIF contains real states: collapsed overview, Gemini
 search/update preview, restored overview, and cancellation. The poster is
 pixel-equivalent to the static search state for reduced motion. Documentation
 stills retain the collapsed, search, Homebrew, and pre-adoption states; the
-website may use the single GIF/poster pair as its primary media surface.
+website uses only the GIF/poster pair, with the GIF as its sole default media.
 
 ## Safety and sanitization
 
