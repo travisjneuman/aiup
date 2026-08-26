@@ -3,13 +3,13 @@
 `docs/media/` is the canonical product-media source. `scripts/capture-media`
 copies all six assets byte-for-byte into `site/media/`, and
 `scripts/capture-media --check` rejects mirror, hash, dimension, palette, frame,
-duration, finite-playback, semantic-sequence, or provenance drift.
+duration, continuous-playback, semantic-sequence, or provenance drift.
 
 The current set was captured from source commit
-`cbee9422e832cb45efd366b2c04c025bb64df7f6`. Reproduce and verify it with:
+`c15f3366dc96d3b8440e2359ef46d64ec229e87b`. Reproduce and verify it with:
 
 ```bash
-NO_COLOR=1 scripts/capture-media --source-commit cbee9422e832cb45efd366b2c04c025bb64df7f6
+NO_COLOR=1 scripts/capture-media --source-commit c15f3366dc96d3b8440e2359ef46d64ec229e87b
 scripts/capture-media --check
 scripts/capture-media --check-layout
 ```
@@ -57,12 +57,15 @@ The six-frame 10.78-second GIF contains a broader real-product narrative:
 5. the safe `[y/N]` pre-action confirmation, answered `n` — 2,300 ms; and
 6. a stable final catalog overview — 1,500 ms.
 
-The prior GIF had four frames at 900, 1,800, 900, and 1,300 ms (4,900 ms total)
-and carried an infinite-loop extension. Retained overview, Gemini, and closing
-dwells were retimed from those values with a 1.15 multiplier as the baseline;
-new states receive comparable readable dwell. The new GIF contains no NETSCAPE
-loop extension, Pillow reports no loop value, and one load therefore plays the
-six frames once before holding the final overview.
+The prior four-frame GIF used 900, 1,800, 900, and 1,300 ms dwells (4,900 ms
+total). Retained overview, Gemini, and closing dwells were retimed from those
+values with a 1.15 multiplier as the baseline; new states receive comparable
+readable dwell. The immediately preceding six-frame asset had SHA-256
+`190941c2f5c9fc203e95efb26e290db2a9d0f689be24fd7dc525719b8125d826`,
+contained no NETSCAPE loop extension, and played once. The current asset keeps
+the same six decoded frames, order, dimensions, colors, and 10,780 ms timing,
+but Pillow `loop=0` adds a NETSCAPE extension with loop count zero so the
+narrative repeats continuously.
 
 The poster is pixel-equivalent to the static search state and is selected only
 by `prefers-reduced-motion: reduce`. Documentation stills retain the collapsed,
@@ -99,14 +102,14 @@ Current canonical hashes and sizes are:
 
 | Asset | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `aiup-list.gif` | 508,615 | `190941c2f5c9fc203e95efb26e290db2a9d0f689be24fd7dc525719b8125d826` |
-| `aiup-list-collapsed.png` | 136,615 | `0964b0eb844179d83dd811e304275f5a179969e2394d2fb4824c24f8e19f62d3` |
-| `aiup-list-search.png` | 152,728 | `f32765abbaa5f42a331b47187cb5d22e238f820b757ada9f6e0392a6075621ad` |
-| `aiup-list-poster.png` | 152,724 | `b27d77d39dad958f5d191fc4025bd0ef184dbe5d4c7b3bb44ee79f89353813a0` |
-| `aiup-list-homebrew.png` | 169,412 | `3071416ab67b7715da2864af41dfbebb02a5bc3a0d9c15827a4fb81569b0f4ec` |
-| `aiup-list-adopt.png` | 60,351 | `203b17715f8ae3d3dfafb52e7b07a41204fa93d514c6e1174dc17c9f901d83be` |
+| `aiup-list.gif` | 508,634 | `5e27e415507d679fa6959f9ad316bdaae0580587d474d3f1a71d992739b53296` |
+| `aiup-list-collapsed.png` | 136,615 | `b7a637004d4be8933f49156214c88d49de44cc781c17d4854c0addd8d88ca998` |
+| `aiup-list-search.png` | 152,728 | `abf9323351f5a702742180ad2177aa11d877fe48d1b41d5c19f42c268451704b` |
+| `aiup-list-poster.png` | 152,724 | `9b985ca0daf6e5075fd0b2042069782a502944f6e92ab4a6dc3a9ab56bcf52e9` |
+| `aiup-list-homebrew.png` | 169,412 | `fbce2edf3ba441d6110b28f5af11a17f0b33e0646139daaf36b36aaad9f94d5a` |
+| `aiup-list-adopt.png` | 60,351 | `756966defd49edaff711f9b74fe09f5eb5be774775460a6af55275be4fe48ae5` |
 
-Schema 3 / capture contract `2026-08-26-04` records exact font hashes, profile
+Schema 3 / capture contract `2026-08-26-05` records exact font hashes, profile
 values, PTY matrix results, reference comparison evidence, semantic PTY styles,
 rendered pixel evidence for every GIF state, observed fixture commands,
-dimensions, per-frame durations, semantic sequence, and finite-loop metadata.
+dimensions, per-frame durations, semantic sequence, and continuous/infinite-loop metadata.

@@ -6,7 +6,7 @@
         2016,
         1208
       ],
-      "sha256": "203b17715f8ae3d3dfafb52e7b07a41204fa93d514c6e1174dc17c9f901d83be"
+      "sha256": "756966defd49edaff711f9b74fe09f5eb5be774775460a6af55275be4fe48ae5"
     },
     "aiup-list-collapsed.png": {
       "bytes": 136615,
@@ -14,7 +14,7 @@
         2016,
         1208
       ],
-      "sha256": "0964b0eb844179d83dd811e304275f5a179969e2394d2fb4824c24f8e19f62d3"
+      "sha256": "b7a637004d4be8933f49156214c88d49de44cc781c17d4854c0addd8d88ca998"
     },
     "aiup-list-homebrew.png": {
       "bytes": 169412,
@@ -22,7 +22,7 @@
         2016,
         1208
       ],
-      "sha256": "3071416ab67b7715da2864af41dfbebb02a5bc3a0d9c15827a4fb81569b0f4ec"
+      "sha256": "fbce2edf3ba441d6110b28f5af11a17f0b33e0646139daaf36b36aaad9f94d5a"
     },
     "aiup-list-poster.png": {
       "bytes": 152724,
@@ -30,7 +30,7 @@
         2016,
         1208
       ],
-      "sha256": "b27d77d39dad958f5d191fc4025bd0ef184dbe5d4c7b3bb44ee79f89353813a0"
+      "sha256": "9b985ca0daf6e5075fd0b2042069782a502944f6e92ab4a6dc3a9ab56bcf52e9"
     },
     "aiup-list-search.png": {
       "bytes": 152728,
@@ -38,18 +38,18 @@
         2016,
         1208
       ],
-      "sha256": "f32765abbaa5f42a331b47187cb5d22e238f820b757ada9f6e0392a6075621ad"
+      "sha256": "abf9323351f5a702742180ad2177aa11d877fe48d1b41d5c19f42c268451704b"
     },
     "aiup-list.gif": {
-      "bytes": 508615,
+      "bytes": 508634,
       "dimensions": [
         2016,
         1208
       ],
-      "sha256": "190941c2f5c9fc203e95efb26e290db2a9d0f689be24fd7dc525719b8125d826"
+      "sha256": "5e27e415507d679fa6959f9ad316bdaae0580587d474d3f1a71d992739b53296"
     }
   },
-  "capture_contract_version": "2026-08-26-04",
+  "capture_contract_version": "2026-08-26-05",
   "color_fidelity": {
     "adoption_roles": "production output distinguishes INFO, WARN, and the confirmation prompt textually; it emits no role-specific SGR",
     "capture_environment": "NO_COLOR removed; TERM=xterm-256color; COLORTERM=truecolor",
@@ -712,9 +712,9 @@
         "raw_expected_sgr": {},
         "raw_indexed_sgr_counts": {
           "214": 6,
-          "220": 45,
+          "220": 50,
           "245": 7,
-          "59": 23
+          "59": 20
         },
         "required_text": [
           "[INFO] Letting Homebrew manage raycast.",
@@ -864,7 +864,7 @@
           "39": 2,
           "48": 2,
           "51": 2,
-          "59": 5,
+          "59": 6,
           "81": 2
         },
         "required_text": [
@@ -1012,7 +1012,7 @@
           "39": 2,
           "48": 2,
           "51": 2,
-          "59": 6,
+          "59": 5,
           "81": 2
         },
         "required_text": [
@@ -1304,9 +1304,9 @@
   "gif_duration_ms": 10780,
   "gif_frames": 6,
   "gif_playback": {
-    "mode": "finite",
-    "netscape_loop_extension": false,
-    "plays": 1
+    "mode": "continuous",
+    "netscape_loop_extension": true,
+    "plays": "infinite"
   },
   "gif_retiming": {
     "baseline_multiplier": 1.15,
@@ -1400,7 +1400,7 @@
   "runtime_version": "2026.08.25-02",
   "schema": 3,
   "software_mutation": "none; fake Homebrew rejects mutating verbs and adoption was cancelled at the first confirmation",
-  "source_commit": "cbee9422e832cb45efd366b2c04c025bb64df7f6",
+  "source_commit": "c15f3366dc96d3b8440e2359ef46d64ec229e87b",
   "terminal_cells": [
     100,
     30

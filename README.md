@@ -36,8 +36,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png" />
-    <img src="docs/media/aiup-list.gif" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1008" height="604" />
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png?v=20260826-03" />
+    <img src="docs/media/aiup-list.gif?v=20260826-03" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1008" height="604" />
   </picture>
 </p>
 
@@ -204,7 +204,7 @@ The macOS implementation has passed the documented daily-use checks for this dat
 | Surface | Status |
 |---|---|
 | 🍎 macOS | Current daily-use implementation — `macos/aiup` |
-| 🌐 Site | Live; desktop and 375px browser review passed |
+| 🌐 Site | Live; desktop browser review passed, true 375px review remains unverified |
 | 🐧 Linux | Not implemented |
 | 🪟 Windows | Not implemented |
 

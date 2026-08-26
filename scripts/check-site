@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 PRODUCTION = "https://aiup.neuman.dev/"
 REPOSITORY = "https://github.com/travisjneuman/aiup"
-CACHE_VERSION = "20260826-02"
+CACHE_VERSION = "20260826-03"
 GIF_SEQUENCE = [
     {"state": "collapsed-overview", "duration_ms": 1040},
     {"state": "gemini-search-update", "duration_ms": 2070},
@@ -383,7 +383,7 @@ def validate_media_and_public_safety() -> None:
     require(capture_manifest.get("gif_frames") == len(GIF_SEQUENCE), "canonical GIF frame count drifted")
     require(capture_manifest.get("gif_duration_ms") == sum(item["duration_ms"] for item in GIF_SEQUENCE), "canonical GIF duration drifted")
     require(capture_manifest.get("gif_playback") == {
-        "mode": "finite", "plays": 1, "netscape_loop_extension": False,
+        "mode": "continuous", "plays": "infinite", "netscape_loop_extension": True,
     }, "canonical GIF playback contract drifted")
     for name in names:
         require(
@@ -392,6 +392,19 @@ def validate_media_and_public_safety() -> None:
         )
     require(image_dimensions(SITE / "media" / "aiup-list.gif") == (2016, 1208), "canonical GIF dimensions drifted")
     require(image_dimensions(SITE / "media" / "aiup-list-poster.png") == (2016, 1208), "canonical poster dimensions drifted")
+    require(
+        b"NETSCAPE2.0\x03\x01\x00\x00\x00" in (SITE / "media" / "aiup-list.gif").read_bytes(),
+        "canonical GIF lacks the infinite-loop NETSCAPE extension",
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    require(
+        f'docs/media/aiup-list.gif?v={CACHE_VERSION}' in readme,
+        "README GIF cache version drifted",
+    )
+    require(
+        f'docs/media/aiup-list-poster.png?v={CACHE_VERSION}' in readme,
+        "README reduced-motion poster cache version drifted",
+    )
 
     public_files = [
         path for path in SITE.rglob("*")

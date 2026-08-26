@@ -8,7 +8,7 @@ Do not publish it directly with Wrangler.
 
 The homepage is deliberately a minimal GitHub-first stage:
 
-- `index.html` presents the aiup lockup, the finite TUI animation, its
+- `index.html` presents the aiup lockup, the continuously looping TUI animation, its
   reduced-motion poster, and one GitHub repository destination;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;
@@ -29,8 +29,8 @@ into `site/index.html`.
 
 The page has no JavaScript. The default GIF, reduced-motion picture source, and
 GitHub destination therefore remain useful without a runtime behavior layer.
-The animation is encoded for one finite playback and ends on a stable catalog
-overview. Because its expanded narrative lasts longer than five seconds and no
+The animation includes an infinite-loop NETSCAPE extension and repeats its six-state
+narrative continuously. Because its expanded narrative lasts longer than five seconds and no
 playback control is present by owner direction, the page has a known WCAG 2.2.2
 limitation and does not claim complete WCAG conformance.
 
