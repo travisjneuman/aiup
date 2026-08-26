@@ -2,7 +2,7 @@
 
 Status date: **2026-08-26**
 
-Current version: **2026.08.25-02**
+Current version: **2026.08.26-01**
 
 ## Current product scope
 
@@ -12,6 +12,7 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - require and maintain fzf as interactive infrastructure;
 - install, update, remove, or adopt catalog items through explicit actions;
 - browse the managed catalog, detected-only local software, and Homebrew inventory through focused views;
+- show the installed version in managed-item previews and, when provider metadata confirms a newer release, show the available version alongside it;
 - search inside collapsed categories and restore a clean picker after provider actions;
 - avoid passing `--zap` or directly deleting `~/Library` when an existing app is handed to Homebrew, without claiming universal vendor behavior;
 - check official desktop-app metadata before downloading a replacement and validate the replacement before activation;

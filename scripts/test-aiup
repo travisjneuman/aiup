@@ -34,10 +34,14 @@ grep -q '8 detected software · 2 apps · 2 npm · 1 uv · 3 PATH' "$TEST_DIR/ca
 env AIUP_CAPTURE_FIXTURE_DIR="$CAPTURE_FIXTURE" AIUP_STATE_DIR="$CAPTURE_STATE" PATH="$CAPTURE_PATH" \
   "$AIUP" preview gemini > "$TEST_DIR/capture-gemini.txt"
 grep -q '^gemini · coding-agents · installed · active$' "$TEST_DIR/capture-gemini.txt"
+grep -q '^installed 0.10.0$' "$TEST_DIR/capture-gemini.txt"
+grep -q '^available 0.11.0$' "$TEST_DIR/capture-gemini.txt"
 grep -q '^action   update$' "$TEST_DIR/capture-gemini.txt"
 env AIUP_CAPTURE_FIXTURE_DIR="$CAPTURE_FIXTURE" AIUP_STATE_DIR="$CAPTURE_STATE" PATH="$CAPTURE_PATH" \
   "$AIUP" preview gpt4all > "$TEST_DIR/capture-gpt4all.txt"
 grep -q '^gpt4all · local-ai · installed · maintenance$' "$TEST_DIR/capture-gpt4all.txt"
+grep -q '^installed 3.11.1$' "$TEST_DIR/capture-gpt4all.txt"
+! grep -q '^available ' "$TEST_DIR/capture-gpt4all.txt"
 env AIUP_CAPTURE_FIXTURE_DIR="$CAPTURE_FIXTURE" AIUP_STATE_DIR="$CAPTURE_STATE" PATH="$CAPTURE_PATH" \
   "$AIUP" preview bc:raycast > "$TEST_DIR/capture-raycast.txt"
 grep -q 'aiup passes no --zap and does not directly delete ~/Library' "$TEST_DIR/capture-raycast.txt"

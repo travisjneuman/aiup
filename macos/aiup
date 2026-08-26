@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.25-02"
+AIUP_VERSION="2026.08.26-01"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -40,6 +40,8 @@ CATALOG_MANIFEST="${AIUP_CATALOG_MANIFEST:-$AIUP_SCRIPT_DIR/catalog/manifest.tsv
 INVENTORY_INDEX="${AIUP_INVENTORY_INDEX:-$STATE_DIR/inventory-index.tsv}"
 INVENTORY_CACHE_META="${AIUP_INVENTORY_CACHE_META:-$STATE_DIR/inventory-cache.meta}"
 INVENTORY_CACHE_TTL="${AIUP_INVENTORY_CACHE_TTL:-300}"
+AVAILABLE_VERSION_CACHE_DIR="${AIUP_AVAILABLE_VERSION_CACHE_DIR:-$STATE_DIR/available-versions}"
+AVAILABLE_VERSION_CACHE_TTL="${AIUP_AVAILABLE_VERSION_CACHE_TTL:-900}"
 LIST_QUERY_FILE="${AIUP_LIST_QUERY_FILE:-$STATE_DIR/list-query}"
 LIST_CATEGORY_FILE="${AIUP_LIST_CATEGORY_FILE:-$STATE_DIR/list-category}"
 INVENTORY_SEEN_IDS='|'
@@ -176,7 +178,7 @@ capture_fixture_require() {
       return 1
     }
   local fixture_name
-  for fixture_name in catalog-index.tsv brew-index.tsv inventory-index.tsv apps.tsv; do
+  for fixture_name in catalog-index.tsv brew-index.tsv inventory-index.tsv versions.tsv apps.tsv; do
     [ -f "$AIUP_CAPTURE_FIXTURE_DIR/$fixture_name" ] || {
       error "capture fixture is missing $fixture_name"
       return 1
@@ -1179,6 +1181,11 @@ ensure_required_tools_present() {
 
 catalog_npm_pkg() {
   case "$1" in
+    codex) printf '@openai/codex\n' ;;
+    gemini) printf '@google/gemini-cli\n' ;;
+    kilo) printf '@kilocode/cli\n' ;;
+    gsd2) printf '@opengsd/gsd-pi\n' ;;
+    pi) printf '@earendil-works/pi-coding-agent\n' ;;
     crush) printf '@charmland/crush\n' ;;
     cline) printf 'cline\n' ;;
     continue) printf '@continuedev/cli\n' ;;
@@ -1752,6 +1759,7 @@ print_catalog_preview() {
     printf '%s\n' "$note"
   fi
   printf '%s  %s\n' "$kind" "$url"
+  catalog_version_preview "$tool" "$state"
   printf 'action   %s\n' "$(catalog_action_for_state "$tool" "$state")"
   catalog_dependency_preview "$tool"
   catalog_preview_controls item
@@ -2651,6 +2659,11 @@ app_bundle_version() {
 version_of_tool() {
   local tool="$1"
   local kind cask app formula bin cmd expected version pkg
+  if capture_fixture_enabled; then
+    capture_fixture_require || return 1
+    version="$(awk -F '\t' -v tool="$tool" '$1==tool {print $2; exit}' "$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv")"
+    [ -n "$version" ] && { printf '%s\n' "$version"; return 0; }
+  fi
   if [ "$tool" = 'npm' ]; then
     if command_exists npm; then
       npm --version </dev/null 2>&1 | first_line
@@ -2663,12 +2676,12 @@ version_of_tool() {
   if [ "$kind" = 'brew-cask' ]; then
     cask="$(catalog_brew_cask "$tool")"
     if [ -n "$cask" ] && brew_cask_installed "$cask"; then
-      brew list --cask --versions "$cask" 2>/dev/null | first_line
+      brew list --cask --versions "$cask" 2>/dev/null | awk 'NF {$1=""; sub(/^ /, ""); print; exit}'
       return 0
     fi
     app="$(catalog_app_path "$tool")"
     if [ -n "$app" ] && [ -d "$app" ]; then
-      printf 'app present\n'
+      app_bundle_version "$app" || printf 'app present\n'
       return 0
     fi
   fi
@@ -2682,12 +2695,12 @@ version_of_tool() {
   if [ "$kind" = 'brew-formula' ]; then
     formula="$(catalog_brew_formula "$tool")"
     if [ -n "$formula" ] && brew_formula_installed "$formula"; then
-      brew list --versions "$formula" 2>/dev/null | first_line
+      brew list --versions "$formula" 2>/dev/null | awk 'NF {$1=""; sub(/^ /, ""); print; exit}'
       return 0
     fi
   fi
-  if [ "$kind" = 'aiup-npm' ]; then
-    pkg="$(catalog_npm_pkg "$tool")"
+  pkg="$(catalog_npm_pkg "$tool")"
+  if [ -n "$pkg" ]; then
     if [ -n "$pkg" ] && [ -f "$(npm_pkg_dir_from_prefix "$AIUP_NPM_PREFIX" "$pkg")/package.json" ]; then
       version="$(python3 - "$(npm_pkg_dir_from_prefix "$AIUP_NPM_PREFIX" "$pkg")/package.json" <<'PY'
 import json
@@ -2739,6 +2752,121 @@ PY
     fi
   fi
   printf 'not installed\n'
+}
+
+available_version_uncached() {
+  local tool="$1"
+  local current="$2"
+  local kind pkg formula cask endpoint latest target arch
+  if capture_fixture_enabled; then
+    capture_fixture_require || return 1
+    awk -F '\t' -v tool="$tool" '$1==tool {print $3; exit}' "$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv"
+    return 0
+  fi
+  kind="$(catalog_kind "$tool")"
+  pkg="$(catalog_npm_pkg "$tool")"
+  if { [ "$kind" = 'aiup-npm' ] || [ -n "$pkg" ]; } && [ -n "$pkg" ] && command_exists npm; then
+    latest="$(npm view "$pkg" version --fetch-retries=0 --fetch-timeout=3000 2>/dev/null | first_line || true)"
+    if [ -n "$latest" ] && [ "$(version_is_greater "$latest" "$current")" = 'yes' ]; then
+      printf '%s\n' "$latest"
+    fi
+    return 0
+  fi
+  if [ "$kind" = 'brew-formula' ] && command_exists brew; then
+    formula="$(catalog_brew_formula "$tool")"
+    env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --formula "$formula" 2>/dev/null | python3 -c '
+import json, sys
+items = json.load(sys.stdin).get("formulae") or []
+item = items[0] if items else {}
+if item.get("outdated"):
+    value = (item.get("versions") or {}).get("stable", "")
+    if value:
+        print(value)
+' 2>/dev/null || true
+    return 0
+  fi
+  if [ "$kind" = 'brew-cask' ] && command_exists brew; then
+    cask="$(catalog_brew_cask "$tool")"
+    env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --cask "$cask" 2>/dev/null | python3 -c '
+import json, sys
+items = json.load(sys.stdin).get("casks") or []
+item = items[0] if items else {}
+if item.get("outdated"):
+    value = item.get("version", "")
+    if value:
+        print(value)
+' 2>/dev/null || true
+    return 0
+  fi
+  if [ "$kind" = 'uv-tool' ] && command_exists curl; then
+    pkg="$(catalog_uv_pkg "$tool")"
+    latest="$(curl -fsSL --retry 1 --connect-timeout 3 --max-time 5 "https://pypi.org/pypi/${pkg}/json" 2>/dev/null | python3 -c '
+import json, sys
+print((json.load(sys.stdin).get("info") or {}).get("version", ""))
+' 2>/dev/null || true)"
+    if [ -n "$latest" ] && [ "$(version_is_greater "$latest" "$current")" = 'yes' ]; then
+      printf '%s\n' "$latest"
+    fi
+    return 0
+  fi
+  if [ "$tool" = 'screenpipe' ] && [ -n "$current" ]; then
+    case "$(uname -m)" in
+      arm64) target='darwin'; arch='aarch64' ;;
+      x86_64) target='darwin'; arch='x86_64' ;;
+      *) return 0 ;;
+    esac
+    endpoint="$(official_app_update_endpoint screenpipe "$target" "$arch" "$current" 2>/dev/null || true)"
+    [ -n "$endpoint" ] || return 0
+    latest="$(official_app_latest_version "$endpoint" 2>/dev/null || true)"
+    if [ -n "$latest" ] && [ "$(version_is_greater "$latest" "$current")" = 'yes' ]; then
+      printf '%s\n' "$latest"
+    fi
+  fi
+}
+
+available_version_of_tool() {
+  local tool="$1"
+  local current="$2"
+  local cache_file now cached_at cached_current cached_version temp_file
+  if capture_fixture_enabled; then
+    available_version_uncached "$tool" "$current"
+    return 0
+  fi
+  ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 0
+  cache_file="$AVAILABLE_VERSION_CACHE_DIR/$tool.tsv"
+  now="$(date +%s)"
+  if [ -f "$cache_file" ]; then
+    IFS=$'\t' read -r cached_at cached_current cached_version < "$cache_file" || true
+    case "$cached_at" in
+      ''|*[!0-9]*) ;;
+      *)
+        if [ "${cached_current:-}" = "$current" ] && [ $((now - cached_at)) -lt "$AVAILABLE_VERSION_CACHE_TTL" ]; then
+          [ -n "${cached_version:-}" ] && printf '%s\n' "$cached_version"
+          return 0
+        fi
+        ;;
+    esac
+  fi
+  cached_version="$(available_version_uncached "$tool" "$current" || true)"
+  temp_file="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.${tool}.XXXXXX")" || return 0
+  printf '%s\t%s\t%s\n' "$now" "$current" "$cached_version" > "$temp_file"
+  mv "$temp_file" "$cache_file"
+  [ -n "$cached_version" ] && printf '%s\n' "$cached_version"
+}
+
+catalog_version_preview() {
+  local tool="$1"
+  local state="$2"
+  local installed available
+  case "$state" in
+    installed|on-disk) ;;
+    *) return 0 ;;
+  esac
+  installed="$(version_of_tool "$tool" || true)"
+  [ -n "$installed" ] || installed='unknown'
+  printf 'installed %s\n' "$installed"
+  available="$(available_version_of_tool "$tool" "$installed" || true)"
+  [ -n "$available" ] && printf 'available %s\n' "$available"
 }
 
 npm_method() {
@@ -5857,7 +5985,7 @@ Usage:
   aiup cleanup <detected-app-id> --apply  Move exact candidates to Trash after confirmation
   aiup docs <tool>         Open the official GitHub repo (or website) in a browser
   aiup docs --print <tool> Print that URL
-  aiup preview <tool>      Print the picker preview (name, category, docs URL)
+  aiup preview <tool>      Print the picker preview (name, category, versions, docs URL)
   npm-update               Convenience wrapper for: aiup only npm
   aiup doctor              Print diagnostics for the catalog
   aiup list                Interactive catalog (install/update/uninstall/docs)
