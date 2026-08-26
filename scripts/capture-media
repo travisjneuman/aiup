@@ -65,6 +65,14 @@ MEDIA_NAMES = (
     "aiup-list-adopt.png",
     "aiup-list-search.png",
 )
+GIF_SEQUENCE = (
+    ("collapsed-overview", "collapsed", 1040),
+    ("gemini-search-update", "search", 2070),
+    ("homebrew-reviewed-hierarchy", "homebrew-hierarchy", 1800),
+    ("raycast-switch-context", "homebrew", 2070),
+    ("safe-confirmation-cancelled", "adopt", 2300),
+    ("stable-final-overview", "final", 1500),
+)
 
 CATEGORY_INDEXES = {
     "infra": 39,
@@ -250,7 +258,13 @@ def expected_raster_palettes() -> dict[str, dict[str, tuple[int, int, int]]]:
         "prompt": FZF_RGB["prompt"],
         "selected-row": FZF_RGB["selected-bg"],
     })
-    return {"collapsed": collapsed, "search": search, "homebrew": homebrew}
+    adoption = {"terminal-text": DEFAULT_FG, "cursor": CURSOR_RGB}
+    return {
+        "collapsed": collapsed,
+        "search": search,
+        "homebrew": homebrew,
+        "adoption": adoption,
+    }
 
 
 @dataclasses.dataclass
@@ -765,8 +779,6 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     title_font = ImageFont.truetype(str(TITLE_FONT), 13 * SCALE)
     layout_evidence = validate_layout_matrix(work / "layout")
     states: dict[str, Image.Image] = {}
-    gif_frames: list[Image.Image] = []
-    gif_durations: list[int] = []
     semantic_evidence: dict[str, object] = {}
 
     collapsed_fg = {
@@ -804,7 +816,6 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             ("detected software", "2 apps · 2 npm · 1 uv · 3 PATH"),
             CATEGORY_INDEXES,
         )
-        gif_frames.append(states["collapsed"]); gif_durations.append(900)
         query = ""
         for char in "gemini":
             query += char
@@ -821,16 +832,10 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             ("gemini · coding-agents · installed · active", "action   update"),
             {"coding-agents": CATEGORY_INDEXES["coding-agents"]},
         )
-        gif_frames.append(states["search"]); gif_durations.append(1800)
-        main.send(b"\x15")
-        main.wait_for("category  infra")
-        main.pump(0.4)
-        gif_frames.append(states["collapsed"]); gif_durations.append(900)
         main.send(b"\x1b")
         main.wait_for("cancelled")
         main.pump(0.25)
         check_public_text("cancelled", main.term.text())
-        gif_frames.append(main.term.render(font, bold_font, fallback_font, title_font)); gif_durations.append(1300)
     finally:
         main.finish()
 
@@ -844,13 +849,27 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         homebrew.wait_for("category  homebrew/recommended")
         homebrew.send(b"\x05")
         homebrew.wait_for("Raycast launcher")
-        homebrew.pump(0.3)
+        homebrew.send(b"\x0e")
+        homebrew.wait_for("action   switch to Homebrew")
+        homebrew.send(b"\x10")
+        homebrew.wait_for("state     expanded")
+        homebrew.pump(0.4)
+        check_public_text("homebrew hierarchy", homebrew.term.text())
+        semantic_evidence["homebrew-hierarchy"] = semantic_palette_evidence(
+            "homebrew hierarchy", homebrew, homebrew_fg,
+            {"selected-row": FZF_RGB["selected-bg"]},
+            ("recommended", "state     expanded", "full Homebrew catalog not loaded"),
+            HOMEBREW_INDEXES,
+        )
+        states["homebrew-hierarchy"] = homebrew.term.render(
+            font, bold_font, fallback_font, title_font
+        )
         homebrew.send(b"\x0e")
         homebrew.wait_for("action   switch to Homebrew")
         homebrew.pump(0.4)
         check_public_text("homebrew", homebrew.term.text())
-        semantic_evidence["homebrew"] = semantic_palette_evidence(
-            "homebrew", homebrew, homebrew_fg,
+        semantic_evidence["raycast"] = semantic_palette_evidence(
+            "raycast", homebrew, homebrew_fg,
             {"selected-row": FZF_RGB["selected-bg"]},
             ("recommended", "switch to Homebrew", "does not directly delete ~/Library"),
             HOMEBREW_INDEXES,
@@ -888,6 +907,23 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     finally:
         adopt.finish()
 
+    final = Session(work / "final", ["list"])
+    try:
+        final.wait_for("aiup browse>")
+        final.wait_for("category  infra")
+        final.pump(0.5)
+        check_public_text("final overview", final.term.text())
+        semantic_evidence["final"] = semantic_palette_evidence(
+            "final overview", final, collapsed_fg,
+            {"selected-row": FZF_RGB["selected-bg"]},
+            ("detected software", "2 apps · 2 npm · 1 uv · 3 PATH"),
+            CATEGORY_INDEXES,
+        )
+        states["final"] = final.term.render(font, bold_font, fallback_font, title_font)
+        final.send(b"\x1b")
+    finally:
+        final.finish()
+
     command_logs = []
     for log_path in work.rglob("commands.log"):
         if log_path.exists(): command_logs.extend(log_path.read_text(encoding="utf-8").splitlines())
@@ -901,6 +937,8 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     save_png(states["search"], DOCS_MEDIA / "aiup-list-poster.png", source_commit, "reduced-motion poster")
     save_png(states["homebrew"], DOCS_MEDIA / "aiup-list-homebrew.png", source_commit, "Homebrew recommended")
     save_png(states["adopt"], DOCS_MEDIA / "aiup-list-adopt.png", source_commit, "pre-action adoption confirmation")
+    gif_frames = [states[state] for _, state, _ in GIF_SEQUENCE]
+    gif_durations = [duration for _, _, duration in GIF_SEQUENCE]
     gif_palette_frames = [
         frame.quantize(
             colors=256,
@@ -911,7 +949,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     ]
     gif_palette_frames[0].save(
         DOCS_MEDIA / "aiup-list.gif", save_all=True, append_images=gif_palette_frames[1:],
-        duration=gif_durations, loop=0, disposal=1, optimize=False,
+        duration=gif_durations, disposal=1, optimize=False,
         include_color_table=True,
     )
     if (DOCS_MEDIA / "aiup-list.gif").stat().st_size >= 5 * 1024 * 1024:
@@ -921,19 +959,29 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         "collapsed": raster_palette_evidence("collapsed", states["collapsed"], collapsed_fg),
         "search": raster_palette_evidence("search", states["search"], search_fg),
         "poster": raster_palette_evidence("poster", states["search"], search_fg),
+        "homebrew-hierarchy": raster_palette_evidence(
+            "homebrew hierarchy", states["homebrew-hierarchy"], homebrew_fg
+        ),
         "homebrew": raster_palette_evidence("homebrew", states["homebrew"], homebrew_fg),
+        "adoption": raster_palette_evidence(
+            "adoption", states["adopt"], expected_raster_palettes()["adoption"]
+        ),
+        "final": raster_palette_evidence("final overview", states["final"], collapsed_fg),
     }
     with Image.open(DOCS_MEDIA / "aiup-list.gif") as gif:
         encoded_frames = [frame.convert("RGB") for frame in ImageSequence.Iterator(gif)]
-    raster_evidence["gif-collapsed-1"] = raster_palette_evidence(
-        "GIF collapsed frame 1", encoded_frames[0], collapsed_fg, tolerance=8,
+    gif_palettes = (
+        collapsed_fg,
+        search_fg,
+        homebrew_fg,
+        homebrew_fg,
+        expected_raster_palettes()["adoption"],
+        collapsed_fg,
     )
-    raster_evidence["gif-search"] = raster_palette_evidence(
-        "GIF search frame", encoded_frames[1], search_fg, tolerance=8,
-    )
-    raster_evidence["gif-collapsed-2"] = raster_palette_evidence(
-        "GIF collapsed frame 2", encoded_frames[2], collapsed_fg, tolerance=8,
-    )
+    for (semantic_name, _, _), frame, palette in zip(GIF_SEQUENCE, encoded_frames, gif_palettes):
+        raster_evidence[f"gif-{semantic_name}"] = raster_palette_evidence(
+            f"GIF {semantic_name}", frame, palette, tolerance=8,
+        )
 
     SITE_MEDIA.mkdir(parents=True, exist_ok=True)
     for name in MEDIA_NAMES:
@@ -951,7 +999,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         "schema": 3,
         "source_commit": source_commit,
         "runtime_version": "2026.08.25-02",
-        "capture_contract_version": "2026-08-25-03",
+        "capture_contract_version": "2026-08-26-04",
         "managed_entries": 81,
         "terminal_cells": [COLS, ROWS],
         "output_pixels": [WIDTH, HEIGHT],
@@ -1001,6 +1049,23 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         },
         "gif_frames": len(gif_frames),
         "gif_duration_ms": sum(gif_durations),
+        "gif_sequence": [
+            {"state": semantic_name, "duration_ms": duration}
+            for semantic_name, _, duration in GIF_SEQUENCE
+        ],
+        "gif_playback": {
+            "mode": "finite",
+            "plays": 1,
+            "netscape_loop_extension": False,
+        },
+        "gif_retiming": {
+            "baseline_multiplier": 1.15,
+            "retained_state_basis_ms": {
+                "collapsed-overview": 900,
+                "gemini-search-update": 1800,
+                "stable-final-overview": 1300,
+            },
+        },
         "fixture": "scripts/fixtures/capture",
         "external_commands_observed": command_logs,
         "software_mutation": "none; fake Homebrew rejects mutating verbs and adoption was cancelled at the first confirmation",
@@ -1038,29 +1103,45 @@ def validate_existing() -> None:
          Image.open(DOCS_MEDIA / "aiup-list-poster.png") as poster_image:
         if search_image.convert("RGB").tobytes() != poster_image.convert("RGB").tobytes():
             raise RuntimeError("reduced-motion poster pixels drift from the accepted search state")
-    with Image.open(DOCS_MEDIA / "aiup-list.gif") as gif:
+    gif_path = DOCS_MEDIA / "aiup-list.gif"
+    with Image.open(gif_path) as gif:
         frames = []
         durations = []
         for frame in ImageSequence.Iterator(gif):
             durations.append(frame.info.get("duration", 0))
             frames.append(frame.convert("RGB"))
         loop = gif.info.get("loop")
-    if len(frames) != manifest["gif_frames"] or len(frames) != 4:
+    expected_sequence = [
+        {"state": semantic_name, "duration_ms": duration}
+        for semantic_name, _, duration in GIF_SEQUENCE
+    ]
+    if manifest.get("gif_sequence") != expected_sequence:
+        raise RuntimeError("GIF semantic sequence or duration contract drifted")
+    if len(frames) != manifest["gif_frames"] or len(frames) != len(GIF_SEQUENCE):
         raise RuntimeError(f"wrong GIF frame count: {len(frames)}")
+    if durations != [duration for _, _, duration in GIF_SEQUENCE]:
+        raise RuntimeError(f"wrong GIF frame durations: {durations}")
     if sum(durations) != manifest["gif_duration_ms"]:
         raise RuntimeError(f"wrong GIF duration: {sum(durations)} ms")
-    if loop != 0:
-        raise RuntimeError(f"GIF does not loop indefinitely: {loop!r}")
-    raster_palette_evidence("GIF collapsed frame 1", frames[0], palettes["collapsed"], tolerance=8)
-    raster_palette_evidence("GIF search frame", frames[1], palettes["search"], tolerance=8)
-    raster_palette_evidence("GIF collapsed frame 2", frames[2], palettes["collapsed"], tolerance=8)
+    if loop is not None or b"NETSCAPE2.0" in gif_path.read_bytes():
+        raise RuntimeError(f"GIF is not finite single-playback media: loop={loop!r}")
+    if manifest.get("gif_playback") != {
+        "mode": "finite", "plays": 1, "netscape_loop_extension": False,
+    }:
+        raise RuntimeError("GIF playback manifest drifted")
+    frame_palettes = (
+        palettes["collapsed"], palettes["search"], palettes["homebrew"],
+        palettes["homebrew"], palettes["adoption"], palettes["collapsed"],
+    )
+    for (semantic_name, _, _), frame, palette in zip(GIF_SEQUENCE, frames, frame_palettes):
+        raster_palette_evidence(f"GIF {semantic_name}", frame, palette, tolerance=8)
     fidelity = manifest.get("color_fidelity", {})
-    for state in ("collapsed", "search", "homebrew", "adoption"):
+    for state in ("collapsed", "search", "homebrew-hierarchy", "raycast", "adoption", "final"):
         if state not in fidelity.get("semantic_cells", {}):
             raise RuntimeError(f"manifest omitted semantic cell evidence for {state}")
     for state in (
-        "collapsed", "search", "poster", "homebrew",
-        "gif-collapsed-1", "gif-search", "gif-collapsed-2",
+        "collapsed", "search", "poster", "homebrew-hierarchy", "homebrew", "adoption", "final",
+        *(f"gif-{semantic_name}" for semantic_name, _, _ in GIF_SEQUENCE),
     ):
         if state not in fidelity.get("rendered_pixels", {}):
             raise RuntimeError(f"manifest omitted rendered palette evidence for {state}")
