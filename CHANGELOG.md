@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-08-26 — public presence and documentation closure
+
+- Restored the owner-selected minimal, GitHub-first site: the aiup lockup, one authentic TUI animation, and one prominent repository destination. The README remains the explanatory product surface.
+- Rebuilt the primary media from the real responsive TUI at 100 × 30 with six authentic states, exact Catppuccin/indexed colors, a 10.78-second continuous loop, and a static reduced-motion poster. The site contains no playback control or JavaScript.
+- Published the complete favicon, Apple/PWA/maskable, Open Graph, and GitHub social-preview asset suite together with accurate metadata, JSON-LD, robots, sitemap, manifest, `llms.txt`, static 404, and security headers.
+- Reconciled the public repository description, homepage, topics, issue/community surfaces, installation language, generated catalog, media provenance, and current macOS-only/pre-1.0 limitations. Wiki, Projects, and Discussions remain disabled; no tag, release, or CI workflow was manufactured.
+- Recorded owner acceptance of the current minimal site and six-state media. True mobile/Safari, physical-device, screen-reader/assistive-technology, actual OS reduced-motion, and deployed social-preview acceptance remain optional separate evidence lanes. The greater-than-five-second autoplay without a control remains a documented WCAG 2.2.2 limitation.
+- This public-presence and media work did not change the runtime version; `2026.08.25-02` remains the current macOS tool version.
+
 ## 2026.08.25-02
 
 - The public launcher now activates each validated runtime/manifest pair as one immutable generation behind an atomic pointer and retains the previous complete generation as recovery evidence.

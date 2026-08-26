@@ -55,8 +55,14 @@ The brand suite retains the open terminal, chevron, underscore, and cyan/mint/pu
 
 ## Repository and community status
 
-Issues are the public intake surface. Bug reports and catalog/tool requests have structured forms; pull requests have a scoped checklist. Contribution, support, and security policies are published at the repository root. Empty Wiki and Projects surfaces are disabled, Discussions remain disabled, and no release or CI workflow has been manufactured.
+The repository is public on `main`. Its current About description is “Local-first macOS TUI to scan, update, install, remove, and browse reviewed AI and developer tools.” Its homepage is `https://aiup.neuman.dev`. The current topics are `ai`, `ai-tools`, `bash`, `catalog`, `cli`, `developer-tools`, `fzf`, `homebrew`, `llm`, `local-first`, `macos`, `package-manager`, `terminal`, `tool-manager`, and `tui`.
+
+Issues are the public intake surface. Bug reports and catalog/tool requests have structured forms; pull requests have a scoped checklist. Contribution, support, and security policies are published at the repository root. Empty Wiki and Projects surfaces are disabled, Discussions remain disabled, and no tag, GitHub release, or Actions workflow has been manufactured. The repository contains the accepted 1280 × 640 GitHub social-preview asset; confirmation of the account-bound GitHub social-preview setting and its deployed rendering remains a separate manual acceptance lane.
 
 The generated Homebrew `recommended` blurb now states aiup's narrow guarantee: aiup does not pass `--zap` or directly delete `~/Library`, while Homebrew and vendor behavior may vary. [Issue #1](https://github.com/travisjneuman/aiup/issues/1) records the correction.
 
 Future tagged-release, CI, and cross-platform decisions remain separate scopes. Catalog breadth is lower priority than trustworthy lifecycle behavior for existing entries.
+
+## Workstream disposition
+
+The current macOS tool, public repository, minimal site, continuously looping media, brand/discovery suite, and public/private documentation workstream is complete for its dated scope. No additional implementation thread is required now. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation are optional future release-hardening lanes rather than blockers to this closure.

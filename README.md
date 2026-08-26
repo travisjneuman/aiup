@@ -199,7 +199,7 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The owner has accepted the current six-state media and minimal site design; Safari, physical-device, screen-reader, and assistive-technology acceptance remain separate. See **[scope, completion, and next work](docs/status.md)**.
+The current macOS tool, public repository, minimal site, and six-state media are complete for this dated scope. The owner has accepted the current media and site design. aiup is not a finished cross-platform or tagged 1.0 product; Safari, physical-device, screen-reader, assistive-technology, and other formal release-acceptance lanes remain separate future work. See **[scope, completion, and next work](docs/status.md)**.
 
 | Surface | Status |
 |---|---|
