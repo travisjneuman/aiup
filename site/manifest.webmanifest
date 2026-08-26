@@ -2,7 +2,7 @@
   "id": "/",
   "name": "aiup — macOS AI tool catalog",
   "short_name": "aiup",
-  "description": "Scan, update, install, remove, and browse 81 reviewed AI and developer-tool entries from one searchable macOS terminal catalog.",
+  "description": "aiup is a local-first macOS terminal interface for scanning, updating, installing, removing, and browsing reviewed AI and developer tools.",
   "start_url": "/",
   "scope": "/",
   "display": "browser",

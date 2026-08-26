@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rebuild public catalog files from macos/aiup so README/site cannot drift.
+# Rebuild public catalog files and canonical media mirrors from macos/aiup.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 AIUP="$ROOT/macos/aiup"
@@ -10,34 +10,42 @@ mkdir -p "$ROOT/site" "$ROOT/docs"
 "$AIUP" catalog --markdown > "$ROOT/docs/catalog.md"
 
 python3 - "$ROOT" <<'PY'
-import html, json, pathlib, re, sys
+import json
+import pathlib
+import re
+import sys
+
 root = pathlib.Path(sys.argv[1])
 data = json.loads((root / "site" / "catalog.json").read_text())
 body = []
-for cat in data["categories"]:
-    if cat["id"].startswith("homebrew/"):
+for category in data["categories"]:
+    if category["id"].startswith("homebrew/"):
         continue
-    tools = cat.get("tools") or []
+    tools = category.get("tools") or []
     count = len(tools)
-    if cat["id"] == "homebrew":
-        extra = "your Mac + recommended"
+    if category["id"] == "homebrew":
+        size = "your Mac + recommended"
     elif count == 1:
-        extra = "1 tool"
+        size = "1 tool"
     else:
-        extra = f"{count} tools"
+        size = f"{count} tools"
     body.append(
-        f"| {cat.get('emoji','')} | **{cat['id']}** | {cat.get('blurb','')} | {extra} |"
+        f"| {category.get('emoji', '')} | **{category['id']}** | "
+        f"{category.get('blurb', '')} | {size} |"
     )
+
 table = "\n".join([
     "",
-    f"_**{data['version']}** · **{len(data['tools'])}** tools in the main catalog. Generated from `macos/aiup`._",
+    f"_**{data['version']}** · **{len(data['tools'])}** tools in the main catalog. "
+    "Generated from " + chr(96) + "macos/aiup" + chr(96) + "._",
     "",
     "| | Category | What | Size |",
     "|---|---|---|---|",
     *body,
     "",
 ])
-readme = (root / "README.md").read_text()
+readme_path = root / "README.md"
+readme = readme_path.read_text()
 if "<!-- CATALOG:START -->" not in readme or "<!-- CATALOG:END -->" not in readme:
     raise SystemExit("README.md missing CATALOG markers")
 readme = re.sub(
@@ -47,73 +55,14 @@ readme = re.sub(
     count=1,
     flags=re.S,
 )
-(root / "README.md").write_text(readme)
-
-site_path = root / "site" / "index.html"
-site = site_path.read_text(encoding="utf-8")
-if "<!-- SITE-CATALOG:START -->" not in site or "<!-- SITE-CATALOG:END -->" not in site:
-    raise SystemExit("site/index.html missing SITE-CATALOG markers")
-
-display_names = {
-    "infra": "Infrastructure",
-    "coding-agents": "Coding agents",
-    "workspaces": "Workspaces",
-    "editors": "Editors",
-    "terminals": "Terminals",
-    "chat": "Chat",
-    "local-ai": "Local AI",
-    "llm-utils": "LLM utilities",
-    "adapters": "Adapters",
-    "homebrew": "Homebrew",
-}
-principal = [cat for cat in data["categories"] if not cat["id"].startswith("homebrew/")]
-catalog_rows = []
-for cat in principal:
-    count = len(cat.get("tools") or [])
-    value = "Your Mac" if cat["id"] == "homebrew" else str(count)
-    blurb = cat.get("blurb", "")
-    if cat["id"] == "homebrew":
-        blurb = "Installed extras, available inventory, and a short recommended list"
-    catalog_rows.append(
-        "        <li data-category=\"{category}\"><span class=\"category-icon\" aria-hidden=\"true\">{emoji}</span>"
-        "<div><h3>{name}</h3><p>{blurb}</p></div><strong>{value}</strong></li>".format(
-            category=html.escape(cat["id"], quote=True),
-            emoji=html.escape(cat.get("emoji", "")),
-            name=html.escape(display_names.get(cat["id"], cat["id"])),
-            blurb=html.escape(blurb),
-            value=html.escape(value),
-        )
-    )
-
-site_catalog = "\n".join([
-    "",
-    "      <div class=\"catalog-facts\" aria-label=\"Catalog facts\">",
-    f"        <p><strong>{len(data['tools'])}</strong><span>reviewed entries</span></p>",
-    f"        <p><strong>{len(principal)}</strong><span>principal groups</span></p>",
-    f"        <p><strong>{html.escape(data['version'])}</strong><span>current version</span></p>",
-    "      </div>",
-    "      <ul class=\"catalog-grid\">",
-    *catalog_rows,
-    "      </ul>",
-    "      ",
-])
-site = re.sub(
-    r"<!-- SITE-CATALOG:START -->.*?<!-- SITE-CATALOG:END -->",
-    "<!-- SITE-CATALOG:START -->" + site_catalog + "<!-- SITE-CATALOG:END -->",
-    site,
-    count=1,
-    flags=re.S,
-)
-site = re.sub(r"\b20\d{2}\.\d{2}\.\d{2}-\d{2}\b", data["version"], site)
-site = re.sub(r"\b\d+ reviewed AI and developer-tool entries\b", f"{len(data['tools'])} reviewed AI and developer-tool entries", site)
-site = re.sub(r"\b\d+ reviewed entries\b", f"{len(data['tools'])} reviewed entries", site)
-site = re.sub(r"\b\d+ managed entries\b", f"{len(data['tools'])} managed entries", site)
-site_path.write_text(site, encoding="utf-8")
+readme_path.write_text(readme)
 print(f"synced catalog {data['version']} ({len(data['tools'])} tools)")
 PY
 
 python3 - "$ROOT" <<'PY'
-import pathlib, shutil, sys
+import pathlib
+import shutil
+import sys
 
 root = pathlib.Path(sys.argv[1])
 source = root / "docs" / "media"
