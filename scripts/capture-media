@@ -949,7 +949,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
     ]
     gif_palette_frames[0].save(
         DOCS_MEDIA / "aiup-list.gif", save_all=True, append_images=gif_palette_frames[1:],
-        duration=gif_durations, disposal=1, optimize=False,
+        duration=gif_durations, disposal=1, optimize=False, loop=0,
         include_color_table=True,
     )
     if (DOCS_MEDIA / "aiup-list.gif").stat().st_size >= 5 * 1024 * 1024:
@@ -999,7 +999,7 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
         "schema": 3,
         "source_commit": source_commit,
         "runtime_version": "2026.08.25-02",
-        "capture_contract_version": "2026-08-26-04",
+        "capture_contract_version": "2026-08-26-05",
         "managed_entries": 81,
         "terminal_cells": [COLS, ROWS],
         "output_pixels": [WIDTH, HEIGHT],
@@ -1054,9 +1054,9 @@ def capture(source_commit: str, work: pathlib.Path) -> dict[str, object]:
             for semantic_name, _, duration in GIF_SEQUENCE
         ],
         "gif_playback": {
-            "mode": "finite",
-            "plays": 1,
-            "netscape_loop_extension": False,
+            "mode": "continuous",
+            "plays": "infinite",
+            "netscape_loop_extension": True,
         },
         "gif_retiming": {
             "baseline_multiplier": 1.15,
@@ -1123,10 +1123,10 @@ def validate_existing() -> None:
         raise RuntimeError(f"wrong GIF frame durations: {durations}")
     if sum(durations) != manifest["gif_duration_ms"]:
         raise RuntimeError(f"wrong GIF duration: {sum(durations)} ms")
-    if loop is not None or b"NETSCAPE2.0" in gif_path.read_bytes():
-        raise RuntimeError(f"GIF is not finite single-playback media: loop={loop!r}")
+    if loop != 0 or b"NETSCAPE2.0" not in gif_path.read_bytes():
+        raise RuntimeError(f"GIF is not continuous infinite-loop media: loop={loop!r}")
     if manifest.get("gif_playback") != {
-        "mode": "finite", "plays": 1, "netscape_loop_extension": False,
+        "mode": "continuous", "plays": "infinite", "netscape_loop_extension": True,
     }:
         raise RuntimeError("GIF playback manifest drifted")
     frame_palettes = (
