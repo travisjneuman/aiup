@@ -92,9 +92,9 @@ hostname, private path, or actual installed inventory.
 The explicit 2026-08-25 owner acceptance of media commit
 `4c1d980d68c2b0d22592ae3a4e587b603c598156` from source
 `04fe3b62c2d6d665774097a582677cae08c50ce4` is retained as historical
-provenance but is **superseded** by the latest owner direction. It is not current
-visual acceptance. The associated expanded-site visual review is likewise
-historical rather than acceptance of this rebuilt media. The earlier muted set at
+provenance and superseded by the owner's 2026-08-26 acceptance of the current
+six-state media and minimal site design. The associated expanded-site visual
+review remains historical. The earlier muted set at
 `d629ca3b92a074de9f0ad99d7b1781c5036ae06e` remains rejected historical
 evidence of the inherited-`NO_COLOR` failure.
 
