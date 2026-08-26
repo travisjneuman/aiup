@@ -13,7 +13,7 @@ The site is one semantic HTML page plus a branded static 404:
 - `styles.css` owns the dependency-free responsive visual system;
 - `site.js` progressively enhances command copying and animation control;
 - `catalog.json` is generated from `macos/aiup`, not maintained by hand;
-- `media/` is a byte-identical mirror of the accepted canonical files in
+- `media/` is a byte-identical mirror of the current canonical files in
   `docs/media/`;
 - `brand/` contains the accepted canonical and derived brand suite;
 - `robots.txt`, `sitemap.xml`, `llms.txt`, `manifest.webmanifest`, `_headers`,
@@ -52,6 +52,8 @@ evidence, and owner acceptance as separate claims. No direct Cloudflare
 publication, new resource, analytics, tracker, cookie, or service worker is
 part of this site.
 
-The checked-in media represents aiup `2026.08.25-02` and its 81-entry catalog.
+The checked-in media represents aiup `2026.08.25-02`, its responsive 100×30 TUI,
+and its 81-entry catalog. The previous site/media visual acceptance is retained
+as historical provenance but superseded by the latest owner direction.
 Capture and brand provenance live in [`docs/media/README.md`](../docs/media/README.md)
 and [`brand/README.md`](brand/README.md).

@@ -1,86 +1,93 @@
 # TUI media provenance
 
 `docs/media/` is the canonical product-media source. `scripts/capture-media`
-copies the six published assets byte-for-byte into `site/media/`, and
-`scripts/capture-media --check` rejects any duplicate drift. The catalog sync
-script repeats that one-way media sync alongside generated catalog output.
+copies all six assets byte-for-byte into `site/media/`, and
+`scripts/capture-media --check` rejects mirror, hash, dimension, palette, frame,
+or provenance drift.
 
-The corrected color-faithful set was captured from source commit
-`04fe3b62c2d6d665774097a582677cae08c50ce4`, after the bounded
-launcher-retention commit `94ae5f964ebd3133ba260125d3e3311e3ceec3a9`.
-The resulting media published at `4c1d980d68c2b0d22592ae3a4e587b603c598156`
-received explicit owner visual acceptance on 2026-08-25. Reproduce it from that
-source with:
+The current set was captured from source commit
+`8e596312e77a86b69dd27ff370381506666e1035`. Reproduce and verify it with:
 
 ```bash
-NO_COLOR=1 scripts/capture-media --source-commit 04fe3b62c2d6d665774097a582677cae08c50ce4
+NO_COLOR=1 scripts/capture-media --source-commit 8e596312e77a86b69dd27ff370381506666e1035
 scripts/capture-media --check
+scripts/capture-media --check-layout
 ```
 
-The explicit `NO_COLOR=1` parent is a regression probe. The capture session
-removes that inherited variable before starting the real TUI, because fzf
-otherwise consumes aiup's ANSI input styles and emits a flattened PTY stream.
-That was the diagnosed cause of the owner-rejected media published in
-`d629ca3b92a074de9f0ad99d7b1781c5036ae06e`: the list file contained the
-production `CSI 38;5;<index> m` colors, but the fzf PTY stream contained only its
-configured chrome colors. The custom terminal parser and PNG renderer therefore
-never received category colors to preserve.
+The explicit `NO_COLOR=1` parent remains a regression probe. The capture session
+removes it before starting fzf so aiup's production indexed category colors reach
+the PTY stream.
 
-With the correction, the raw stream uses fzf-composed forms such as
-`CSI ;38;5;171;48;2;11;12;35 m`; parsed cells retain xterm index 171 for
-`coding-agents`, and raster pixels retain its exact `#d75fff` RGB. Schema 2 of
-`capture-manifest.json` records the corresponding raw escape forms, styled-cell
-counts, and raster pixel counts for every visible category plus the Homebrew,
-selection, query-highlight, preview-label, installed, and absent states.
+## What is real and what is reproduced
 
-The capture drives the real `macos/aiup list` command, real fzf 0.74.3 picker,
-current row formatter, current preview command, current search reload binding,
-current adoption confirmation, and current cancelled-result summary. A marked
-repository-local fixture supplies deterministic public demo indexes: 81 managed
-entries, five Homebrew extras plus two recommendations, and eight detected-only
-items split into 2 app, 2 npm, 1 uv, and 3 PATH rows. Gemini and Continue are
-active, n8n is npm-managed, GPT4All is maintenance-only, and OMP/Plandex are absent.
+- The process is the real `macos/aiup list` command, real fzf 0.74.3 picker, real
+  row formatter, preview command, query reload, category navigation, preview
+  toggle, cancellation, and adoption confirmation.
+- Catalog and inventory content comes from the deterministic public fixture in
+  `scripts/fixtures/capture`: 81 managed entries, five Homebrew extras, two
+  recommendations, and eight detected-only rows. It is not host inventory.
+- The rasterizer consumes the real PTY/ANSI stream. It does not construct a mock
+  TUI or redraw aiup rows after capture.
+- The macOS window frame is a sanitized reproduction of Terminal chrome. The
+  traffic lights and title bar are reproduced; the title contains only `aiup`,
+  the command, and the public 100×30 cell geometry.
+- The actual Terminal `Homebrew` profile was read back before capture: Andale
+  Mono 16 pt with antialiasing, block green cursor, 90%-opaque black background,
+  green normal/bold text, and blue selection. Menlo supplies Terminal-like
+  fallback glyphs for box drawing, triangles, and spinners.
+- The live shell's actual Catppuccin fzf options are replayed: `#1e1e2e`
+  background, `#313244` selected row, pink header/highlight, purple prompt, and
+  mist foreground. The previous capture-only cyan border and purple labels are
+  gone. aiup's intentional indexed category and state colors remain unchanged.
 
-Capture settings are 128 × 40 terminal cells rendered to 1280 × 720 pixels,
-JetBrains Mono Nerd Font Mono Regular at 15 px, `en_US.UTF-8`, navy/mist terminal
-colors, and the fixed cyan/mint/purple fzf chrome palette recorded in
-`capture-manifest.json`. The real input palette remains authoritative: blue,
-magenta, pink, soft blue, cyan, green, orange, yellow, Homebrew golds, and detected
-gray. The Homebrew still now expands the real parent and child hierarchy before
-selecting Raycast, so its 214/208/176/178/180/220 family and current action preview
-are visible together.
+The primary capture uses an ordinary 100×30 PTY rendered at 2× Retina density to
+2016×1208 pixels, including chrome. It does not resize, maximize, fullscreen, or
+reposition Terminal. The layout checker also drives 60×18, 80×24, 100×30,
+128×40, and 167×47 PTYs plus a live 167×47 → 60×18 → 100×30 resize sequence.
+All five sizes retain 11 collapsed catalog rows. The 60×18 preview starts hidden
+and its `ctrl-/` toggle is verified; the other sizes start with a responsive
+one-third preview.
 
-The four-frame 4.9-second GIF contains stable real states: collapsed overview,
-Gemini search and update preview, restored collapsed overview, and the real
-cancelled result. It uses Pillow's deterministic maximum-coverage 256-color
-quantizer without dithering; the checker permits at most an 8-point RGB distance
-for material GIF colors. `aiup-list-poster.png` is pixel-equivalent to the static
-search state used for reduced motion.
+The four-frame 4.9-second GIF contains real states: collapsed overview, Gemini
+search/update preview, restored overview, and cancellation. The poster is
+pixel-equivalent to the static search state for reduced motion. Documentation
+stills retain the collapsed, search, Homebrew, and pre-adoption states; the
+website may use the single GIF/poster pair as its primary media surface.
 
-The fixture puts a rejecting `brew` executable first on PATH. It records read-only
-queries and exits nonzero for install, upgrade, uninstall, trust, or tap mutation.
-The adoption session stops at its first `[y/N]` prompt. No real catalog package is
-installed, updated, removed, adopted, or trusted; no host inventory is scanned.
-The renderer rejects personal home paths, usernames, hostnames, private project
-names, OMP/Plandex rows, and the retired settings-survival claims before writing.
+## Safety and sanitization
 
-The output is a deterministic rendering of the real PTY/ANSI stream rather than a
-screenshot of a specific terminal application's window chrome. A separate
-non-mutating cmux/xterm-256color comparison of the same fixture confirmed the same
-category hierarchy. The production adoption output emits `[INFO]`, `[WARN]`, and
-confirmation roles textually, without role-specific SGR; the capture preserves
-that limitation rather than adding post-capture color.
+The fixture's rejecting `brew` is first on PATH. It records read-only queries and
+rejects install, upgrade, uninstall, trust, and tap mutation. Adoption stops at
+the first `[y/N]` prompt. No real package is installed, updated, removed,
+adopted, or trusted, and no host inventory is scanned.
+
+Before writing, the renderer rejects personal home paths, usernames, hostnames,
+private project names, private fixture rows, and retired claims. The PNG title,
+GIF frames, manifest, alt text, and this documentation publish no host username,
+hostname, private path, or actual installed inventory.
+
+## Historical visual decisions
+
+The explicit 2026-08-25 owner acceptance of media commit
+`4c1d980d68c2b0d22592ae3a4e587b603c598156` from source
+`04fe3b62c2d6d665774097a582677cae08c50ce4` is retained as historical
+provenance but is **superseded** by the latest owner direction. It is not current
+visual acceptance. The associated expanded-site visual review is likewise
+historical rather than acceptance of this rebuilt media. The earlier muted set at
+`d629ca3b92a074de9f0ad99d7b1781c5036ae06e` remains rejected historical
+evidence of the inherited-`NO_COLOR` failure.
 
 Current canonical hashes and sizes are:
 
 | Asset | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `aiup-list.gif` | 171,298 | `cedd7a20278578debd812186f2e31db7e3bf05da789fa8b0e6d696c1a34592fd` |
-| `aiup-list-collapsed.png` | 110,312 | `d81eb71b853f3e4d7c8e4de41e97602d36fc3462d6ee8225f7cc7ec8437a9fd8` |
-| `aiup-list-search.png` | 114,291 | `619b2cce700f95761e53a7a58f9440f41309f8f1cc110b9d607bab9253c0a8ef` |
-| `aiup-list-poster.png` | 114,287 | `8bac9862c047efa434a9452d0e19a9a0c56ea7300eecc8d749e350499bfe2bfb` |
-| `aiup-list-homebrew.png` | 122,208 | `0b12f88f56c67cde212867a6f94750a5328ae6192ac45121092b6f6742b1561f` |
-| `aiup-list-adopt.png` | 28,343 | `bdea45dade438aeb683530b981bbb3c4997827d142ff70a108218158bb8ffc5f` |
+| `aiup-list.gif` | 267,545 | `472baf1540385a8a03209515f9b873f59610b8b35981442a5d9523535c74d27f` |
+| `aiup-list-collapsed.png` | 136,615 | `8e476458ba55fc324c2a84cdc5da8180a033fd2de5718d990788631d8f8cf337` |
+| `aiup-list-search.png` | 152,728 | `c199fe6246540f461dc5c015813cf16109b5e854415219ec1a9a49993242c3b5` |
+| `aiup-list-poster.png` | 152,724 | `9d3f6a59af3da797c6be1d6c6d617001527e2c3b40ab56159069af01c8c0a057` |
+| `aiup-list-homebrew.png` | 169,412 | `ff27ef9258ee1151e7a07f53e34590d46dc0ef4a63546aa0115338247817b835` |
+| `aiup-list-adopt.png` | 60,351 | `d8e6d1ec1839ce34de30e7ee2a314f735461ce3ec67ce91fc31f8efdea5482a2` |
 
-Exact font provenance, dimensions, frame count/duration, palette evidence, and
-observed fixture commands remain machine-readable in `capture-manifest.json`.
+Schema 3 of `capture-manifest.json` records exact font hashes, profile values,
+PTY matrix results, reference comparison evidence, semantic PTY styles, rendered
+pixel evidence, observed fixture commands, dimensions, frames, and duration.

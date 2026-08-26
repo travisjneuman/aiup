@@ -37,7 +37,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png" />
-    <img src="docs/media/aiup-list.gif" alt="aiup 2026.08.25-02 catalog: color-coded collapsed categories, a Gemini search with update preview, restored overview, and cancelled result" width="960" height="540" />
+    <img src="docs/media/aiup-list.gif" alt="Responsive aiup catalog in a macOS Terminal frame: collapsed categories, a Gemini search with update preview, restored overview, and cancellation" width="1008" height="604" />
   </picture>
 </p>
 
@@ -108,12 +108,12 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
 
 <p align="center">
-  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Bordered collapsed aiup overview with distinct category colors, 81 managed entries, and Detected last with 2 app, 2 npm, 1 uv, and 3 PATH demo detections" />
-  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Expanded Homebrew hierarchy with orange, pink, gold, and yellow child categories plus Raycast switch-to-Homebrew, Docker install, and lazygit install actions" />
+  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Responsive 100 by 30 aiup overview with 11 color-coded collapsed categories and a compact four-line category preview" />
+  <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Responsive Homebrew hierarchy with Raycast selected and its switch-to-Homebrew action, safety boundary, and relevant keys visible" />
 </p>
 
 <p align="center">
-  <img src="docs/media/aiup-list-search.png" alt="Color-coded search inside collapsed categories revealing installed Gemini with its active lifecycle, update action, official docs, and dependency preview" width="720" height="405" />
+  <img src="docs/media/aiup-list-search.png" alt="Left-anchored Gemini search in aiup with installed state, update action, dependencies, and contextual preview controls" width="1008" height="604" />
 </p>
 
 ## 🎛️ Keys
@@ -145,7 +145,7 @@ Installed rows use **mint green**. Each category has a color bar. Categories sta
 Same app. Not a second copy.
 
 <p align="center">
-  <img src="docs/media/aiup-list-adopt.png" alt="Raycast pre-action adoption confirmation stating that aiup does not pass --zap or directly delete ~/Library, warning that installer behavior may vary, and awaiting cancellation" width="720" height="405" />
+  <img src="docs/media/aiup-list-adopt.png" alt="Green-on-black macOS Terminal confirmation for Raycast adoption, stating the no-zap boundary and awaiting a yes or no answer" width="1008" height="604" />
 </p>
 
 | State | Meaning |
@@ -199,7 +199,7 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The live public site and its desktop/375px presentation have been reviewed around the accepted real-TUI media; Safari, physical-device, screen-reader, and assistive-technology acceptance remain separate. See **[scope, completion, and next work](docs/status.md)**.
+The macOS implementation has passed the documented daily-use checks for this dated source revision, but aiup is not a finished cross-platform or tagged 1.0 product. The rebuilt real-TUI media supersedes the prior visual acceptance and remains subject to a fresh owner-visual gate; Safari, physical-device, screen-reader, and assistive-technology acceptance remain separate. See **[scope, completion, and next work](docs/status.md)**.
 
 | Surface | Status |
 |---|---|
