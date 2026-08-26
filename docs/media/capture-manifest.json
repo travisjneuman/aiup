@@ -6,7 +6,7 @@
         2016,
         1208
       ],
-      "sha256": "d8e6d1ec1839ce34de30e7ee2a314f735461ce3ec67ce91fc31f8efdea5482a2"
+      "sha256": "203b17715f8ae3d3dfafb52e7b07a41204fa93d514c6e1174dc17c9f901d83be"
     },
     "aiup-list-collapsed.png": {
       "bytes": 136615,
@@ -14,7 +14,7 @@
         2016,
         1208
       ],
-      "sha256": "8e476458ba55fc324c2a84cdc5da8180a033fd2de5718d990788631d8f8cf337"
+      "sha256": "0964b0eb844179d83dd811e304275f5a179969e2394d2fb4824c24f8e19f62d3"
     },
     "aiup-list-homebrew.png": {
       "bytes": 169412,
@@ -22,7 +22,7 @@
         2016,
         1208
       ],
-      "sha256": "ff27ef9258ee1151e7a07f53e34590d46dc0ef4a63546aa0115338247817b835"
+      "sha256": "3071416ab67b7715da2864af41dfbebb02a5bc3a0d9c15827a4fb81569b0f4ec"
     },
     "aiup-list-poster.png": {
       "bytes": 152724,
@@ -30,7 +30,7 @@
         2016,
         1208
       ],
-      "sha256": "9d3f6a59af3da797c6be1d6c6d617001527e2c3b40ab56159069af01c8c0a057"
+      "sha256": "b27d77d39dad958f5d191fc4025bd0ef184dbe5d4c7b3bb44ee79f89353813a0"
     },
     "aiup-list-search.png": {
       "bytes": 152728,
@@ -38,22 +38,36 @@
         2016,
         1208
       ],
-      "sha256": "c199fe6246540f461dc5c015813cf16109b5e854415219ec1a9a49993242c3b5"
+      "sha256": "f32765abbaa5f42a331b47187cb5d22e238f820b757ada9f6e0392a6075621ad"
     },
     "aiup-list.gif": {
-      "bytes": 267545,
+      "bytes": 508615,
       "dimensions": [
         2016,
         1208
       ],
-      "sha256": "472baf1540385a8a03209515f9b873f59610b8b35981442a5d9523535c74d27f"
+      "sha256": "190941c2f5c9fc203e95efb26e290db2a9d0f689be24fd7dc525719b8125d826"
     }
   },
-  "capture_contract_version": "2026-08-25-03",
+  "capture_contract_version": "2026-08-26-04",
   "color_fidelity": {
     "adoption_roles": "production output distinguishes INFO, WARN, and the confirmation prompt textually; it emits no role-specific SGR",
     "capture_environment": "NO_COLOR removed; TERM=xterm-256color; COLORTERM=truecolor",
     "rendered_pixels": {
+      "adoption": {
+        "cursor": {
+          "expected_rgb": "#38fe27",
+          "matching_pixels": 660,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#38fe27"
+        },
+        "terminal-text": {
+          "expected_rgb": "#28fe14",
+          "matching_pixels": 16875,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#28fe14"
+        }
+      },
       "collapsed": {
         "adapters": {
           "expected_rgb": "#ffd700",
@@ -134,7 +148,87 @@
           "nearest_rgb": "#ffafff"
         }
       },
-      "gif-collapsed-1": {
+      "final": {
+        "adapters": {
+          "expected_rgb": "#ffd700",
+          "matching_pixels": 774,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffd700"
+        },
+        "chat": {
+          "expected_rgb": "#00ffff",
+          "matching_pixels": 533,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#00ffff"
+        },
+        "coding-agents": {
+          "expected_rgb": "#d75fff",
+          "matching_pixels": 1043,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d75fff"
+        },
+        "detected": {
+          "expected_rgb": "#bcbcbc",
+          "matching_pixels": 1292,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#bcbcbc"
+        },
+        "editors": {
+          "expected_rgb": "#87afff",
+          "matching_pixels": 682,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#87afff"
+        },
+        "header": {
+          "expected_rgb": "#f38ba8",
+          "matching_pixels": 3240,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#f38ba8"
+        },
+        "homebrew": {
+          "expected_rgb": "#ffaf00",
+          "matching_pixels": 822,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffaf00"
+        },
+        "infra": {
+          "expected_rgb": "#00afff",
+          "matching_pixels": 551,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#00afff"
+        },
+        "llm-utils": {
+          "expected_rgb": "#ff8700",
+          "matching_pixels": 733,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ff8700"
+        },
+        "local-ai": {
+          "expected_rgb": "#00ff87",
+          "matching_pixels": 674,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#00ff87"
+        },
+        "prompt": {
+          "expected_rgb": "#cba6f7",
+          "matching_pixels": 992,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#cba6f7"
+        },
+        "terminals": {
+          "expected_rgb": "#5fd7ff",
+          "matching_pixels": 791,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#5fd7ff"
+        },
+        "workspaces": {
+          "expected_rgb": "#ffafff",
+          "matching_pixels": 853,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffafff"
+        }
+      },
+      "gif-collapsed-overview": {
         "adapters": {
           "expected_rgb": "#ffd700",
           "matching_pixels": 745,
@@ -214,87 +308,7 @@
           "nearest_rgb": "#ffafff"
         }
       },
-      "gif-collapsed-2": {
-        "adapters": {
-          "expected_rgb": "#ffd700",
-          "matching_pixels": 745,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#ffd700"
-        },
-        "chat": {
-          "expected_rgb": "#00ffff",
-          "matching_pixels": 528,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#00ffff"
-        },
-        "coding-agents": {
-          "expected_rgb": "#d75fff",
-          "matching_pixels": 1015,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#d75fff"
-        },
-        "detected": {
-          "expected_rgb": "#bcbcbc",
-          "matching_pixels": 1268,
-          "nearest_distance": 1.73,
-          "nearest_rgb": "#bbbbbb"
-        },
-        "editors": {
-          "expected_rgb": "#87afff",
-          "matching_pixels": 672,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#87afff"
-        },
-        "header": {
-          "expected_rgb": "#f38ba8",
-          "matching_pixels": 3175,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#f38ba8"
-        },
-        "homebrew": {
-          "expected_rgb": "#ffaf00",
-          "matching_pixels": 799,
-          "nearest_distance": 1.41,
-          "nearest_rgb": "#feae00"
-        },
-        "infra": {
-          "expected_rgb": "#00afff",
-          "matching_pixels": 544,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#00afff"
-        },
-        "llm-utils": {
-          "expected_rgb": "#ff8700",
-          "matching_pixels": 733,
-          "nearest_distance": 2.24,
-          "nearest_rgb": "#fd8600"
-        },
-        "local-ai": {
-          "expected_rgb": "#00ff87",
-          "matching_pixels": 664,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#00ff87"
-        },
-        "prompt": {
-          "expected_rgb": "#cba6f7",
-          "matching_pixels": 940,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#cba6f7"
-        },
-        "terminals": {
-          "expected_rgb": "#5fd7ff",
-          "matching_pixels": 777,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#5fd7ff"
-        },
-        "workspaces": {
-          "expected_rgb": "#ffafff",
-          "matching_pixels": 825,
-          "nearest_distance": 0.0,
-          "nearest_rgb": "#ffafff"
-        }
-      },
-      "gif-search": {
+      "gif-gemini-search-update": {
         "coding-agents": {
           "expected_rgb": "#d75fff",
           "matching_pixels": 4716,
@@ -318,6 +332,212 @@
           "matching_pixels": 4582,
           "nearest_distance": 0.0,
           "nearest_rgb": "#f38ba8"
+        }
+      },
+      "gif-homebrew-reviewed-hierarchy": {
+        "absent-action": {
+          "expected_rgb": "#8a8a8a",
+          "matching_pixels": 1583,
+          "nearest_distance": 6.4,
+          "nearest_rgb": "#868687"
+        },
+        "casks": {
+          "expected_rgb": "#ff8700",
+          "matching_pixels": 564,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ff8700"
+        },
+        "fonts": {
+          "expected_rgb": "#d787d7",
+          "matching_pixels": 593,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d787d7"
+        },
+        "formulae": {
+          "expected_rgb": "#d7af00",
+          "matching_pixels": 783,
+          "nearest_distance": 3.74,
+          "nearest_rgb": "#d4ad01"
+        },
+        "homebrew": {
+          "expected_rgb": "#ffaf00",
+          "matching_pixels": 793,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffaf00"
+        },
+        "libraries": {
+          "expected_rgb": "#d7af87",
+          "matching_pixels": 700,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d7af87"
+        },
+        "on-disk-action": {
+          "expected_rgb": "#39ff14",
+          "matching_pixels": 1176,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#39ff14"
+        },
+        "prompt": {
+          "expected_rgb": "#cba6f7",
+          "matching_pixels": 1031,
+          "nearest_distance": 3.46,
+          "nearest_rgb": "#c9a4f5"
+        },
+        "recommended": {
+          "expected_rgb": "#ffd700",
+          "matching_pixels": 3888,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffd700"
+        }
+      },
+      "gif-raycast-switch-context": {
+        "absent-action": {
+          "expected_rgb": "#8a8a8a",
+          "matching_pixels": 1583,
+          "nearest_distance": 6.4,
+          "nearest_rgb": "#868687"
+        },
+        "casks": {
+          "expected_rgb": "#ff8700",
+          "matching_pixels": 553,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ff8700"
+        },
+        "fonts": {
+          "expected_rgb": "#d787d7",
+          "matching_pixels": 593,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d787d7"
+        },
+        "formulae": {
+          "expected_rgb": "#d7af00",
+          "matching_pixels": 762,
+          "nearest_distance": 1.41,
+          "nearest_rgb": "#d6ae00"
+        },
+        "homebrew": {
+          "expected_rgb": "#ffaf00",
+          "matching_pixels": 788,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffaf00"
+        },
+        "libraries": {
+          "expected_rgb": "#d7af87",
+          "matching_pixels": 700,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d7af87"
+        },
+        "on-disk-action": {
+          "expected_rgb": "#39ff14",
+          "matching_pixels": 1164,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#39ff14"
+        },
+        "prompt": {
+          "expected_rgb": "#cba6f7",
+          "matching_pixels": 2944,
+          "nearest_distance": 3.46,
+          "nearest_rgb": "#c9a4f5"
+        },
+        "recommended": {
+          "expected_rgb": "#ffd700",
+          "matching_pixels": 3867,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffd700"
+        }
+      },
+      "gif-safe-confirmation-cancelled": {
+        "cursor": {
+          "expected_rgb": "#38fe27",
+          "matching_pixels": 660,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#38fe27"
+        },
+        "terminal-text": {
+          "expected_rgb": "#28fe14",
+          "matching_pixels": 16370,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#28fe14"
+        }
+      },
+      "gif-stable-final-overview": {
+        "adapters": {
+          "expected_rgb": "#ffd700",
+          "matching_pixels": 745,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffd700"
+        },
+        "chat": {
+          "expected_rgb": "#00ffff",
+          "matching_pixels": 528,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#00ffff"
+        },
+        "coding-agents": {
+          "expected_rgb": "#d75fff",
+          "matching_pixels": 1015,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d75fff"
+        },
+        "detected": {
+          "expected_rgb": "#bcbcbc",
+          "matching_pixels": 1268,
+          "nearest_distance": 1.73,
+          "nearest_rgb": "#bbbbbb"
+        },
+        "editors": {
+          "expected_rgb": "#87afff",
+          "matching_pixels": 672,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#87afff"
+        },
+        "header": {
+          "expected_rgb": "#f38ba8",
+          "matching_pixels": 3175,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#f38ba8"
+        },
+        "homebrew": {
+          "expected_rgb": "#ffaf00",
+          "matching_pixels": 799,
+          "nearest_distance": 1.41,
+          "nearest_rgb": "#feae00"
+        },
+        "infra": {
+          "expected_rgb": "#00afff",
+          "matching_pixels": 544,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#00afff"
+        },
+        "llm-utils": {
+          "expected_rgb": "#ff8700",
+          "matching_pixels": 733,
+          "nearest_distance": 2.24,
+          "nearest_rgb": "#fd8600"
+        },
+        "local-ai": {
+          "expected_rgb": "#00ff87",
+          "matching_pixels": 664,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#00ff87"
+        },
+        "prompt": {
+          "expected_rgb": "#cba6f7",
+          "matching_pixels": 940,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#cba6f7"
+        },
+        "terminals": {
+          "expected_rgb": "#5fd7ff",
+          "matching_pixels": 777,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#5fd7ff"
+        },
+        "workspaces": {
+          "expected_rgb": "#ffafff",
+          "matching_pixels": 825,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffafff"
         }
       },
       "homebrew": {
@@ -366,6 +586,62 @@
         "prompt": {
           "expected_rgb": "#cba6f7",
           "matching_pixels": 2954,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#cba6f7"
+        },
+        "recommended": {
+          "expected_rgb": "#ffd700",
+          "matching_pixels": 4049,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffd700"
+        }
+      },
+      "homebrew-hierarchy": {
+        "absent-action": {
+          "expected_rgb": "#8a8a8a",
+          "matching_pixels": 1598,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#8a8a8a"
+        },
+        "casks": {
+          "expected_rgb": "#ff8700",
+          "matching_pixels": 574,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ff8700"
+        },
+        "fonts": {
+          "expected_rgb": "#d787d7",
+          "matching_pixels": 601,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d787d7"
+        },
+        "formulae": {
+          "expected_rgb": "#d7af00",
+          "matching_pixels": 939,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d7af00"
+        },
+        "homebrew": {
+          "expected_rgb": "#ffaf00",
+          "matching_pixels": 822,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#ffaf00"
+        },
+        "libraries": {
+          "expected_rgb": "#d7af87",
+          "matching_pixels": 712,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#d7af87"
+        },
+        "on-disk-action": {
+          "expected_rgb": "#39ff14",
+          "matching_pixels": 1259,
+          "nearest_distance": 0.0,
+          "nearest_rgb": "#39ff14"
+        },
+        "prompt": {
+          "expected_rgb": "#cba6f7",
+          "matching_pixels": 1040,
           "nearest_distance": 0.0,
           "nearest_rgb": "#cba6f7"
         },
@@ -436,9 +712,9 @@
         "raw_expected_sgr": {},
         "raw_indexed_sgr_counts": {
           "214": 6,
-          "220": 50,
+          "220": 45,
           "245": 7,
-          "59": 21
+          "59": 23
         },
         "required_text": [
           "[INFO] Letting Homebrew manage raycast.",
@@ -588,7 +864,7 @@
           "39": 2,
           "48": 2,
           "51": 2,
-          "59": 8,
+          "59": 5,
           "81": 2
         },
         "required_text": [
@@ -596,7 +872,261 @@
           "2 apps \u00b7 2 npm \u00b7 1 uv \u00b7 3 PATH"
         ]
       },
-      "homebrew": {
+      "final": {
+        "background": {
+          "selected-row": {
+            "rgb": "#313244",
+            "styled_cells": 27
+          }
+        },
+        "foreground": {
+          "adapters": {
+            "rgb": "#ffd700",
+            "styled_cells": 9
+          },
+          "chat": {
+            "rgb": "#00ffff",
+            "styled_cells": 5
+          },
+          "coding-agents": {
+            "rgb": "#d75fff",
+            "styled_cells": 14
+          },
+          "detected": {
+            "rgb": "#bcbcbc",
+            "styled_cells": 17
+          },
+          "editors": {
+            "rgb": "#87afff",
+            "styled_cells": 8
+          },
+          "header": {
+            "rgb": "#f38ba8",
+            "styled_cells": 66
+          },
+          "homebrew": {
+            "rgb": "#ffaf00",
+            "styled_cells": 9
+          },
+          "infra": {
+            "rgb": "#00afff",
+            "styled_cells": 6
+          },
+          "llm-utils": {
+            "rgb": "#ff8700",
+            "styled_cells": 10
+          },
+          "local-ai": {
+            "rgb": "#00ff87",
+            "styled_cells": 9
+          },
+          "prompt": {
+            "rgb": "#cba6f7",
+            "styled_cells": 19
+          },
+          "terminals": {
+            "rgb": "#5fd7ff",
+            "styled_cells": 10
+          },
+          "workspaces": {
+            "rgb": "#ffafff",
+            "styled_cells": 11
+          }
+        },
+        "raw_expected_sgr": {
+          "adapters": {
+            "escape_forms": [
+              "CSI ;38;5;220;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "chat": {
+            "escape_forms": [
+              "CSI ;38;5;51;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "coding-agents": {
+            "escape_forms": [
+              "CSI ;38;5;171;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "detected": {
+            "escape_forms": [
+              "CSI ;38;5;250;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "editors": {
+            "escape_forms": [
+              "CSI ;38;5;111;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "homebrew": {
+            "escape_forms": [
+              "CSI ;38;5;214;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "infra": {
+            "escape_forms": [
+              "CSI ;1;38;5;39;48;2;49;50;68 m"
+            ],
+            "occurrences": 2
+          },
+          "llm-utils": {
+            "escape_forms": [
+              "CSI ;38;5;208;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "local-ai": {
+            "escape_forms": [
+              "CSI ;38;5;48;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "terminals": {
+            "escape_forms": [
+              "CSI ;38;5;81;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          },
+          "workspaces": {
+            "escape_forms": [
+              "CSI ;38;5;219;48;2;30;30;46 m"
+            ],
+            "occurrences": 2
+          }
+        },
+        "raw_indexed_sgr_counts": {
+          "111": 2,
+          "171": 2,
+          "208": 2,
+          "214": 2,
+          "219": 2,
+          "220": 2,
+          "250": 2,
+          "39": 2,
+          "48": 2,
+          "51": 2,
+          "59": 6,
+          "81": 2
+        },
+        "required_text": [
+          "detected software",
+          "2 apps \u00b7 2 npm \u00b7 1 uv \u00b7 3 PATH"
+        ]
+      },
+      "homebrew-hierarchy": {
+        "background": {
+          "selected-row": {
+            "rgb": "#313244",
+            "styled_cells": 55
+          }
+        },
+        "foreground": {
+          "absent-action": {
+            "rgb": "#8a8a8a",
+            "styled_cells": 28
+          },
+          "casks": {
+            "rgb": "#ff8700",
+            "styled_cells": 6
+          },
+          "fonts": {
+            "rgb": "#d787d7",
+            "styled_cells": 6
+          },
+          "formulae": {
+            "rgb": "#d7af00",
+            "styled_cells": 9
+          },
+          "homebrew": {
+            "rgb": "#ffaf00",
+            "styled_cells": 9
+          },
+          "libraries": {
+            "rgb": "#d7af87",
+            "styled_cells": 10
+          },
+          "on-disk-action": {
+            "rgb": "#39ff14",
+            "styled_cells": 23
+          },
+          "prompt": {
+            "rgb": "#cba6f7",
+            "styled_cells": 19
+          },
+          "recommended": {
+            "rgb": "#ffd700",
+            "styled_cells": 48
+          }
+        },
+        "raw_expected_sgr": {
+          "casks": {
+            "escape_forms": [
+              "CSI ;1;38;5;208;48;2;49;50;68 m",
+              "CSI ;38;5;208;48;2;30;30;46 m"
+            ],
+            "occurrences": 8
+          },
+          "fonts": {
+            "escape_forms": [
+              "CSI ;1;38;5;176;48;2;49;50;68 m",
+              "CSI ;38;5;176;48;2;30;30;46 m"
+            ],
+            "occurrences": 8
+          },
+          "formulae": {
+            "escape_forms": [
+              "CSI ;1;38;5;178;48;2;49;50;68 m",
+              "CSI ;38;5;178;48;2;30;30;46 m"
+            ],
+            "occurrences": 8
+          },
+          "homebrew": {
+            "escape_forms": [
+              "CSI ;1;38;5;214;48;2;49;50;68 m",
+              "CSI ;38;5;214;48;2;30;30;46 m"
+            ],
+            "occurrences": 6
+          },
+          "libraries": {
+            "escape_forms": [
+              "CSI ;1;38;5;180;48;2;49;50;68 m",
+              "CSI ;38;5;180;48;2;30;30;46 m"
+            ],
+            "occurrences": 8
+          },
+          "recommended": {
+            "escape_forms": [
+              "CSI ;1;38;5;220;48;2;49;50;68 m",
+              "CSI ;38;5;220;48;2;30;30;46 m"
+            ],
+            "occurrences": 20
+          }
+        },
+        "raw_indexed_sgr_counts": {
+          "176": 8,
+          "178": 8,
+          "180": 8,
+          "208": 8,
+          "214": 6,
+          "220": 20,
+          "245": 2,
+          "250": 4,
+          "59": 40
+        },
+        "required_text": [
+          "recommended",
+          "state     expanded",
+          "full Homebrew catalog not loaded"
+        ]
+      },
+      "raycast": {
         "background": {
           "selected-row": {
             "rgb": "#313244",
@@ -682,7 +1212,7 @@
               "CSI ;1;38;5;220;48;2;49;50;68 m",
               "CSI ;38;5;220;48;2;30;30;46 m"
             ],
-            "occurrences": 16
+            "occurrences": 24
           }
         },
         "raw_indexed_sgr_counts": {
@@ -691,10 +1221,10 @@
           "180": 8,
           "208": 8,
           "214": 6,
-          "220": 16,
+          "220": 24,
           "245": 2,
           "250": 4,
-          "59": 38
+          "59": 42
         },
         "required_text": [
           "recommended",
@@ -748,7 +1278,7 @@
           "39": 2,
           "48": 4,
           "51": 2,
-          "59": 132,
+          "59": 133,
           "81": 2
         },
         "required_text": [
@@ -771,8 +1301,47 @@
   "font_sha256": "ca436a8f07f6699107542ebe19dcc9478f12aa666927699e9fa10115e7d2ee95",
   "font_size_px": 32,
   "fzf_palette": "bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8,fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc,marker:#a6e3a1,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8",
-  "gif_duration_ms": 4900,
-  "gif_frames": 4,
+  "gif_duration_ms": 10780,
+  "gif_frames": 6,
+  "gif_playback": {
+    "mode": "finite",
+    "netscape_loop_extension": false,
+    "plays": 1
+  },
+  "gif_retiming": {
+    "baseline_multiplier": 1.15,
+    "retained_state_basis_ms": {
+      "collapsed-overview": 900,
+      "gemini-search-update": 1800,
+      "stable-final-overview": 1300
+    }
+  },
+  "gif_sequence": [
+    {
+      "duration_ms": 1040,
+      "state": "collapsed-overview"
+    },
+    {
+      "duration_ms": 2070,
+      "state": "gemini-search-update"
+    },
+    {
+      "duration_ms": 1800,
+      "state": "homebrew-reviewed-hierarchy"
+    },
+    {
+      "duration_ms": 2070,
+      "state": "raycast-switch-context"
+    },
+    {
+      "duration_ms": 2300,
+      "state": "safe-confirmation-cancelled"
+    },
+    {
+      "duration_ms": 1500,
+      "state": "stable-final-overview"
+    }
+  ],
   "layout_matrix": [
     {
       "catalog_rows_visible": 11,
@@ -831,7 +1400,7 @@
   "runtime_version": "2026.08.25-02",
   "schema": 3,
   "software_mutation": "none; fake Homebrew rejects mutating verbs and adoption was cancelled at the first confirmation",
-  "source_commit": "8e596312e77a86b69dd27ff370381506666e1035",
+  "source_commit": "cbee9422e832cb45efd366b2c04c025bb64df7f6",
   "terminal_cells": [
     100,
     30

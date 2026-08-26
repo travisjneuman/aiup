@@ -37,7 +37,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png" />
-    <img src="docs/media/aiup-list.gif" alt="Responsive aiup catalog in a macOS Terminal frame: collapsed categories, a Gemini search with update preview, restored overview, and cancellation" width="1008" height="604" />
+    <img src="docs/media/aiup-list.gif" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1008" height="604" />
   </picture>
 </p>
 

@@ -20,9 +20,15 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 PRODUCTION = "https://aiup.neuman.dev/"
 REPOSITORY = "https://github.com/travisjneuman/aiup"
-CACHE_VERSION = "20260826-01"
-GIF_SHA256 = "472baf1540385a8a03209515f9b873f59610b8b35981442a5d9523535c74d27f"
-POSTER_SHA256 = "9d3f6a59af3da797c6be1d6c6d617001527e2c3b40ab56159069af01c8c0a057"
+CACHE_VERSION = "20260826-02"
+GIF_SEQUENCE = [
+    {"state": "collapsed-overview", "duration_ms": 1040},
+    {"state": "gemini-search-update", "duration_ms": 2070},
+    {"state": "homebrew-reviewed-hierarchy", "duration_ms": 1800},
+    {"state": "raycast-switch-context", "duration_ms": 2070},
+    {"state": "safe-confirmation-cancelled", "duration_ms": 2300},
+    {"state": "stable-final-overview", "duration_ms": 1500},
+]
 
 
 def require(condition: bool, message: str) -> None:
@@ -203,7 +209,8 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
     require(document.landmarks["section"] == 0, "homepage must not contain marketing sections")
     require(document.landmarks["nav"] == 0, "homepage must not contain navigation")
     require(len(elements(document, "picture")) == 1, "homepage must contain exactly one picture")
-    require(len(document.buttons) == 1, "homepage must contain exactly one control")
+    require(len(document.buttons) == 0, "homepage must not contain animation controls")
+    require(len(elements(document, "figcaption")) == 0, "empty TUI caption remains")
 
     duplicates = sorted(key for key, count in Counter(document.ids).items() if count > 1)
     require(not duplicates, f"duplicate ids: {duplicates}")
@@ -223,27 +230,22 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
         if urllib.parse.urlsplit(url).path.startswith("/media/")
     ]
     require(media_refs == ["/media/aiup-list-poster.png", "/media/aiup-list.gif"], f"homepage media drifted: {media_refs}")
-    primary = [image for image in document.images if image.get("id") == "primary-tui-image"]
-    require(len(primary) == 1, "primary TUI image is missing")
+    primary = [
+        image for image in document.images
+        if urllib.parse.urlsplit(image.get("src", "")).path == "/media/aiup-list.gif"
+    ]
+    require(len(primary) == 1, "primary TUI GIF is missing")
     primary_image = primary[0]
     require(urllib.parse.urlsplit(primary_image.get("src", "")).path == "/media/aiup-list.gif", "GIF is not the default TUI image")
     require(primary_image.get("fetchpriority") == "high", "primary GIF must use high fetch priority")
     require(primary_image.get("loading", "") != "lazy", "primary GIF must not be lazy loaded")
     require((primary_image.get("width"), primary_image.get("height")) == ("2016", "1208"), "primary GIF dimensions drifted")
-    require(primary_image.get("data-motion-src", "").endswith(f"?v={CACHE_VERSION}"), "motion source wiring drifted")
-    require(primary_image.get("data-poster-src", "").endswith(f"?v={CACHE_VERSION}"), "poster source wiring drifted")
+    require(not any(key.startswith("data-") for key in primary_image), "obsolete animation data attributes remain")
 
     sources = elements(document, "source")
     require(len(sources) == 1, "primary picture must contain one reduced-motion source")
     require(sources[0].get("media") == "(prefers-reduced-motion: reduce)", "reduced-motion media query drifted")
     require(urllib.parse.urlsplit(sources[0].get("srcset", "")).path == "/media/aiup-list-poster.png", "reduced-motion poster drifted")
-
-    button = document.buttons[0]
-    require(button.get("id") == "animation-toggle", "animation control id drifted")
-    require(button.get("aria-controls") == "primary-tui-image", "animation control target drifted")
-    require(button.get("aria-label") == "Pause aiup TUI animation", "animation control accessible name drifted")
-    require(button.get("aria-pressed") == "false" and button.get("data-state") == "playing", "animation control state drifted")
-    require("hidden" in button, "animation control must be progressive enhancement")
 
     require(re.search(r"<h1>\s*<img[^>]+alt=\"aiup\"", text), "h1 does not represent the aiup lockup")
     body = text.split("<body>", 1)[1]
@@ -253,22 +255,16 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
         "aiup-list-adopt", "install-command", "copy-button", "sticky", "terminal-frame",
         'id="product"', 'id="how-it-works"', 'id="demo"', 'id="catalog"',
         'id="safety"', 'id="requirements"', 'id="faq"', 'class="reel"',
+        "animation-toggle", "aria-controls", "aria-pressed", "data-motion-src", "data-poster-src",
     ):
         require(forbidden not in body, f"obsolete homepage content remains: {forbidden}")
+    require(not re.search(r"\b(?:pause|resume|play animation)\b", body, re.I), "animation-control copy remains")
 
 
-def validate_animation_script() -> None:
-    script = (SITE / "site.js").read_text(encoding="utf-8")
-    for required in (
-        "#animation-toggle", "#primary-tui-image", "#primary-tui-reduced",
-        "prefers-reduced-motion: reduce", "dataset.motionSrc", "dataset.posterSrc",
-        "reducedSource.srcset = source", "animationImage.src = source",
-        'setAttribute("aria-label"', 'setAttribute("aria-pressed"',
-        'addEventListener("click"', "animationButton.hidden = false",
-    ):
-        require(required in script, f"animation script wiring is missing: {required}")
-    for forbidden in ("clipboard", "execCommand", "data-copy-target", "copyText"):
-        require(forbidden not in script, f"obsolete command-copy behavior remains: {forbidden}")
+def validate_no_animation_script(document: Document) -> None:
+    require(not (SITE / "site.js").exists(), "dead site JavaScript remains")
+    external_scripts = [attrs for attrs in elements(document, "script") if attrs.get("src")]
+    require(not external_scripts, f"homepage includes external JavaScript: {external_scripts}")
 
 
 def validate_images(document: Document) -> None:
@@ -353,6 +349,7 @@ def validate_references(document: Document, error_document: Document) -> None:
 
 def validate_cache_versions(text: str, error_text: str) -> None:
     require("v=20260825-" not in text + error_text, "stale cache-busting token remains")
+    require("v=20260826-01" not in text + error_text, "superseded cache-busting token remains")
     versioned_paths = re.findall(
         r"(?:https://aiup\.neuman\.dev)?(/[^\s\"']+\.(?:css|js|webmanifest|gif|png|svg|ico)\?v=([0-9-]+))",
         text + error_text,
@@ -381,8 +378,18 @@ def validate_media_and_public_safety() -> None:
         published = SITE / "media" / name
         require(canonical.is_file() and published.is_file(), f"media asset is missing: {name}")
         require(sha256(canonical) == sha256(published), f"docs/site media drift: {name}")
-    require(sha256(SITE / "media" / "aiup-list.gif") == GIF_SHA256, "canonical GIF hash drifted")
-    require(sha256(SITE / "media" / "aiup-list-poster.png") == POSTER_SHA256, "canonical poster hash drifted")
+    capture_manifest = json.loads((ROOT / "docs" / "media" / "capture-manifest.json").read_text(encoding="utf-8"))
+    require(capture_manifest.get("gif_sequence") == GIF_SEQUENCE, "canonical GIF narrative or timing drifted")
+    require(capture_manifest.get("gif_frames") == len(GIF_SEQUENCE), "canonical GIF frame count drifted")
+    require(capture_manifest.get("gif_duration_ms") == sum(item["duration_ms"] for item in GIF_SEQUENCE), "canonical GIF duration drifted")
+    require(capture_manifest.get("gif_playback") == {
+        "mode": "finite", "plays": 1, "netscape_loop_extension": False,
+    }, "canonical GIF playback contract drifted")
+    for name in names:
+        require(
+            sha256(SITE / "media" / name) == capture_manifest["assets"][name]["sha256"],
+            f"canonical media hash drifted: {name}",
+        )
     require(image_dimensions(SITE / "media" / "aiup-list.gif") == (2016, 1208), "canonical GIF dimensions drifted")
     require(image_dimensions(SITE / "media" / "aiup-list-poster.png") == (2016, 1208), "canonical poster dimensions drifted")
 
@@ -407,6 +414,7 @@ def validate_media_and_public_safety() -> None:
     require("@media (prefers-reduced-motion: reduce)" in styles, "reduced-motion CSS is missing")
     require("font-family: var(--sans)" in styles, "system-font policy drifted")
     require("terminal-frame" not in styles and ".tui::before" not in styles, "fake terminal frame styling remains")
+    require("animation-toggle" not in styles, "obsolete animation-control styling remains")
     require(not (SITE / "sw.js").exists(), "service worker is forbidden for this site")
 
 
@@ -414,7 +422,7 @@ def main() -> int:
     index_text, index_document = parse_html(SITE / "index.html")
     structured = validate_metadata(index_document)
     validate_minimal_homepage(index_text, index_document)
-    validate_animation_script()
+    validate_no_animation_script(index_document)
     validate_images(index_document)
 
     error_text, error_document = parse_html(SITE / "404.html")

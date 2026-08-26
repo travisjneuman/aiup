@@ -8,11 +8,10 @@ Do not publish it directly with Wrangler.
 
 The homepage is deliberately a minimal GitHub-first stage:
 
-- `index.html` presents the aiup lockup, the accepted TUI animation, its
-  reduced-motion/paused poster, and one GitHub repository destination;
+- `index.html` presents the aiup lockup, the finite TUI animation, its
+  reduced-motion poster, and one GitHub repository destination;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;
-- `site.js` only controls animation pause/play state;
 - `catalog.json` remains generated from `macos/aiup` for machine-readable
   discovery and is not rendered on the homepage;
 - `media/` remains a byte-identical one-way mirror of `docs/media/`;
@@ -28,9 +27,12 @@ continues to generate README/catalog documentation, `site/catalog.json`, and
 the canonical media mirror; it does not inject marketing or catalog markup
 into `site/index.html`.
 
-With JavaScript disabled, the default GIF, reduced-motion picture source, and
-GitHub destination remain useful. JavaScript progressively exposes the small
-animation control and swaps between the accepted GIF and poster.
+The page has no JavaScript. The default GIF, reduced-motion picture source, and
+GitHub destination therefore remain useful without a runtime behavior layer.
+The animation is encoded for one finite playback and ends on a stable catalog
+overview. Because its expanded narrative lasts longer than five seconds and no
+playback control is present by owner direction, the page has a known WCAG 2.2.2
+limitation and does not claim complete WCAG conformance.
 
 ## Validate
 
@@ -44,8 +46,9 @@ scripts/build-brand-assets --check
 ```
 
 `scripts/check-site` uses Python's standard library. It validates the minimal
-visible contract, metadata and JSON-LD, progressive animation wiring, local
-references, image dimensions, generated catalog data, canonical media mirrors,
+visible contract, metadata and JSON-LD, absence of animation controls and
+JavaScript, local references, image dimensions, generated catalog data,
+canonical media mirrors,
 manifest/robots/sitemap/llms/404 behavior, security headers, and public-safety
 boundaries without adding dependencies.
 
@@ -63,6 +66,6 @@ publication, new resource, analytics, tracker, cookie, external font, remote
 runtime asset, or service worker is part of this site.
 
 The sole default homepage media is `media/aiup-list.gif`; its static poster is
-used only for reduced motion and the paused state. Capture and brand provenance
+used only for reduced motion. Capture and brand provenance
 live in [`docs/media/README.md`](../docs/media/README.md) and
 [`brand/README.md`](brand/README.md).

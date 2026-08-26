@@ -5,7 +5,6 @@
   --muted: #9aa0d4;
   --cyan: #4de0ff;
   --mint: #4ef0c4;
-  --border: rgba(77, 224, 255, 0.26);
   --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -40,10 +39,6 @@ img,
 picture {
   display: block;
   max-width: 100%;
-}
-
-button {
-  font: inherit;
 }
 
 a {
@@ -118,30 +113,6 @@ a {
   max-height: calc(100svh - 10rem);
   object-fit: contain;
   object-position: center;
-}
-
-.tui figcaption {
-  min-height: 3rem;
-  padding-top: 0.35rem;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.animation-toggle {
-  min-height: 2.75rem;
-  padding: 0.5rem 0.8rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 0.76rem;
-  font-weight: 650;
-}
-
-.animation-toggle:hover {
-  border-color: var(--border);
-  color: var(--mist);
 }
 
 .site-footer {
@@ -254,11 +225,5 @@ a {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-  }
-}
-
-@media (forced-colors: active) {
-  .animation-toggle {
-    border-color: ButtonText;
   }
 }
