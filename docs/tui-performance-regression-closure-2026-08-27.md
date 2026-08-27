@@ -1,6 +1,6 @@
 # TUI performance and regression closure
 
-Decision: **PASS WITH FIXES**
+Decision: **PARTIAL**
 Audited baseline: `9f283e45e3d7e5225e24a2f45b26f7e94a297e44`
 Corrected runtime/manifest: **2026.08.27-02**
 Historical same-host reference: `8c25e1e87d4ad8971091df03bc717b039f6e641a`
@@ -126,6 +126,7 @@ Final task-owned state passed:
 
 ## Remaining limitations
 
+- The required private `_meta.notes` closure record could not be added or published. Its canonical repository was one commit behind `origin/master` with three unrelated untracked paths, and the established `repo-sync pull-safe` preflight returned `blocked-dirty`. Those paths were preserved unchanged.
 - Cold authoritative inventory/session creation is intentionally slower than warm list readiness.
 - The full interactive picker includes immutable session and Updates validation; on this run both current and historical sessions exceeded the approximate 1 s investigation threshold, while warm managed/full list readiness passed it.
 - Provider availability and performance outside deterministic fixtures vary by network and upstream service.
@@ -133,8 +134,8 @@ Final task-owned state passed:
 
 ## Rollback
 
-Revert the single Prompt 4 public commit on `main` and allow the established GitHub-connected Pages workflow to republish the prior runtime/manifest pair. Do not rewrite history or delete Cloudflare resources. Cache schema v3, availability records, and private sessions are disposable accelerators; an older runtime rejects incompatible state. The launcher retains the previous complete executable generation as recovery evidence.
+Revert the Prompt 4 source-bearing commit and its subsequent closure-status documentation commit on `main`, then allow the established GitHub-connected Pages workflow to republish the prior runtime/manifest pair. Do not rewrite history or delete Cloudflare resources. Cache schema v3, availability records, and private sessions are disposable accelerators; an older runtime rejects incompatible state. The launcher retains the previous complete executable generation as recovery evidence.
 
 ## Final decision
 
-**PASS WITH FIXES.** Confirmed cache/parser, provider-bound, session-integrity, warm-picker hashing, reload-coalescing, and PTY-harness defects were corrected through the existing architecture, regression-tested, fully revalidated, and prepared for the established publication path. The Prompt 1–4 TUI performance workstream is complete for this dated macOS scope.
+**PARTIAL.** Confirmed cache/parser, provider-bound, session-integrity, warm-picker hashing, reload-coalescing, and PTY-harness defects were corrected through the existing architecture, regression-tested, committed, pushed, and published through the established GitHub-connected path. All public source, runtime, performance, command, PTY, media, site, and provider-readback gates passed. The required private `_meta.notes` commit remains blocked by the preserved dirty/behind canonical checkout, so Prompt 4 and the Prompt 1–4 TUI performance workstream are not yet complete.

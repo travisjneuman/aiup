@@ -2,7 +2,7 @@
 
 ## 2026.08.27-02
 
-- Closed the integrated `aiup list` performance program with independent cache, session, provider, Updates, mutation-safety, command, PTY, launcher, and publication regression evidence.
+- Audited the integrated `aiup list` performance program with independent cache, session, provider, Updates, mutation-safety, command, PTY, launcher, and publication regression evidence; the public implementation is closed, while the required private closure record remains blocked by its preserved canonical checkout.
 - Hardened remote availability cache parsing so nonnumeric timestamps, extra TSV fields, malformed or control-bearing versions, and oversized provider responses fail safe and are repaired through a bounded live provider check.
 - Added final regressions for strict cache metadata, the 1 MiB provider-response boundary, stale-lock recovery, cancellation during provider work, TTL and retention behavior, concurrent session isolation, all supported cleanup signals, and the rule that cache contents alone cannot invoke an updater.
 - Coalesced two-worker enrichment into one atomic session publication and fzf reload, and made the PTY layout harness establish child geometry before exec so interaction and live-resize checks are deterministic.
