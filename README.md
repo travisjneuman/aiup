@@ -168,7 +168,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.27-01** · **81** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.08.27-02** · **81** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

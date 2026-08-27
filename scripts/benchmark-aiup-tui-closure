@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FIXTURE="$ROOT/scripts/fixtures/capture"
+HISTORICAL_COMMIT="${1:-8c25e1e}"
+BENCH_DIR="$(mktemp -d "$ROOT/.aiup-benchmark.XXXXXX")"
+trap 'find "$BENCH_DIR" -depth -delete 2>/dev/null || true' EXIT
+
+for object in macos/aiup macos/catalog/manifest.tsv; do
+  size="$(git -C "$ROOT" cat-file -s "$HISTORICAL_COMMIT:$object")"
+  case "$size" in ''|*[!0-9]*) printf 'invalid historical object size: %s\n' "$object" >&2; exit 1 ;; esac
+  [ "$size" -le 1048576 ] || { printf 'historical object exceeds 1 MiB: %s\n' "$object" >&2; exit 1; }
+done
+git -C "$ROOT" show "$HISTORICAL_COMMIT:macos/aiup" > "$BENCH_DIR/historical-aiup"
+git -C "$ROOT" show "$HISTORICAL_COMMIT:macos/catalog/manifest.tsv" > "$BENCH_DIR/historical-manifest.tsv"
+chmod 700 "$BENCH_DIR/historical-aiup"
+mkdir "$BENCH_DIR/bin"
+printf '%s\n' '#!/usr/bin/env bash' 'cat >/dev/null; exit 130' > "$BENCH_DIR/bin/fzf"
+chmod 700 "$BENCH_DIR/bin/fzf"
+
+python3 - "$ROOT/macos/aiup" "$ROOT/macos/catalog/manifest.tsv" \
+  "$BENCH_DIR/historical-aiup" "$BENCH_DIR/historical-manifest.tsv" "$FIXTURE" "$BENCH_DIR" <<'PY'
+import math, os, pathlib, shutil, statistics, subprocess, sys, time
+
+current_runtime, current_manifest, old_runtime, old_manifest, fixture, root = sys.argv[1:]
+root = pathlib.Path(root)
+path = f"{fixture}/bin:/opt/homebrew/bin:/usr/bin:/bin"
+
+def percentile(values, fraction):
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(len(ordered) * fraction) - 1)]
+
+def report(target, label, values):
+    print(f"{target}\t{label}\tn={len(values)}\tmedian={statistics.median(values):.1f}ms\tp95={percentile(values, .95):.1f}ms")
+
+def base_env(runtime, manifest, state):
+    env = os.environ.copy()
+    env.update(AIUP_CAPTURE_FIXTURE_DIR=fixture, AIUP_STATE_DIR=str(state), PATH=path,
+               AIUP_CATALOG_MANIFEST=manifest, AIUP_ACTIVE_RUNTIME=runtime)
+    return env
+
+def timed_run(command, env):
+    started = time.perf_counter()
+    subprocess.run(command, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    return (time.perf_counter() - started) * 1000
+
+def start_session(runtime, manifest, state):
+    state.mkdir(parents=True, exist_ok=True)
+    for name in ("test-session-context.tsv", "test-session-release"):
+        try: (state / name).unlink()
+        except FileNotFoundError: pass
+    env = base_env(runtime, manifest, state)
+    env["AIUP_TUI_TESTING"] = "1"
+    started = time.perf_counter()
+    proc = subprocess.Popen([runtime, "__tui-test-context"], env=env,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    context = state / "test-session-context.tsv"
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline and not context.exists():
+        if proc.poll() is not None: raise RuntimeError(f"session exited {proc.returncode}")
+        time.sleep(.01)
+    if not context.exists():
+        proc.terminate(); proc.wait(timeout=2); raise RuntimeError("session context timed out")
+    ready = (time.perf_counter() - started) * 1000
+    values = dict(line.split("\t", 1) for line in context.read_text().splitlines())
+    return proc, values, ready, env
+
+def stop_session(proc, state):
+    started = time.perf_counter()
+    (state / "test-session-release").touch()
+    proc.wait(timeout=10)
+    return (time.perf_counter() - started) * 1000
+
+def benchmark_target(name, runtime, manifest):
+    cold = []
+    for number in range(9):
+        state = root / f"{name}-cold-{number}"
+        state.mkdir()
+        cold.append(timed_run([runtime, "list", "--plain"], base_env(runtime, manifest, state)))
+    report(name, "cold-full-list", cold)
+
+    for label, args in (("warm-managed-list", ["--view", "managed", "list", "--plain"]),
+                        ("warm-full-list", ["list", "--plain"])):
+        state = root / f"{name}-{label}"
+        state.mkdir()
+        env = base_env(runtime, manifest, state)
+        subprocess.run([runtime, *args], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        report(name, label, [timed_run([runtime, *args], env) for _ in range(20)])
+
+    state = root / f"{name}-warm-picker"
+    state.mkdir()
+    env = base_env(runtime, manifest, state)
+    env["AIUP_TUI_TESTING"] = "1"
+    env["PATH"] = f"{root}/bin:{path}"
+    picker = ["script", "-q", "/dev/null", runtime, "list"]
+    subprocess.run(picker, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    report(name, "warm-picker-session", [timed_run(picker, env) for _ in range(9)])
+
+    create, cleanup = [], []
+    for number in range(9):
+        state = root / f"{name}-session-{number}"
+        proc, _, ready, _ = start_session(runtime, manifest, state)
+        create.append(ready); cleanup.append(stop_session(proc, state))
+    report(name, "cold-session-create", create); report(name, "session-cleanup", cleanup)
+
+    state = root / f"{name}-interactions"
+    proc, values, _, env = start_session(runtime, manifest, state)
+    session, token = values["session"], values["token"]
+    helper = str(pathlib.Path(session) / "fast-helper.py")
+    env.update(AIUP_TUI_SESSION_DIR=session, AIUP_TUI_SESSION_TOKEN=token,
+               AIUP_CATEGORY_FILTER="", AIUP_VIEW_MODE="overview", AIUP_SORT_MODE="id")
+    cases = {
+        "search-change": [sys.executable, helper, "rows", "gemini"],
+        "category-toggle": [sys.executable, helper, "toggle", "__cat:coding-agents", ""],
+        "category-navigation": [sys.executable, helper, "nav", "next", "gemini"],
+        "resize-header": [sys.executable, helper, "header"],
+        "reload-after-enrichment": [sys.executable, helper, "rows", ""],
+    }
+    for label, command in cases.items():
+        report(name, label, [timed_run(command, env) for _ in range(20)])
+    first = []
+    for _ in range(20):
+        started = time.perf_counter()
+        child = subprocess.Popen([sys.executable, helper, "preview", "gemini"], env=env,
+                                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        line = child.stdout.readline()
+        first.append((time.perf_counter() - started) * 1000)
+        child.terminate(); child.wait(timeout=2)
+        if not line.startswith("gemini ·"): raise RuntimeError("preview first line was not local")
+    report(name, "preview-first-line", first)
+    stop_session(proc, state)
+
+for target in (("historical-8c25e1e", old_runtime, old_manifest),
+               ("current", current_runtime, current_manifest)):
+    benchmark_target(*target)
+PY

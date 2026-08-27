@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+FIXTURE="$ROOT/scripts/fixtures/capture"
+PROVIDER="$ROOT/scripts/fixtures/fake-provider"
+TEST_DIR="$(mktemp -d "$ROOT/.aiup-closure-test.XXXXXX")"
+trap '[ -z "${SESSION_PARENT:-}" ] || kill "$SESSION_PARENT" 2>/dev/null || true; [ -z "${SECOND_PARENT:-}" ] || kill "$SECOND_PARENT" 2>/dev/null || true; find "$TEST_DIR" -depth -delete 2>/dev/null || true' EXIT
+CAPTURE_PATH="$FIXTURE/bin:/opt/homebrew/bin:/usr/bin:/bin"
+FIXED_NOW="$(PATH="$CAPTURE_PATH" date +%s)"
+SESSION_PARENT=""
+SECOND_PARENT=""
+
+run_available() {
+  local state="$1" scenario="$2" tool="$3" current="$4" output="$5"
+  mkdir -p "$state"
+  env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO="$scenario" \
+    AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_PROVIDER_TIMEOUT=2 \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available "$tool" "$current" > "$output"
+}
+
+start_session() {
+  local state="$1"
+  rm -f "$state/test-session-context.tsv" "$state/test-session-release"
+  env AIUP_TUI_TESTING=1 AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+    "$AIUP" __tui-test-context & SESSION_PARENT=$!
+  for _ in $(seq 1 200); do [ -s "$state/test-session-context.tsv" ] && break; sleep 0.05; done
+  [ -s "$state/test-session-context.tsv" ]
+  SESSION="$(awk -F '\t' '$1=="session" {print $2}' "$state/test-session-context.tsv")"
+  TOKEN="$(awk -F '\t' '$1=="token" {print $2}' "$state/test-session-context.tsv")"
+  RUNTIME="$(awk -F '\t' '$1=="runtime" {print $2}' "$state/test-session-context.tsv")"
+  MANIFEST="$(awk -F '\t' '$1=="manifest" {print $2}' "$state/test-session-context.tsv")"
+}
+
+run_fast() {
+  local session="$1" token="$2"
+  shift 2
+  env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$MANIFEST" \
+    AIUP_ACTIVE_RUNTIME="$RUNTIME" AIUP_CATEGORY_FILTER='' AIUP_VIEW_MODE=overview AIUP_SORT_MODE=id \
+    AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$SESSION_STATE" PATH="$CAPTURE_PATH" \
+    python3 "$session/fast-helper.py" "$@"
+}
+
+# TTL boundaries distinguish positive/current and short-lived failure results.
+for status in newer current failure; do
+  state="$TEST_DIR/ttl-$status"; mkdir -p "$state/available-versions"
+  ttl=2; version=''; scenario=newer
+  [ "$status" = newer ] && version=9.9.9
+  [ "$status" = current ] && scenario=current
+  [ "$status" = failure ] && scenario=failure
+  printf '%s\t1.0.0\t%s\t%s\n' "$((FIXED_NOW - 1))" "$status" "$version" > "$state/available-versions/gemini.tsv"
+  env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO="$scenario" \
+    AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_CACHE_TTL="$ttl" AIUP_AVAILABLE_VERSION_FAILURE_TTL="$ttl" \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available gemini 1.0.0 > "$TEST_DIR/ttl-$status-hit"
+  [ ! -e "$state/provider.log" ]
+  printf '%s\t1.0.0\t%s\t%s\n' "$((FIXED_NOW - ttl))" "$status" "$version" > "$state/available-versions/gemini.tsv"
+  env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO="$scenario" \
+    AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_CACHE_TTL="$ttl" AIUP_AVAILABLE_VERSION_FAILURE_TTL="$ttl" \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available gemini 1.0.0 > "$TEST_DIR/ttl-$status-miss"
+  [ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 1 ]
+done
+
+# Dead locks recover, cancellation during provider work reaps the provider and
+# its watchdog, and bounded retention preserves unfamiliar symlinks.
+state="$TEST_DIR/locks"; mkdir -p "$state/available-versions/.gemini.lock"
+printf '99999999\t0\n' > "$state/available-versions/.gemini.lock/meta"
+run_available "$state" newer gemini 1.0.0 "$TEST_DIR/stale-lock.out"
+grep -qx '9.9.9' "$TEST_DIR/stale-lock.out"
+[ ! -e "$state/available-versions/.gemini.lock" ]
+
+state="$TEST_DIR/cancel-during"; mkdir "$state"
+env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO=slow-newer \
+  AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_PROVIDER_TIMEOUT=10 \
+  AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available gemini 1.0.0 > "$TEST_DIR/cancel-during.out" & lookup_pid=$!
+for _ in $(seq 1 100); do [ -s "$state/provider.log" ] && break; sleep 0.02; done
+[ -s "$state/provider.log" ]
+kill -TERM "$lookup_pid"
+wait "$lookup_pid" 2>/dev/null || true
+sleep 0.1
+! find "$state/available-versions" -maxdepth 1 -type d -name '*.lock' | grep -q .
+! ps -ax -o command= | grep -F "$PROVIDER gemini 1.0.0" | grep -v grep >/dev/null
+
+state="$TEST_DIR/retention"; mkdir -p "$state/available-versions"
+ln -s "$TEST_DIR" "$state/available-versions/unfamiliar.tsv"
+for tool in gemini claude codex fzf; do
+  env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO=newer \
+    AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_CACHE_LIMIT=3 \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available "$tool" 1.0.0 >/dev/null
+done
+[ "$(find "$state/available-versions" -maxdepth 1 -type f -name '*.tsv' | wc -l | tr -d ' ')" -le 3 ]
+[ -L "$state/available-versions/unfamiliar.tsv" ]
+
+# Fast helpers reject absent/wrong credentials and changed session content.
+SESSION_STATE="$TEST_DIR/session-integrity"; mkdir "$SESSION_STATE"
+start_session "$SESSION_STATE"
+if run_fast "$SESSION" wrong-token rows '' >/dev/null 2>&1; then exit 1; fi
+if env -u AIUP_TUI_SESSION_TOKEN AIUP_TUI_SESSION_DIR="$SESSION" python3 "$SESSION/fast-helper.py" rows '' >/dev/null 2>&1; then exit 1; fi
+cp "$SESSION/catalog-index.tsv" "$TEST_DIR/catalog-index.good"
+printf 'corrupt\n' >> "$SESSION/catalog-index.tsv"
+if run_fast "$SESSION" "$TOKEN" rows '' >/dev/null 2>&1; then exit 1; fi
+cp "$TEST_DIR/catalog-index.good" "$SESSION/catalog-index.tsv"
+mv "$SESSION/preview-local.tsv" "$TEST_DIR/preview-local.good"
+ln -s "$TEST_DIR/preview-local.good" "$SESSION/preview-local.tsv"
+if run_fast "$SESSION" "$TOKEN" preview gemini >/dev/null 2>&1; then exit 1; fi
+rm "$SESSION/preview-local.tsv"; cp "$TEST_DIR/preview-local.good" "$SESSION/preview-local.tsv"
+run_fast "$SESSION" "$TOKEN" rows '' >/dev/null
+: > "$SESSION_STATE/test-session-release"
+wait "$SESSION_PARENT"; SESSION_PARENT=""
+[ ! -e "$SESSION" ]
+
+# Two sessions sharing one state root keep distinct credentials and directories;
+# neither session cleanup removes the other while its owner remains live.
+SESSION_STATE="$TEST_DIR/concurrent-sessions"; mkdir "$SESSION_STATE"
+start_session "$SESSION_STATE"
+first_parent="$SESSION_PARENT"; first_session="$SESSION"; first_token="$TOKEN"; first_runtime="$RUNTIME"; first_manifest="$MANIFEST"
+start_session "$SESSION_STATE"
+SECOND_PARENT="$SESSION_PARENT"; second_session="$SESSION"; second_token="$TOKEN"
+[ "$first_session" != "$second_session" ] && [ "$first_token" != "$second_token" ]
+[ -d "$first_session" ] && [ -d "$second_session" ]
+MANIFEST="$first_manifest"; RUNTIME="$first_runtime"
+run_fast "$first_session" "$first_token" rows '' >/dev/null
+if run_fast "$first_session" "$second_token" rows '' >/dev/null 2>&1; then exit 1; fi
+: > "$SESSION_STATE/test-session-release"
+wait "$first_parent"; wait "$SECOND_PARENT"
+SESSION_PARENT=""; SECOND_PARENT=""
+[ ! -e "$first_session" ] && [ ! -e "$second_session" ]
+
+# All supported parent signals restore through the same owned-session cleanup.
+for signal in HUP INT TERM; do
+  SESSION_STATE="$TEST_DIR/signal-$signal"; mkdir "$SESSION_STATE"
+  start_session "$SESSION_STATE"
+  signaled_session="$SESSION"; signaled_parent="$SESSION_PARENT"
+  kill -"$signal" "$signaled_parent"
+  wait "$signaled_parent" 2>/dev/null || true
+  SESSION_PARENT=""
+  [ ! -e "$signaled_session" ]
+done
+
+printf 'aiup TUI closure regressions: ok\n'

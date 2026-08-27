@@ -193,6 +193,16 @@ grep -qx $'gemini\tupdate' "$state/mutations.log"
   bash "$runtime" __tui-test-updates-apply __updates:all >/dev/null
 [ ! -s "$state/mutations.log" ]
 grep -q '^Update all 2 verified items:' "$state/confirms.log"
+grep -q 'Gemini CLI' "$state/confirms.log"
+grep -q 'fzf' "$state/confirms.log"
+
+# A displayed cache-only candidate is never mutation authority. Live provider
+# failure during authoritative revalidation must keep the fake updater idle.
+: > "$state/mutations.log"
+"${session_env[@]}" AIUP_TUI_TEST_MUTATION_COMMAND="$UPDATER" AIUP_FAKE_UPDATER_LOG="$state/mutations.log" \
+  AIUP_FAKE_PROVIDER_SCENARIO=failure bash "$runtime" __tui-test-updates-apply __update:gemini > "$TEST_DIR/cache-only-result"
+[ ! -s "$state/mutations.log" ]
+grep -q '^skipped       gemini$' "$TEST_DIR/cache-only-result"
 
 # A failed item does not stop later independent items or mark the whole batch
 # successful. Successful state changes disappear after authoritative current

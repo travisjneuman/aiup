@@ -1,5 +1,5 @@
 # aiup managed catalog manifest
-# aiup-runtime-version: 2026.08.27-01
+# aiup-runtime-version: 2026.08.27-02
 # id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
 brew	infra	special	active	Homebrew — required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node

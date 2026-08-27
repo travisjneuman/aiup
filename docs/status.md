@@ -2,7 +2,7 @@
 
 Status date: **2026-08-27**
 
-Current version: **2026.08.27-01**
+Current version: **2026.08.27-02**
 
 ## Current product scope
 
@@ -29,7 +29,7 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - fail closed on offline, failed, empty, invalid, mismatched, partial, locked, or unactivatable public refreshes; and
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in.
 
-The cache/session authority and first performance slice are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md). The lazy/eager/background boundaries, provider TTLs, invalidation rules, fallbacks, and second-slice measurements are documented in [TUI performance slice 2](tui-performance-slice-2-2026-08-26.md). The virtual-category identity, verified bulk-update boundary, invalidation behavior, and same-host performance comparison are documented in [Dynamic Updates category and safe bulk updating](dynamic-updates-category-2026-08-27.md).
+The cache/session authority and first performance slice are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md). The lazy/eager/background boundaries, provider TTLs, invalidation rules, fallbacks, and second-slice measurements are documented in [TUI performance slice 2](tui-performance-slice-2-2026-08-26.md). The virtual-category identity, verified bulk-update boundary, and invalidation behavior are documented in [Dynamic Updates category and safe bulk updating](dynamic-updates-category-2026-08-27.md). The independently reproduced contract, fault, security, performance, command, PTY, and publication evidence is in [TUI performance and regression closure](tui-performance-regression-closure-2026-08-27.md).
 
 The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Individual products can impose stricter constraints recorded in the [dated 83-entry accuracy audit](catalog-accuracy-2026-08-25.md). That audit left 81 managed entries with executable contracts.
 
@@ -74,4 +74,4 @@ Future tagged-release, CI, and cross-platform decisions remain separate scopes. 
 
 ## Workstream disposition
 
-The current macOS tool, dynamic Updates category and safe bulk-update slice, public repository, minimal site, continuously looping media, brand/discovery suite, and public/private documentation workstream is complete for its dated scope. The independent final performance/regression closure remains the next implementation prompt. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation remain separate optional release-hardening lanes rather than automated PTY claims.
+The current macOS tool, dynamic Updates category and safe bulk-update slice, complete `aiup list` performance program, public repository, minimal site, continuously looping media, brand/discovery suite, and public/private documentation workstream is complete for its dated scope. The independent final performance/regression closure is **PASS WITH FIXES**. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation remain separate optional release-hardening lanes rather than automated PTY claims.

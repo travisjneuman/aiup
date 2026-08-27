@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.27-01"
+AIUP_VERSION="2026.08.27-02"
 AIUP_TUI_CACHE_SCHEMA="3"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -3055,9 +3055,9 @@ PY
 bounded_provider_capture() {
   local output="$1" timeout="$2"
   shift 2
-  local provider_pid watchdog_pid rc
+  local provider_pid watchdog_pid rc bytes
   : > "$output" || return 1
-  (ulimit -f 2048; "$@") > "$output" 2>/dev/null &
+  (ulimit -f 1024; "$@") > "$output" 2>/dev/null &
   provider_pid=$!
   AIUP_PROVIDER_PID="$provider_pid"
   (sleep "$timeout"; kill -TERM "$provider_pid" 2>/dev/null || true; sleep 0.2; kill -KILL "$provider_pid" 2>/dev/null || true) &
@@ -3071,6 +3071,10 @@ bounded_provider_capture() {
   wait "$watchdog_pid" 2>/dev/null || true
   AIUP_PROVIDER_WATCHDOG_PID=""
   trap - HUP INT TERM
+  if [ "$rc" -eq 0 ]; then
+    bytes="$(wc -c < "$output" | tr -d ' ')"
+    case "$bytes" in ''|*[!0-9]*) rc=1 ;; *) [ "$bytes" -le 1048576 ] || rc=1 ;; esac
+  fi
   [ "$rc" -eq 0 ]
 }
 
@@ -3202,13 +3206,24 @@ available_cache_key() {
 }
 
 available_cache_read() {
-  local tool="$1" current="$2" cache_file now cached_at cached_current cached_status cached_version ttl age
+  local tool="$1" current="$2" cache_file now cached_at cached_current cached_status cached_version cached_extra ttl age validated_version
   cache_file="$(available_cache_file "$tool")"
   [ -f "$cache_file" ] && [ ! -L "$cache_file" ] || return 1
-  IFS=$'\t' read -r cached_at cached_current cached_status cached_version < "$cache_file" || return 1
-  case "$cached_at:$cached_status" in *[!0-9A-Za-z:_-]*) return 1 ;; esac
+  [ "$(wc -l < "$cache_file" | tr -d ' ')" -eq 1 ] || return 1
+  IFS=$'\t' read -r cached_at cached_current cached_status cached_version cached_extra < "$cache_file" || return 1
+  [ -z "${cached_extra:-}" ] || return 1
+  case "$cached_at" in ''|*[!0-9]*) return 1 ;; esac
   [ "$cached_current" = "$current" ] || return 1
-  case "$cached_status" in newer|current) ttl="$AVAILABLE_VERSION_CACHE_TTL" ;; failure) ttl="$AVAILABLE_VERSION_FAILURE_TTL" ;; *) return 1 ;; esac
+  case "$cached_status" in
+    newer)
+      ttl="$AVAILABLE_VERSION_CACHE_TTL"
+      validated_version="$(available_candidate_result "$current" "$cached_version")" || return 1
+      [ -n "$validated_version" ] && [ "$validated_version" = "$cached_version" ] || return 1
+      ;;
+    current) ttl="$AVAILABLE_VERSION_CACHE_TTL"; [ -z "${cached_version:-}" ] || return 1 ;;
+    failure) ttl="$AVAILABLE_VERSION_FAILURE_TTL"; [ -z "${cached_version:-}" ] || return 1 ;;
+    *) return 1 ;;
+  esac
   now="$(date +%s)"; age=$((now - cached_at))
   [ "$age" -ge 0 ] && [ "$age" -lt "$ttl" ] || return 1
   profile_note "available-cache hit tool=$tool status=$cached_status age=${age}s ttl=${ttl}s"
@@ -3365,6 +3380,7 @@ tui_updates_index_valid() {
 
 tui_updates_publish() {
   local dir="${1:-$AIUP_TUI_SESSION_DIR}" token="${2:-$AIUP_TUI_SESSION_TOKEN}" snapshot="${3:-$AIUP_TUI_SNAPSHOT_GENERATION}"
+  local defer_validation="${4:-0}"
   local lock index_tmp rows_tmp meta_tmp runtime now owner_pid
   [ -n "$dir" ] && [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   [ -f "$dir/rows-base.tsv" ] && [ ! -L "$dir/rows-base.tsv" ] || return 1
@@ -3379,12 +3395,15 @@ tui_updates_publish() {
   [ -n "$owner_pid" ] || owner_pid="$$"
   if ! python3 - "$CATALOG_MANIFEST" "$dir/catalog-index.tsv" "$dir/brew-index.tsv" "$dir/versions-index.tsv" \
     "$AVAILABLE_VERSION_CACHE_DIR" "$dir/rows-base.tsv" "$index_tmp" "$rows_tmp" "$now" \
-    "$AVAILABLE_VERSION_CACHE_TTL" "$AVAILABLE_VERSION_FAILURE_TTL" <<'PY'
-import csv, os, pathlib, re, sys
+    "$AVAILABLE_VERSION_CACHE_TTL" "$AVAILABLE_VERSION_FAILURE_TTL" "$meta_tmp" "$runtime" "$dir/token" \
+    "$owner_pid" "$snapshot" "$AIUP_TUI_UPDATE_SCHEMA" "$AIUP_VERSION" "$CATALOG_MANIFEST_VERSION" <<'PY'
+import csv, hashlib, os, pathlib, re, sys
 
 (manifest_path, catalog_path, brew_path, versions_path, cache_path, base_path,
  index_path, rows_path) = map(pathlib.Path, sys.argv[1:9])
 now, good_ttl, failure_ttl = map(int, sys.argv[9:12])
+meta_path, runtime_path, token_path = map(pathlib.Path, sys.argv[12:15])
+owner_pid, snapshot, schema, runtime_version, manifest_version = sys.argv[15:20]
 
 def version_parts(value):
     return tuple(int(part) for part in re.findall(r"\d+", value or ""))
@@ -3393,6 +3412,9 @@ def greater(left, right):
     a, b = version_parts(left), version_parts(right)
     width = max(len(a), len(b))
     return a + (0,) * (width - len(a)) > b + (0,) * (width - len(b))
+
+def valid_version(value):
+    return bool(value and re.fullmatch(r"[A-Za-z0-9._+-]+", value) and re.search(r"\d", value))
 
 manifest = {}
 with manifest_path.open(encoding="utf-8") as handle:
@@ -3436,7 +3458,8 @@ for canonical, installed, lifecycle, label in candidates:
             cache_identity = f"{cached_at}:{cached_status}"
             if cached_status == "failure": status = "unavailable"
             elif cached_status == "current": status = "current"
-            elif cached_available and greater(cached_available, installed): status, available = "newer", cached_available
+            elif cached_status == "newer" and valid_version(cached_available) and greater(cached_available, installed):
+                status, available = "newer", cached_available
             else: status = "unavailable"
         except (OSError, UnicodeError, ValueError):
             status, available = "checking", ""
@@ -3473,6 +3496,18 @@ for canonical, installed, available, status, eligibility, lifecycle, action, lab
     rendered.append(f"__update:{canonical}\t{green}▌{reset} {canonical:<18.18} {installed} → {available} · update{review} · {label}\n")
 rendered.append(base_path.read_text(encoding="utf-8"))
 rows_path.write_text("".join(rendered), encoding="utf-8")
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+metadata = [
+    ("marker", "aiup-tui-updates-v1"), ("schema", schema),
+    ("runtime_version", runtime_version), ("runtime_hash", digest(runtime_path)),
+    ("manifest_version", manifest_version), ("manifest_hash", digest(manifest_path)),
+    ("token_hash", digest(token_path)), ("owner_pid", owner_pid),
+    ("snapshot_generation", snapshot), ("published", str(now)),
+    ("index_hash", digest(index_path)), ("base_hash", digest(base_path)), ("rows_hash", digest(rows_path)),
+]
+meta_path.write_text("".join(f"{key}\t{value}\n" for key, value in metadata), encoding="utf-8")
 PY
   then
     rm -f "$index_tmp" "$rows_tmp" "$meta_tmp"
@@ -3484,31 +3519,13 @@ PY
     rmdir "$lock" 2>/dev/null || true
     return 1
   fi
-  if ! {
-    printf 'marker\taiup-tui-updates-v1\n'
-    printf 'schema\t%s\n' "$AIUP_TUI_UPDATE_SCHEMA"
-    printf 'runtime_version\t%s\n' "$AIUP_VERSION"
-    printf 'runtime_hash\t%s\n' "$(sha256_file "$runtime")"
-    printf 'manifest_version\t%s\n' "$CATALOG_MANIFEST_VERSION"
-    printf 'manifest_hash\t%s\n' "$CATALOG_MANIFEST_HASH"
-    printf 'token_hash\t%s\n' "$(sha256_file "$dir/token")"
-    printf 'owner_pid\t%s\n' "$owner_pid"
-    printf 'snapshot_generation\t%s\n' "$snapshot"
-    printf 'published\t%s\n' "$now"
-    printf 'index_hash\t%s\n' "$(sha256_file "$dir/updates-index.tsv")"
-    printf 'base_hash\t%s\n' "$(sha256_file "$dir/rows-base.tsv")"
-    printf 'rows_hash\t%s\n' "$(sha256_file "$dir/rows-expanded.tsv")"
-  } > "$meta_tmp"; then
-    rm -f "$meta_tmp"
-    rmdir "$lock" 2>/dev/null || true
-    return 1
-  fi
   if ! mv "$meta_tmp" "$dir/updates-meta.tsv"; then
     rm -f "$meta_tmp"
     rmdir "$lock" 2>/dev/null || true
     return 1
   fi
   rmdir "$lock" 2>/dev/null || true
+  [ "$defer_validation" -eq 1 ] && return 0
   tui_updates_index_valid "$dir"
 }
 
@@ -3545,7 +3562,6 @@ tui_prefetch_brew_consolidated() {
       case "$tool:$(catalog_kind "$tool")" in bf:*|bc:*|*:brew-formula|*:brew-cask) available_cache_write "$tool" "$current" failure '' || true ;; esac
     done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
     rm -f "$raw" "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true; AIUP_ACTIVE_AVAILABLE_LOCK=""
-    tui_updates_refresh_session
     return 0
   fi
   parsed="${raw}.parsed"
@@ -3596,7 +3612,6 @@ PY
   rm -f "$raw" "$parsed"
   rm -f "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true
   AIUP_ACTIVE_AVAILABLE_LOCK=""
-  tui_updates_refresh_session
 }
 
 tui_prefetch_worker() {
@@ -3607,7 +3622,6 @@ tui_prefetch_worker() {
     case "$kind" in brew-formula|brew-cask) continue ;; esac
     if [ $((index % TUI_PREFETCH_WORKERS)) -eq "$offset" ]; then
       available_version_of_tool "$tool" "$current" >/dev/null 2>&1 || true
-      tui_updates_refresh_session
     fi
     index=$((index + 1))
   done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
@@ -3625,6 +3639,9 @@ tui_prefetch_supervisor() {
     index=$((index + 1))
   done
   for pid in "${children[@]}"; do wait "$pid" 2>/dev/null || true; done
+  # Coalesce all installed-only enrichment into one atomic session publication
+  # and one fzf reload. Per-item reload storms can delay or swallow local input.
+  tui_updates_refresh_session
 }
 
 tui_prefetch_start() {
@@ -4889,6 +4906,13 @@ def regular(name):
     return item.is_file() and not item.is_symlink()
 def digest(name):
     return hashlib.sha256((root / name).read_bytes()).hexdigest()
+def content_hash(paths):
+    value = hashlib.sha256()
+    for item in paths:
+        data = item.read_bytes()
+        value.update(len(data).to_bytes(8, "big"))
+        value.update(data)
+    return value.hexdigest()
 def load_updates():
     for _ in range(5):
         try:
@@ -4928,6 +4952,25 @@ try:
             key, value = line.rstrip("\n").split("\t", 1); meta[key] = value
     os.kill(int(meta["owner_pid"]), 0)
 except Exception: fail()
+runtime = pathlib.Path(os.environ.get("AIUP_ACTIVE_RUNTIME", ""))
+manifest = pathlib.Path(os.environ.get("AIUP_CATALOG_MANIFEST", ""))
+context_names = ["catalog-index.tsv", "brew-index.tsv", "inventory-index.tsv", "versions-index.tsv",
+                 "preview-local.tsv", "preview-remote.tsv", "preview-docs.tsv", "fast-helper.py",
+                 "rows-base.tsv", "rows-collapsed.tsv"]
+try:
+    if not runtime.is_file() or runtime.is_symlink() or not manifest.is_file() or manifest.is_symlink(): fail()
+    if not all(regular(name) for name in context_names): fail()
+    if meta.get("runtime_hash") != hashlib.sha256(runtime.read_bytes()).hexdigest(): fail()
+    if meta.get("manifest_hash") != hashlib.sha256(manifest.read_bytes()).hexdigest(): fail()
+    if meta.get("catalog_hash") != digest("catalog-index.tsv"): fail()
+    if meta.get("brew_hash") != digest("brew-index.tsv"): fail()
+    if meta.get("inventory_hash") != digest("inventory-index.tsv"): fail()
+    if meta.get("versions_hash") != digest("versions-index.tsv"): fail()
+    if meta.get("preview_hash") != digest("preview-local.tsv"): fail()
+    if meta.get("helper_hash") != digest("fast-helper.py"): fail()
+    if meta.get("rows_hash") != digest("rows-base.tsv"): fail()
+    if meta.get("context_hash") != content_hash([runtime, manifest, *(root / name for name in context_names)]): fail()
+except (OSError, UnicodeError, ValueError): fail()
 UPDATE_ROWS = load_updates()
 
 def expanded():
@@ -5072,7 +5115,9 @@ tui_session_create() {
   [ "$AIUP_VERSIONS_REBUILT" -eq 0 ] || tui_cache_publish "$AIUP_TUI_SCAN_FILTER" || true
   cp "$VERSIONS_INDEX" "$staging/versions-index.tsv" || return 1
   tui_preview_static_render "$staging/preview-local.tsv" "$staging/preview-remote.tsv" "$staging/preview-docs.tsv" || return 1
+  profile_mark "session preview materialization"
   tui_fast_helper_render "$staging/fast-helper.py" || return 1
+  profile_mark "session helper materialization"
   : > "$staging/expanded"
   [ -f "$DEFAULT_LIST_QUERY_FILE" ] && cp "$DEFAULT_LIST_QUERY_FILE" "$staging/query" || : > "$staging/query"
   [ -f "$DEFAULT_LIST_CATEGORY_FILE" ] && cp "$DEFAULT_LIST_CATEGORY_FILE" "$staging/category" || : > "$staging/category"
@@ -5092,35 +5137,47 @@ tui_session_create() {
   else
     emit_fzf_rows_from_index | sort_fzf_rows > "$staging/rows-base.tsv" || return 1
   fi
-  tui_updates_publish "$staging" "$token" "$snapshot" || return 1
+  profile_mark "session base rows"
+  # Final activation below validates the complete session once. Avoid a second
+  # full hash pass over the still-private staging directory.
+  tui_updates_publish "$staging" "$token" "$snapshot" 1 || return 1
+  profile_mark "session Updates snapshot"
   : > "$EXPAND_FILE"
   awk -F '\t' '$1 ~ /^__cat:/ {print}' "$staging/rows-expanded.tsv" > "$staging/rows-collapsed.tsv" || return 1
   [ -f "$DEFAULT_LIST_QUERY_FILE" ] && cp "$DEFAULT_LIST_QUERY_FILE" "$staging/query" || : > "$staging/query"
   EXPAND_FILE="$saved_expand"; LIST_QUERY_FILE="$saved_query"; LIST_CATEGORY_FILE="$saved_category"; LIST_SELECTED_FILE="$saved_selected"
-  {
-    printf 'marker\taiup-tui-session-v1\n'
-    printf 'schema\t%s\n' "$AIUP_TUI_CACHE_SCHEMA"
-    printf 'runtime_version\t%s\n' "$AIUP_VERSION"
-    printf 'runtime_hash\t%s\n' "$(sha256_file "$runtime")"
-    printf 'manifest_version\t%s\n' "$CATALOG_MANIFEST_VERSION"
-    printf 'manifest_hash\t%s\n' "$CATALOG_MANIFEST_HASH"
-    printf 'snapshot_generation\t%s\n' "$snapshot"
-    printf 'owner_pid\t%s\n' "$$"
-    printf 'nonce\t%s\n' "$nonce"
-    printf 'created\t%s\n' "$now"
-    printf 'view\t%s\n' "$LIST_VIEW_MODE"
-    printf 'category_filter\t%s\n' "$LIST_CATEGORY_FILTER"
-    printf 'sort\t%s\n' "$LIST_SORT_MODE"
-    printf 'catalog_hash\t%s\n' "$(sha256_file "$staging/catalog-index.tsv")"
-    printf 'brew_hash\t%s\n' "$(sha256_file "$staging/brew-index.tsv")"
-    printf 'inventory_hash\t%s\n' "$(sha256_file "$staging/inventory-index.tsv")"
-    printf 'versions_hash\t%s\n' "$(sha256_file "$staging/versions-index.tsv")"
-    printf 'preview_hash\t%s\n' "$(sha256_file "$staging/preview-local.tsv")"
-    printf 'helper_hash\t%s\n' "$(sha256_file "$staging/fast-helper.py")"
-    printf 'rows_hash\t%s\n' "$(sha256_file "$staging/rows-base.tsv")"
-    printf 'context_hash\t%s\n' "$(files_content_hash "$runtime" "$CATALOG_MANIFEST" "$staging/catalog-index.tsv" "$staging/brew-index.tsv" \
-      "$staging/inventory-index.tsv" "$staging/versions-index.tsv" "$staging/preview-local.tsv" "$staging/preview-remote.tsv" "$staging/preview-docs.tsv" "$staging/fast-helper.py" "$staging/rows-base.tsv" "$staging/rows-collapsed.tsv")"
-  } > "$staging/meta.tsv" || return 1
+  python3 - "$staging/meta.tsv" "$runtime" "$CATALOG_MANIFEST" "$snapshot" "$$" "$nonce" "$now" \
+    "$LIST_VIEW_MODE" "$LIST_CATEGORY_FILTER" "$LIST_SORT_MODE" "$AIUP_TUI_CACHE_SCHEMA" "$AIUP_VERSION" "$CATALOG_MANIFEST_VERSION" <<'PY'
+import hashlib, pathlib, sys
+
+(output_raw, runtime_raw, manifest_raw, snapshot, owner_pid, nonce, created,
+ view, category_filter, sort_mode, schema, runtime_version, manifest_version) = sys.argv[1:]
+output = pathlib.Path(output_raw); runtime = pathlib.Path(runtime_raw); manifest = pathlib.Path(manifest_raw)
+root = output.parent
+names = ["catalog-index.tsv", "brew-index.tsv", "inventory-index.tsv", "versions-index.tsv",
+         "preview-local.tsv", "preview-remote.tsv", "preview-docs.tsv", "fast-helper.py",
+         "rows-base.tsv", "rows-collapsed.tsv"]
+paths = [runtime, manifest, *(root / name for name in names)]
+if any(not path.is_file() or path.is_symlink() for path in paths): raise SystemExit(1)
+def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+combined = hashlib.sha256()
+for path in paths:
+    data = path.read_bytes(); combined.update(len(data).to_bytes(8, "big")); combined.update(data)
+rows = [
+    ("marker", "aiup-tui-session-v1"), ("schema", schema),
+    ("runtime_version", runtime_version), ("runtime_hash", digest(runtime)),
+    ("manifest_version", manifest_version), ("manifest_hash", digest(manifest)),
+    ("snapshot_generation", snapshot), ("owner_pid", owner_pid), ("nonce", nonce), ("created", created),
+    ("view", view), ("category_filter", category_filter), ("sort", sort_mode),
+    ("catalog_hash", digest(root / "catalog-index.tsv")), ("brew_hash", digest(root / "brew-index.tsv")),
+    ("inventory_hash", digest(root / "inventory-index.tsv")), ("versions_hash", digest(root / "versions-index.tsv")),
+    ("preview_hash", digest(root / "preview-local.tsv")), ("helper_hash", digest(root / "fast-helper.py")),
+    ("rows_hash", digest(root / "rows-base.tsv")), ("context_hash", combined.hexdigest()),
+]
+output.write_text("".join(f"{key}\t{value}\n" for key, value in rows), encoding="utf-8")
+PY
+  [ "$?" -eq 0 ] || return 1
+  profile_mark "session identity"
   mv "$staging" "$final" || return 1
   AIUP_TUI_SESSION_DIR="$final"
   AIUP_TUI_SESSION_TOKEN="$token"
@@ -8277,8 +8334,11 @@ parse_args() {
 }
 
 profile_begin
-if tui_internal_command "${1:-}" && tui_session_activate; then
-  tui_fast_dispatch "$@"
-  exit $?
+if tui_internal_command "${1:-}"; then
+  if [ -n "${AIUP_TUI_SESSION_DIR:-}${AIUP_TUI_SESSION_TOKEN:-}" ]; then
+    tui_session_activate || { error "Private TUI session validation failed"; exit 1; }
+    tui_fast_dispatch "$@"
+    exit $?
+  fi
 fi
 parse_args "$@"

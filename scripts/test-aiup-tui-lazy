@@ -30,6 +30,22 @@ run_available "$state" newer gemini 1.0.0 "$TEST_DIR/newer-repaired"
 [ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 2 ]
 grep -q $'\t1.0.0\tnewer\t9.9.9$' "$state/available-versions/gemini.tsv"
 
+# Cache metadata is untrusted accelerator data. Invalid timestamps, extra TSV
+# fields, and versions outside the provider grammar miss and repair rather than
+# reaching arithmetic or terminal rendering.
+for mode in timestamp extra-field invalid-version; do
+  state="$TEST_DIR/cache-$mode"; mkdir -p "$state/available-versions"
+  case "$mode" in
+    timestamp) printf 'not-a-number\t1.0.0\tnewer\t9.9.9\n' > "$state/available-versions/gemini.tsv" ;;
+    extra-field) printf '1787680800\t1.0.0\tnewer\t9.9.9\tinjected\n' > "$state/available-versions/gemini.tsv" ;;
+    invalid-version) printf '1787680800\t1.0.0\tnewer\t\033[31m9.9.9\n' > "$state/available-versions/gemini.tsv" ;;
+  esac
+  run_available "$state" newer gemini 1.0.0 "$TEST_DIR/cache-$mode.out"
+  grep -qx '9.9.9' "$TEST_DIR/cache-$mode.out"
+  [ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 1 ]
+  grep -q $'\t1.0.0\tnewer\t9.9.9$' "$state/available-versions/gemini.tsv"
+done
+
 # A valid already-current response is negatively cached without a false claim.
 state="$TEST_DIR/current"
 run_available "$state" current gemini 1.0.0 "$TEST_DIR/current-1"
@@ -40,7 +56,7 @@ grep -q $'\t1.0.0\tcurrent\t$' "$state/available-versions/gemini.tsv"
 
 # Failure, malformed metadata, and timeout each degrade to installed-only and
 # use the short failure cache rather than retrying immediately.
-for scenario in failure malformed timeout; do
+for scenario in failure malformed oversized timeout; do
   state="$TEST_DIR/$scenario"
   run_available "$state" "$scenario" gemini 1.0.0 "$TEST_DIR/$scenario-1"
   run_available "$state" "$scenario" gemini 1.0.0 "$TEST_DIR/$scenario-2"
@@ -176,5 +192,9 @@ grep -q -- '--track --id-nth=1' "$AIUP"
 grep -q 'change:reload($fast rows {q})' "$AIUP"
 ! grep -q 'change:execute-silent.*__search-query' "$AIUP"
 grep -q 'ctrl-o:execute-silent($self docs {1})+clear-screen+refresh-preview' "$AIUP"
+prefetch_worker_body="$(sed -n '/^tui_prefetch_worker()/,/^}/p' "$AIUP")"
+prefetch_supervisor_body="$(sed -n '/^tui_prefetch_supervisor()/,/^}/p' "$AIUP")"
+! grep -q 'tui_updates_refresh_session' <<< "$prefetch_worker_body"
+[ "$(grep -c 'tui_updates_refresh_session' <<< "$prefetch_supervisor_body")" -eq 1 ]
 
 printf 'aiup lazy TUI tests: ok\n'

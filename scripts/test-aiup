@@ -156,3 +156,4 @@ printf 'aiup tests: ok (%s catalog tools)\n' "$(python3 -c 'import json,sys; pri
 "$ROOT/scripts/test-aiup-tui-performance"
 "$ROOT/scripts/test-aiup-tui-lazy"
 "$ROOT/scripts/test-aiup-tui-updates"
+"$ROOT/scripts/test-aiup-tui-closure"

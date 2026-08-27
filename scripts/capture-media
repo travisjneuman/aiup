@@ -620,6 +620,9 @@ class Session:
             directory.mkdir(parents=True, exist_ok=True)
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
+            # Size the slave before exec so the child cannot query an inherited
+            # geometry while the parent is still configuring the PTY.
+            fcntl.ioctl(0, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
             os.chdir(ROOT)
             os.execve("/bin/bash", ["bash", str(ROOT / "macos" / "aiup"), *args], env)
         fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
@@ -771,6 +774,10 @@ def validate_layout_matrix(work: pathlib.Path) -> list[dict[str, object]]:
     resized = Session(work / "live-resize", ["list"], cols=167, rows=47)
     try:
         resized.wait_for("category  updates")
+        # Seeing the first preview bytes does not prove that fzf has completed
+        # startup and installed its resize binding. Drain the initial render so
+        # this check exercises a live resize rather than racing process setup.
+        resized.pump(0.5)
         resized.resize(60, 18)
         resized.wait_for("search · enter act · ctrl-/ preview · esc close")
         resized.pump(0.5)
