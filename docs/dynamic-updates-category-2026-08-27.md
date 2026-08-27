@@ -50,12 +50,12 @@ Measurements used `AIUP_PROFILE=1`, the deterministic public capture/provider fi
 |---|---:|---:|---:|---:|
 | Warm managed picker/list readiness | about 700 ms | 814.4 ms | 825.3 ms | +10.9 ms |
 | Warm full picker/list readiness | about 700 ms | 857.8 ms | 881.3 ms | +23.5 ms |
-| Cursor preview first line | 23.8 ms | 24.3 ms | 28.0 ms median | +3.7 ms |
-| Search change | 25.8 ms | 26.7 ms | 29.9 ms | +3.2 ms |
-| Category toggle | 26.8 ms | 27.0 ms | 30.1 ms | +3.1 ms |
-| Resize/header | 25.6 ms | 26.4 ms | 29.1 ms | +2.7 ms |
+| Cursor preview first line | 23.8 ms | 24.3 ms | 30.3 ms | +6.0 ms |
+| Search change | 25.8 ms | 26.7 ms | 32.3 ms | +5.6 ms |
+| Category toggle | 26.8 ms | 27.0 ms | 33.0 ms | +6.0 ms |
+| Resize/header | 25.6 ms | 26.4 ms | 32.0 ms | +5.6 ms |
 
-Initial readiness remains provider-independent, update materialization is session-local, and every high-frequency interaction remains about 30 ms. The small same-host deltas are the cost of validating the atomically changing update index before consuming it; no provider request or full-list regeneration entered cursor, search, category, or resize paths. Final independent regression closure is intentionally deferred to Prompt 4.
+Initial readiness remains provider-independent, update materialization is session-local, and every high-frequency interaction remains about 30–33 ms. The same-host deltas are the cost of validating the atomically changing update index before consuming it; no provider request or full-list regeneration entered cursor, search, category, or resize paths. The current values are nine-run medians; the same-host historical cursor-first-line harness emitted one first-line sample while its other interaction values were nine-run medians. Final independent regression closure is intentionally deferred to Prompt 4.
 
 ## Validation and limitations
 
