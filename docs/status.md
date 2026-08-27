@@ -2,7 +2,7 @@
 
 Status date: **2026-08-26**
 
-Current version: **2026.08.26-01**
+Current version: **2026.08.26-02**
 
 ## Current product scope
 
@@ -13,6 +13,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - install, update, remove, or adopt catalog items through explicit actions;
 - browse the managed catalog, detected-only local software, and Homebrew inventory through focused views;
 - show the installed version in managed-item previews and, when provider metadata confirms a newer release, show the available version alongside it;
+- validate once per interactive entry, materialize a coherent state snapshot, and serve cursor/search/resize/category helpers from an exact-runtime private session;
+- reuse only versioned, fingerprinted, atomically published disposable cache generations while treating live state as authoritative for every mutation;
 - search inside collapsed categories and restore a clean picker after provider actions;
 - avoid passing `--zap` or directly deleting `~/Library` when an existing app is handed to Homebrew, without claiming universal vendor behavior;
 - check official desktop-app metadata before downloading a replacement and validate the replacement before activation;
@@ -22,6 +24,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - retain the previous complete generation as recovery evidence without executing it as an offline fallback;
 - fail closed on offline, failed, empty, invalid, mismatched, partial, locked, or unactivatable public refreshes; and
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in.
+
+The cache/session authority, invalidation rules, profiling stages, deterministic corruption/concurrency coverage, and recorded before/after timings are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md).
 
 The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Individual products can impose stricter constraints recorded in the [dated 83-entry accuracy audit](catalog-accuracy-2026-08-25.md). That audit left 81 managed entries with executable contracts.
 

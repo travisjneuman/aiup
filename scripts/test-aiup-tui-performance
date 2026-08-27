@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+FIXTURE="$ROOT/scripts/fixtures/capture"
+TEST_DIR="$(mktemp -d "$ROOT/.aiup-tui-test.XXXXXX")"
+trap 'rm -rf "$TEST_DIR"' EXIT
+CAPTURE_PATH="$FIXTURE/bin:/opt/homebrew/bin:/usr/bin:/bin"
+
+run_fixture_list() {
+  local state="$1" output="$2"
+  env AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+    "$AIUP" --view managed list --plain > "$output"
+}
+
+cache_generation() {
+  sed -n '1p' "$1/cache/v1/current"
+}
+
+cache_dir() {
+  printf '%s/cache/v1/generations/%s\n' "$1" "$(cache_generation "$1")"
+}
+
+rewrite_meta() {
+  local meta="$1" key="$2" value="$3"
+  python3 - "$meta" "$key" "$value" <<'PY'
+import pathlib, sys
+path, key, value = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+rows = []
+for line in path.read_text(encoding="utf-8").splitlines():
+    name, old = line.split("\t", 1)
+    rows.append(f"{name}\t{value if name == key else old}")
+path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+PY
+}
+
+assert_rebuilt() {
+  local state="$1" expected="$2" old="$3" output="$4"
+  run_fixture_list "$state" "$output"
+  cmp "$expected" "$output"
+  [ "$(cache_generation "$state")" != "$old" ]
+}
+
+# Missing cache builds a complete generation; a second invocation reuses it.
+state="$TEST_DIR/missing"
+mkdir "$state"
+run_fixture_list "$state" "$TEST_DIR/expected.txt"
+first="$(cache_generation "$state")"
+run_fixture_list "$state" "$TEST_DIR/valid.txt"
+cmp "$TEST_DIR/expected.txt" "$TEST_DIR/valid.txt"
+[ "$(cache_generation "$state")" = "$first" ]
+
+python3 - "$AIUP" "$FIXTURE" "$state" "$CAPTURE_PATH" "$TEST_DIR/full-performance" <<'PY'
+import os, pathlib, statistics, subprocess, sys, time
+aiup, fixture, managed_state, capture_path, full_state = sys.argv[1:]
+def measured(label, args, state, runs, ceiling):
+    env = os.environ.copy()
+    env.update(AIUP_CAPTURE_FIXTURE_DIR=fixture, AIUP_STATE_DIR=state, PATH=capture_path)
+    subprocess.run([aiup, *args], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+    values = []
+    for _ in range(runs):
+        started = time.perf_counter()
+        subprocess.run([aiup, *args], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        values.append((time.perf_counter() - started) * 1000)
+    print(f"{label}: median={statistics.median(values):.1f}ms max={max(values):.1f}ms")
+    if max(values) >= ceiling:
+        raise SystemExit(f"{label} exceeded generous {ceiling}ms ceiling")
+pathlib.Path(full_state).mkdir()
+measured("managed-plain-list", ["--view", "managed", "list", "--plain"], managed_state, 3, 3000)
+measured("full-warm-cache-plain-list", ["list", "--plain"], full_state, 3, 7000)
+PY
+
+# Stale, corrupt, partial, wrong-version, and wrong-manifest snapshots rebuild.
+for mode in stale corrupt partial wrong-version wrong-manifest; do
+  state="$TEST_DIR/$mode"
+  mkdir "$state"
+  run_fixture_list "$state" "$TEST_DIR/$mode.expected"
+  old="$(cache_generation "$state")"
+  dir="$(cache_dir "$state")"
+  case "$mode" in
+    stale) rewrite_meta "$dir/meta.tsv" created 0 ;;
+    corrupt) printf 'corrupt\n' >> "$dir/catalog-index.tsv" ;;
+    partial) rm -f "$dir/versions-index.tsv" ;;
+    wrong-version) rewrite_meta "$dir/meta.tsv" runtime_version wrong-runtime ;;
+    wrong-manifest) rewrite_meta "$dir/meta.tsv" manifest_hash wrong-manifest-hash ;;
+  esac
+  assert_rebuilt "$state" "$TEST_DIR/$mode.expected" "$old" "$TEST_DIR/$mode.actual"
+done
+
+# A symlinked generation is ignored and preserved, never traversed or pruned.
+state="$TEST_DIR/symlinked"
+mkdir "$state"
+run_fixture_list "$state" "$TEST_DIR/symlinked.expected"
+real_dir="$(cache_dir "$state")"
+ln -s "$real_dir" "$state/cache/v1/generations/snapshot-symlinked"
+printf 'snapshot-symlinked\n' > "$state/cache/v1/current"
+run_fixture_list "$state" "$TEST_DIR/symlinked.actual"
+cmp "$TEST_DIR/symlinked.expected" "$TEST_DIR/symlinked.actual"
+[ -L "$state/cache/v1/generations/snapshot-symlinked" ]
+
+# Concurrent publishers leave a readable complete pointer and identical output.
+state="$TEST_DIR/concurrent"
+mkdir "$state"
+run_fixture_list "$state" "$TEST_DIR/concurrent.expected" & p1=$!
+run_fixture_list "$state" "$TEST_DIR/concurrent.actual" & p2=$!
+wait "$p1"
+wait "$p2"
+cmp "$TEST_DIR/concurrent.expected" "$TEST_DIR/concurrent.actual"
+dir="$(cache_dir "$state")"
+for name in meta.tsv catalog-index.tsv brew-index.tsv inventory-index.tsv versions-index.tsv; do
+  [ -f "$dir/$name" ] && [ ! -L "$dir/$name" ]
+done
+
+# An interrupted hidden staging snapshot is ignored and preserved.
+state="$TEST_DIR/interrupted"
+mkdir -p "$state/cache/v1/generations/.staging-interrupted"
+printf 'partial\n' > "$state/cache/v1/generations/.staging-interrupted/meta.tsv"
+run_fixture_list "$state" "$TEST_DIR/interrupted.actual"
+cmp "$TEST_DIR/expected.txt" "$TEST_DIR/interrupted.actual"
+[ -f "$state/cache/v1/generations/.staging-interrupted/meta.tsv" ]
+
+# Existing fzf satisfies the interactive prerequisite without brew update/upgrade.
+mkdir "$TEST_DIR/bin"
+printf '%s\n' '#!/usr/bin/env bash' 'exit 130' > "$TEST_DIR/bin/fzf"
+chmod 700 "$TEST_DIR/bin/fzf"
+env AIUP_TUI_TESTING=1 AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_CAPTURE_COMMAND_LOG="$TEST_DIR/brew.log" \
+  AIUP_STATE_DIR="$TEST_DIR/fzf-state" PATH="$TEST_DIR/bin:$CAPTURE_PATH" \
+"$AIUP" __tui-test-fzf-require
+[ ! -s "$TEST_DIR/brew.log" ]
+script -q /dev/null /usr/bin/env AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" \
+  AIUP_CAPTURE_COMMAND_LOG="$TEST_DIR/interactive-brew.log" AIUP_STATE_DIR="$TEST_DIR/interactive state" \
+  PATH="$TEST_DIR/bin:$CAPTURE_PATH" "$AIUP" list </dev/null > /dev/null
+! grep -E '^brew (update|upgrade)( |$)' "$TEST_DIR/interactive-brew.log" 2>/dev/null
+
+# Hold one real session open so child helpers can prove exact-pair binding.
+state="$TEST_DIR/session state"
+mkdir "$state"
+env AIUP_TUI_TESTING=1 AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+  "$AIUP" __tui-test-context & session_parent=$!
+for _ in $(seq 1 200); do
+  [ -s "$state/test-session-context.tsv" ] && break
+  sleep 0.05
+done
+[ -s "$state/test-session-context.tsv" ]
+session="$(awk -F '\t' '$1=="session" {print $2}' "$state/test-session-context.tsv")"
+token="$(awk -F '\t' '$1=="token" {print $2}' "$state/test-session-context.tsv")"
+runtime="$(awk -F '\t' '$1=="runtime" {print $2}' "$state/test-session-context.tsv")"
+manifest="$(awk -F '\t' '$1=="manifest" {print $2}' "$state/test-session-context.tsv")"
+helper_env=(env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$manifest"
+  AIUP_ACTIVE_RUNTIME="$runtime" AIUP_CATEGORY_FILTER='' AIUP_VIEW_MODE=managed AIUP_SORT_MODE=id
+  AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH")
+"${helper_env[@]}" bash "$runtime" __fzf-header > "$TEST_DIR/header.txt"
+"${helper_env[@]}" bash "$runtime" __fzf-rows > "$TEST_DIR/session-rows.txt"
+"${helper_env[@]}" bash "$runtime" preview __cat:infra > "$TEST_DIR/category-preview.txt"
+"${helper_env[@]}" bash "$runtime" preview gemini > "$TEST_DIR/gemini-preview.txt"
+grep -q '^type search' "$TEST_DIR/header.txt"
+grep -q '^__cat:infra' "$TEST_DIR/session-rows.txt"
+grep -q '^category  infra$' "$TEST_DIR/category-preview.txt"
+grep -q '^available 0.11.0$' "$TEST_DIR/gemini-preview.txt"
+grep -q '^needs    brew \[ready\]$' "$TEST_DIR/gemini-preview.txt"
+grep -q '^needs    npm \[ready\]$' "$TEST_DIR/gemini-preview.txt"
+
+cp "$manifest" "$TEST_DIR/wrong-manifest.tsv"
+python3 - "$TEST_DIR/wrong-manifest.tsv" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text().replace("# aiup-runtime-version: 2026.08.26-02", "# aiup-runtime-version: wrong"))
+PY
+if env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$TEST_DIR/wrong-manifest.tsv" \
+  AIUP_ACTIVE_RUNTIME="$runtime" AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+  bash "$runtime" __fzf-rows > /dev/null 2> "$TEST_DIR/wrong-manifest.err"; then
+  printf 'wrong-manifest session unexpectedly succeeded\n' >&2
+  exit 1
+fi
+
+cp "$runtime" "$TEST_DIR/wrong-runtime"
+python3 - "$TEST_DIR/wrong-runtime" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1])
+p.write_text(p.read_text().replace('AIUP_VERSION="2026.08.26-02"', 'AIUP_VERSION="wrong-runtime"', 1))
+PY
+if env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$manifest" \
+  AIUP_ACTIVE_RUNTIME="$TEST_DIR/wrong-runtime" AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+  bash "$TEST_DIR/wrong-runtime" __fzf-rows > /dev/null 2> "$TEST_DIR/wrong-runtime.err"; then
+  printf 'wrong-runtime session unexpectedly succeeded\n' >&2
+  exit 1
+fi
+
+python3 - "$runtime" "$manifest" "$session" "$token" "$FIXTURE" "$state" "$CAPTURE_PATH" <<'PY'
+import os, statistics, subprocess, sys, time
+runtime, manifest, session, token, fixture, state, capture_path = sys.argv[1:]
+env = os.environ.copy()
+env.update(AIUP_TUI_SESSION_DIR=session, AIUP_TUI_SESSION_TOKEN=token,
+           AIUP_CATALOG_MANIFEST=manifest, AIUP_ACTIVE_RUNTIME=runtime,
+           AIUP_CATEGORY_FILTER="", AIUP_VIEW_MODE="managed", AIUP_SORT_MODE="id",
+           AIUP_CAPTURE_FIXTURE_DIR=fixture, AIUP_STATE_DIR=state, PATH=capture_path)
+cases = {
+    "category-preview": ["preview", "__cat:infra"],
+    "warm-managed-preview": ["preview", "gemini"],
+    "fzf-header": ["__fzf-header"],
+    "fzf-rows": ["__fzf-rows"],
+}
+for label, args in cases.items():
+    values = []
+    for _ in range(5):
+        started = time.perf_counter()
+        result = subprocess.run(["bash", runtime, *args], env=env,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode:
+            raise SystemExit(f"{label} helper failed: {result.returncode}")
+        values.append((time.perf_counter() - started) * 1000)
+    median = statistics.median(values)
+    print(f"{label}: median={median:.1f}ms max={max(values):.1f}ms")
+    if max(values) >= 750:
+        raise SystemExit(f"{label} exceeded generous 750ms ceiling")
+PY
+
+: > "$state/test-session-release"
+wait "$session_parent"
+[ ! -e "$session" ]
+
+# Stale cleanup preserves symlinked and malformed entries; signals clean owned sessions.
+mkdir -p "$TEST_DIR/stale-target" "$state/sessions/malformed-entry"
+ln -s "$TEST_DIR/stale-target" "$state/sessions/999-deadbeef"
+rm -f "$state/test-session-context.tsv" "$state/test-session-release"
+env AIUP_TUI_TESTING=1 AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+  "$AIUP" __tui-test-context & signal_parent=$!
+for _ in $(seq 1 200); do
+  [ -s "$state/test-session-context.tsv" ] && signal_session="$(awk -F '\t' '$1=="session" {print $2}' "$state/test-session-context.tsv")"
+  [ -n "${signal_session:-}" ] && [ -d "$signal_session" ] && break
+  sleep 0.05
+done
+kill -TERM "$signal_parent"
+wait "$signal_parent" || true
+[ ! -e "$signal_session" ]
+[ -L "$state/sessions/999-deadbeef" ]
+[ -d "$state/sessions/malformed-entry" ]
+
+# Structural guards keep the private lane narrow and subprocess-light.
+! grep -q 'aiup-fzf.*TMPDIR\|TMPDIR.*aiup-fzf' "$AIUP"
+grep -q '^ensure_fzf_for_interactive()' "$AIUP"
+[ "$(grep -c 'ensure_fzf_for_interactive || return 1' "$AIUP")" -eq 3 ]
+grep -q 'self="$(tui_helper_command)"' "$AIUP"
+grep -q '^tui_fast_dispatch()' "$AIUP"
+! sed -n '/^tui_fast_dispatch()/,/^}/p' "$AIUP" | grep -q 'catalog_validate\|main_update\|run_tool_update\|run_tool_remove'
+! sed -n '/^catalog_manifest_field()/,/^}/p' "$AIUP" | grep -q 'awk'
+[ "$(grep -c 'catalog_manifest_field' "$AIUP")" -lt 20 ]
+
+printf 'aiup TUI cache/session tests: ok\n'

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.08.26-02
+
+- Added schema-versioned, fingerprinted, atomically published disposable catalog snapshots beneath the aiup state directory; invalid, stale, corrupt, partial, incompatible, symlinked, concurrent, and interrupted states fail safe and rebuild.
+- Added bounded PID-plus-nonce TUI sessions that bind helpers to the exact validated runtime, manifest, view, and snapshot. fzf helpers execute that runtime directly and no longer refresh public generations or repeat full initialization during cursor movement, search, resize, or category navigation.
+- Replaced per-field manifest `awk` scans with one-pass in-memory manifest data and one bounded static-preview renderer; made the system npm prefix lazy and pre-rendered session rows/previews.
+- Opening interactive list/install/remove now uses an installed fzf without updating it. Missing fzf retains the established bootstrap/error path, while normal updates and `aiup only fzf` still maintain it.
+- Every mutation path invalidates accelerators and revalidates the runtime, manifest, live filesystem, package metadata, and provider state immediately before work. `AIUP_PROFILE=1` reports concise stage timings on stderr.
+- Added deterministic cache/session corruption, concurrency, interruption, pair-binding, cleanup, fzf-boundary, structural, and generous performance regression coverage.
+
 ## 2026-08-26 — public presence and documentation closure
 
 - Restored the owner-selected minimal, GitHub-first site: the aiup lockup, one authentic TUI animation, and one prominent repository destination. The README remains the explanatory product surface.

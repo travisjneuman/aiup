@@ -166,6 +166,8 @@ command -v bash >/dev/null 2>&1 || die "bash is required to run aiup"
 if [ -n "$AIUP_SOURCE_PATH" ]; then
   [ -f "$AIUP_SOURCE_PATH" ] || die "AIUP_SOURCE_PATH is not a file: $AIUP_SOURCE_PATH"
   validate_runtime "$AIUP_SOURCE_PATH"
+  export AIUP_ACTIVE_RUNTIME="$AIUP_SOURCE_PATH"
+  export AIUP_ACTIVE_GENERATION="development"
   exec bash "$AIUP_SOURCE_PATH" "$@"
 fi
 
@@ -316,6 +318,8 @@ validate_runtime "$active_runtime"
 validate_manifest "$active_manifest" "$(runtime_version "$active_runtime")"
 prune_unreferenced_generations
 export AIUP_CATALOG_MANIFEST="$active_manifest"
+export AIUP_ACTIVE_RUNTIME="$active_runtime"
+export AIUP_ACTIVE_GENERATION="$active_generation"
 release_activation_lock
 trap - EXIT HUP INT TERM
 exec bash "$active_runtime" "$@"

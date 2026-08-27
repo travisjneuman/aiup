@@ -152,3 +152,4 @@ fi
 printf 'aiup tests: ok (%s catalog tools)\n' "$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["tools"]))' "$TEST_DIR/catalog.json")"
 "$ROOT/scripts/check-catalog-contracts"
 "$ROOT/scripts/test-aiup-launcher"
+"$ROOT/scripts/test-aiup-tui-performance"

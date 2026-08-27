@@ -29,6 +29,8 @@ write_runtime() {
     'case "${1:-}" in' \
     '  version) printf "%s\\n" "$AIUP_VERSION" ;;' \
     '  manifest) printf "%s\\n" "${AIUP_CATALOG_MANIFEST:-}" ;;' \
+    '  active-runtime) printf "%s\\n" "${AIUP_ACTIVE_RUNTIME:-}" ;;' \
+    '  active-generation) printf "%s\\n" "${AIUP_ACTIVE_GENERATION:-}" ;;' \
     '  *) printf "runtime %s: %s\\n" "$AIUP_VERSION" "$*" ;;' \
     'esac' > "$destination"
   chmod 700 "$destination"
@@ -176,6 +178,8 @@ first_dir="$STATE_DIR/generations/$first_generation"
 [ -x "$first_dir/aiup" ]
 [ -s "$first_dir/manifest.tsv" ]
 [ "$(run_public manifest)" = "$STATE_DIR/generations/$(sed -n '1p' "$STATE_DIR/current-generation")/manifest.tsv" ]
+[ "$(run_public active-runtime)" = "$STATE_DIR/generations/$(sed -n '1p' "$STATE_DIR/current-generation")/aiup" ]
+[ "$(run_public active-generation)" = "$(sed -n '1p' "$STATE_DIR/current-generation")" ]
 
 # Establish one known pair, then retain exact byte copies and its pointer while
 # each activation boundary fails before the atomic current-pointer switch.
@@ -376,6 +380,12 @@ curl_count_before="$(wc -l < "$CURL_LOG" | tr -d ' ')"
 [ "$(env HOME="$HOME_FIXTURE" PATH="$FAKE_BIN:/usr/bin:/bin" \
   AIUP_SOURCE_PATH="$LOCAL_SOURCE" FAKE_CURL_MODE=fail FAKE_CURL_LOG="$CURL_LOG" \
   "$INSTALL_PATH" version)" = local-development ]
+[ "$(env HOME="$HOME_FIXTURE" PATH="$FAKE_BIN:/usr/bin:/bin" \
+  AIUP_SOURCE_PATH="$LOCAL_SOURCE" FAKE_CURL_MODE=fail FAKE_CURL_LOG="$CURL_LOG" \
+  "$INSTALL_PATH" active-runtime)" = "$LOCAL_SOURCE" ]
+[ "$(env HOME="$HOME_FIXTURE" PATH="$FAKE_BIN:/usr/bin:/bin" \
+  AIUP_SOURCE_PATH="$LOCAL_SOURCE" FAKE_CURL_MODE=fail FAKE_CURL_LOG="$CURL_LOG" \
+  "$INSTALL_PATH" active-generation)" = development ]
 [ "$(wc -l < "$CURL_LOG" | tr -d ' ')" = "$curl_count_before" ]
 
 # The documented uninstall scope removes aiup and aiup-owned state/PATH blocks only.
