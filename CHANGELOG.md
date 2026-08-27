@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.08.26-03
+
+- Materialized complete local preview lines and installed versions in each validated TUI session. Cursor focus now uses one small indexed helper process; provider metadata starts only after the local preview is visible.
+- Added current-version-keyed positive, current, and short failure caches; a 200 ms cancellable focus debounce; atomic writes; bounded retention; stale-lock recovery; and concurrent lookup coalescing compatible with Bash 3.
+- Added installed-only background enrichment with two workers and one consolidated read-only Homebrew outdated snapshot. Workers are delayed until the picker is interactive and are cancelled and reaped on exit.
+- Removed query persistence and full runtime row rebuilding from the per-character path. Collapsed-category search now transforms materialized session rows, while category, navigation, resize, and documentation-return actions stay session-local and use fzf field identity tracking.
+- Added exact selection persistence and an incremental post-action snapshot refresh for dedicated app updates. Package-manager, installer, removal, cleanup, adoption, dependency, and PATH-affecting actions deliberately retain the wider authoritative rescan.
+- Added deterministic provider/cache/cancellation/coalescing/version-change tests and measured session interaction regressions.
+
 ## 2026.08.26-02
 
 - Added schema-versioned, fingerprinted, atomically published disposable catalog snapshots beneath the aiup state directory; invalid, stale, corrupt, partial, incompatible, symlinked, concurrent, and interrupted states fail safe and rebuild.

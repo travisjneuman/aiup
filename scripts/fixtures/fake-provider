@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -u
+tool="${1:-}"
+current="${2:-}"
+[ -n "${AIUP_FAKE_PROVIDER_LOG:-}" ] && printf '%s\t%s\n' "$tool" "$current" >> "$AIUP_FAKE_PROVIDER_LOG"
+case "${AIUP_FAKE_PROVIDER_SCENARIO:-newer}" in
+  newer) printf '9.9.9\n' ;;
+  current) printf '%s\n' "$current" ;;
+  malformed) printf 'not a version!\nsecond line\n' ;;
+  timeout) sleep 5; printf '9.9.9\n' ;;
+  failure) exit 23 ;;
+  *) exit 24 ;;
+esac

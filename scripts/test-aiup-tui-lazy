@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+FIXTURE="$ROOT/scripts/fixtures/capture"
+PROVIDER="$ROOT/scripts/fixtures/fake-provider"
+TEST_DIR="$(mktemp -d "$ROOT/.aiup-lazy-test.XXXXXX")"
+trap 'find "$TEST_DIR" -depth -delete 2>/dev/null || true' EXIT
+CAPTURE_PATH="$FIXTURE/bin:/opt/homebrew/bin:/usr/bin:/bin"
+
+run_available() {
+  local state="$1" scenario="$2" tool="$3" current="$4" output="$5"
+  mkdir -p "$state"
+  env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO="$scenario" \
+    AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_PROVIDER_TIMEOUT=1 \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available "$tool" "$current" > "$output"
+}
+
+# Newer cache hits are current-version keyed and avoid a second provider call.
+state="$TEST_DIR/newer"
+run_available "$state" newer gemini 1.0.0 "$TEST_DIR/newer-1"
+run_available "$state" newer gemini 1.0.0 "$TEST_DIR/newer-2"
+grep -qx '9.9.9' "$TEST_DIR/newer-1"
+cmp "$TEST_DIR/newer-1" "$TEST_DIR/newer-2"
+[ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 1 ]
+grep -q $'\t1.0.0\tnewer\t9.9.9$' "$state/available-versions/gemini.tsv"
+printf 'corrupt\n' > "$state/available-versions/gemini.tsv"
+run_available "$state" newer gemini 1.0.0 "$TEST_DIR/newer-repaired"
+[ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 2 ]
+grep -q $'\t1.0.0\tnewer\t9.9.9$' "$state/available-versions/gemini.tsv"
+
+# A valid already-current response is negatively cached without a false claim.
+state="$TEST_DIR/current"
+run_available "$state" current gemini 1.0.0 "$TEST_DIR/current-1"
+run_available "$state" current gemini 1.0.0 "$TEST_DIR/current-2"
+[ ! -s "$TEST_DIR/current-1" ] && [ ! -s "$TEST_DIR/current-2" ]
+[ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 1 ]
+grep -q $'\t1.0.0\tcurrent\t$' "$state/available-versions/gemini.tsv"
+
+# Failure, malformed metadata, and timeout each degrade to installed-only and
+# use the short failure cache rather than retrying immediately.
+for scenario in failure malformed timeout; do
+  state="$TEST_DIR/$scenario"
+  run_available "$state" "$scenario" gemini 1.0.0 "$TEST_DIR/$scenario-1"
+  run_available "$state" "$scenario" gemini 1.0.0 "$TEST_DIR/$scenario-2"
+  [ ! -s "$TEST_DIR/$scenario-1" ] && [ ! -s "$TEST_DIR/$scenario-2" ]
+  [ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 1 ]
+  grep -q $'\t1.0.0\tfailure\t$' "$state/available-versions/gemini.tsv"
+done
+
+# Concurrent misses coalesce behind one Bash-3-compatible directory lock.
+state="$TEST_DIR/coalesced"; mkdir "$state"
+for number in 1 2 3 4 5; do
+  run_available "$state" newer gemini 1.0.0 "$TEST_DIR/coalesced-$number" &
+done
+wait
+[ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 1 ]
+for number in 1 2 3 4 5; do grep -qx '9.9.9' "$TEST_DIR/coalesced-$number"; done
+
+# A changed installed version cannot reuse the earlier current-version key.
+state="$TEST_DIR/version-change"
+run_available "$state" newer gemini 1.0.0 "$TEST_DIR/version-change-1"
+run_available "$state" newer gemini 1.1.0 "$TEST_DIR/version-change-2"
+[ "$(wc -l < "$state/provider.log" | tr -d ' ')" -eq 2 ]
+grep -q $'\t1.1.0\tnewer\t9.9.9$' "$state/available-versions/gemini.tsv"
+
+# Hold a validated session to exercise the actual tiny fzf helper.
+state="$TEST_DIR/session"; mkdir "$state"
+env AIUP_TUI_TESTING=1 AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" \
+  AIUP_FAKE_PROVIDER_SCENARIO=newer AIUP_FAKE_PROVIDER_LOG="$state/provider.log" \
+  AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-context & session_parent=$!
+for _ in $(seq 1 200); do [ -s "$state/test-session-context.tsv" ] && break; sleep 0.05; done
+[ -s "$state/test-session-context.tsv" ]
+session="$(awk -F '\t' '$1=="session" {print $2}' "$state/test-session-context.tsv")"
+token="$(awk -F '\t' '$1=="token" {print $2}' "$state/test-session-context.tsv")"
+runtime="$(awk -F '\t' '$1=="runtime" {print $2}' "$state/test-session-context.tsv")"
+manifest="$(awk -F '\t' '$1=="manifest" {print $2}' "$state/test-session-context.tsv")"
+fast=(env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$manifest"
+  AIUP_ACTIVE_RUNTIME="$runtime" AIUP_CATEGORY_FILTER='' AIUP_VIEW_MODE=overview AIUP_SORT_MODE=id
+  AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER"
+  AIUP_FAKE_PROVIDER_SCENARIO=newer AIUP_FAKE_PROVIDER_LOG="$state/provider.log"
+  AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" python3 "$session/fast-helper.py")
+
+# The session contains local preview forms for every row class and remote work
+# is bounded to installed managed rows, not the full catalog.
+"${fast[@]}" preview __cat:infra > "$TEST_DIR/category-preview"
+"${fast[@]}" preview gpt4all > "$TEST_DIR/lifecycle-preview"
+"${fast[@]}" preview bc:raycast > "$TEST_DIR/brew-preview"
+"${fast[@]}" preview di:app:com.example.demo-canvas > "$TEST_DIR/detected-preview"
+"${fast[@]}" preview gemini > "$TEST_DIR/managed-preview"
+grep -q '^keys     enter/ctrl-e toggle' "$TEST_DIR/category-preview"
+grep -q 'official repository has not published a release' "$TEST_DIR/lifecycle-preview"
+grep -q '^found    /Applications/Raycast.app$' "$TEST_DIR/brew-preview"
+grep -q '^action   inspect only' "$TEST_DIR/detected-preview"
+grep -q '^needs    npm \[ready\]$' "$TEST_DIR/managed-preview"
+remote_count="$(wc -l < "$session/preview-remote.tsv" | tr -d ' ')"
+installed_count="$(awk -F '\t' '$2=="installed" || $2=="on-disk" {n++} END {print n+0}' "$session/catalog-index.tsv")"
+[ "$remote_count" -eq "$installed_count" ] && [ "$remote_count" -lt 81 ]
+
+# Collapsed search is a cheap snapshot transform, and category operations reuse
+# those materialized rows while keeping an exact stable ID available.
+"${fast[@]}" rows gemini > "$TEST_DIR/search-rows"
+grep -q $'^gemini\t' "$TEST_DIR/search-rows"
+"${fast[@]}" toggle __cat:coding-agents '' > "$TEST_DIR/toggled-rows"
+grep -q $'^gemini\t' "$TEST_DIR/toggled-rows"
+"${fast[@]}" rows '' > "$TEST_DIR/resized-rows"
+grep -q $'^gemini\t' "$TEST_DIR/resized-rows"
+printf 'gemini' > "$session/selected"
+expected_position="$(awk -F '\t' '$1=="gemini" {print NR; exit}' "$session/list.tsv")"
+actual_position="$(env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$manifest" \
+  AIUP_ACTIVE_RUNTIME="$runtime" AIUP_CATEGORY_FILTER='' AIUP_VIEW_MODE=overview AIUP_SORT_MODE=id \
+  AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" bash "$runtime" __fzf-position)"
+[ "$actual_position" = "$expected_position" ]
+FZF_COLUMNS=70 "${fast[@]}" header | grep -qx 'search · enter act · ctrl-/ preview · esc close'
+"${fast[@]}" nav next gemini | grep -Eq '^pos\([0-9]+\)$'
+env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$manifest" \
+  AIUP_ACTIVE_RUNTIME="$runtime" AIUP_CATEGORY_FILTER='' AIUP_VIEW_MODE=overview AIUP_SORT_MODE=id \
+  AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" \
+  bash "$runtime" docs --print gemini | grep -qx 'https://github.com/google-gemini/gemini-cli'
+
+# Rapidly cancelled focus previews print local content but never reach the
+# debounced provider. fzf uses the same process-cancellation behavior.
+: > "$state/provider.log"
+for _ in $(seq 1 12); do
+  "${fast[@]}" preview gemini > "$TEST_DIR/cancelled-preview" 2>/dev/null & preview_pid=$!
+  sleep 0.03
+  kill -TERM "$preview_pid" 2>/dev/null || true
+  wait "$preview_pid" 2>/dev/null || true
+done
+grep -q '^installed 0.10.0$' "$TEST_DIR/cancelled-preview"
+[ ! -s "$state/provider.log" ]
+if [ -d "$state/available-versions" ]; then
+  find "$state/available-versions" -maxdepth 1 -type d -name '*.lock' | grep -q . && exit 1 || true
+fi
+
+# Measure the actual high-frequency helper operations on this host.
+python3 - "$session/fast-helper.py" "$runtime" "$manifest" "$session" "$token" "$FIXTURE" "$state" "$CAPTURE_PATH" <<'PY'
+import os, statistics, subprocess, sys, time
+helper, runtime, manifest, session, token, fixture, state, path = sys.argv[1:]
+env = os.environ.copy(); env.update(AIUP_TUI_SESSION_DIR=session, AIUP_TUI_SESSION_TOKEN=token,
+    AIUP_CATALOG_MANIFEST=manifest, AIUP_ACTIVE_RUNTIME=runtime, AIUP_CATEGORY_FILTER="", AIUP_VIEW_MODE="overview",
+    AIUP_SORT_MODE="id", AIUP_CAPTURE_FIXTURE_DIR=fixture, AIUP_STATE_DIR=state, PATH=path)
+cases = {
+    "local-preview": ["preview", "claude"],
+    "search-change": ["rows", "gemini"],
+    "category-toggle": ["toggle", "__cat:coding-agents", ""],
+    "resize-header": ["header"],
+}
+for label, args in cases.items():
+    values=[]
+    for _ in range(9):
+        start=time.perf_counter(); subprocess.run([sys.executable, helper, *args], env=env, stdout=subprocess.DEVNULL, check=True)
+        values.append((time.perf_counter()-start)*1000)
+    median=statistics.median(values); print(f"{label}: median={median:.1f}ms max={max(values):.1f}ms")
+    if max(values) >= (100 if label == "local-preview" else 200): raise SystemExit(f"{label} target missed")
+# Installed preview time-to-first-line proves local output precedes enrichment.
+start=time.perf_counter(); proc=subprocess.Popen([sys.executable, helper, "preview", "gemini"], env=env, stdout=subprocess.PIPE, text=True)
+line=proc.stdout.readline(); first=(time.perf_counter()-start)*1000
+proc.terminate(); proc.wait(timeout=2)
+print(f"cursor-preview-first-line: {first:.1f}ms")
+if not line.startswith("gemini ·") or first >= 100: raise SystemExit("installed local preview was not immediate")
+PY
+
+: > "$state/test-session-release"
+wait "$session_parent"
+[ ! -e "$session" ]
+
+# Structural fzf contracts: final-query persistence only, async transformed
+# reloads, exact identity tracking, and docs return without a row rebuild.
+grep -q -- '--track --id-nth=1' "$AIUP"
+grep -q 'change:reload($fast rows {q})' "$AIUP"
+! grep -q 'change:execute-silent.*__search-query' "$AIUP"
+grep -q 'ctrl-o:execute-silent($self docs {1})+clear-screen+refresh-preview' "$AIUP"
+
+printf 'aiup lazy TUI tests: ok\n'
