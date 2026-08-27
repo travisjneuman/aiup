@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -u
+
+tool="${1:-}"
+action="${2:-}"
+[ -n "${AIUP_FAKE_UPDATER_LOG:-}" ] && printf '%s\t%s\n' "$tool" "$action" >> "$AIUP_FAKE_UPDATER_LOG"
+case "${AIUP_FAKE_UPDATER_FAIL_TOOL:-}" in
+  "$tool") exit 23 ;;
+esac
+if [ "${AIUP_FAKE_UPDATER_ADVANCE:-0}" = 1 ] && [ -n "${AIUP_CAPTURE_FIXTURE_DIR:-}" ] && [ -f "$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv" ]; then
+  next="$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv.next.$$"
+  awk -F '\t' -v id="$tool" 'BEGIN {OFS="\t"} $1==id {$2="9.9.9"} {print}' "$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv" > "$next" || exit 24
+  mv "$next" "$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv" || exit 24
+fi
+exit 0

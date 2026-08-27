@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.08.27-01
+
+- Added an immediate virtual Updates category above the catalog. It distinguishes checking, verified newer, verified current, and unavailable-to-verify results without waiting for provider enrichment.
+- Added stable `__update:<id>` aliases and an `__updates:all` action that map back to canonical catalog identities for preview, documentation, selection, and updates. Synthetic identities are rejected at provider and mutation boundaries.
+- Added individual, selected, and explicit update-all execution through the existing authoritative update path. Batch candidates are confirmed by name, dependency ordered, revalidated immediately before each sequential mutation, deduplicated, and reported as successful, failed, skipped, or no longer applicable.
+- Extended private TUI sessions with an atomically published, runtime/manifest/session/snapshot/version-bound update index. Cached availability accelerates display only; changed installed versions invalidate the pairing and can never authorize an update.
+- Added deterministic update-category, alias, bulk-action, failure, refresh, corruption, cleanup, provider-coalescing, Homebrew-laziness, and continuity coverage.
+
 ## 2026.08.26-03
 
 - Materialized complete local preview lines and installed versions in each validated TUI session. Cursor focus now uses one small indexed helper process; provider metadata starts only after the local preview is visible.

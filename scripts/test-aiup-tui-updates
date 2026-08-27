@@ -1,0 +1,226 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+AIUP="$ROOT/macos/aiup"
+BASE_FIXTURE="$ROOT/scripts/fixtures/capture"
+PROVIDER="$ROOT/scripts/fixtures/fake-provider"
+UPDATER="$ROOT/scripts/fixtures/fake-updater"
+TEST_DIR="$(mktemp -d "$ROOT/.aiup-updates-test.XXXXXX")"
+trap 'printf "updates test failed at line %s\n" "$LINENO" >&2' ERR
+trap '[ -z "${session_parent:-}" ] || kill "$session_parent" 2>/dev/null || true; find "$TEST_DIR" -depth -delete 2>/dev/null || true' EXIT
+FIXTURE="$TEST_DIR/fixture"
+mkdir -p "$FIXTURE/bin"
+for fixture_file in PUBLIC-SAFE catalog-index.tsv brew-index.tsv inventory-index.tsv versions.tsv apps.tsv; do
+  cp "$BASE_FIXTURE/$fixture_file" "$FIXTURE/$fixture_file"
+done
+cp "$BASE_FIXTURE/bin/brew" "$BASE_FIXTURE/bin/date" "$FIXTURE/bin/"
+CAPTURE_PATH="$FIXTURE/bin:/opt/homebrew/bin:/usr/bin:/bin"
+NOW=1787680800
+session_parent=""
+session=""
+
+write_cache() {
+  local state="$1" id="$2" installed="$3" status="$4" available="${5:-}" timestamp="${6:-$NOW}"
+  mkdir -p "$state/available-versions"
+  printf '%s\t%s\t%s\t%s\n' "$timestamp" "$installed" "$status" "$available" > "$state/available-versions/$id.tsv"
+}
+
+start_session() {
+  local state="$1"
+  rm -f "$state/test-session-context.tsv" "$state/test-session-release"
+  env AIUP_TUI_TESTING=1 AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" \
+    AIUP_FAKE_PROVIDER_SCENARIO=newer AIUP_FAKE_PROVIDER_LOG="$state/provider.log" \
+    AIUP_TUI_TEST_SESSION_WAIT_STEPS=2400 \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-context & session_parent=$!
+  for _ in $(seq 1 200); do [ -s "$state/test-session-context.tsv" ] && break; sleep 0.05; done
+  [ -s "$state/test-session-context.tsv" ]
+  session="$(awk -F '\t' '$1=="session" {print $2}' "$state/test-session-context.tsv")"
+  token="$(awk -F '\t' '$1=="token" {print $2}' "$state/test-session-context.tsv")"
+  runtime="$(awk -F '\t' '$1=="runtime" {print $2}' "$state/test-session-context.tsv")"
+  manifest="$(awk -F '\t' '$1=="manifest" {print $2}' "$state/test-session-context.tsv")"
+  session_env=(env AIUP_TUI_SESSION_DIR="$session" AIUP_TUI_SESSION_TOKEN="$token" AIUP_CATALOG_MANIFEST="$manifest"
+    AIUP_ACTIVE_RUNTIME="$runtime" AIUP_CATEGORY_FILTER='' AIUP_VIEW_MODE=overview AIUP_SORT_MODE=id
+    AIUP_CAPTURE_FIXTURE_DIR="$FIXTURE" AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER"
+    AIUP_FAKE_PROVIDER_SCENARIO=newer AIUP_FAKE_PROVIDER_LOG="$state/provider.log"
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH")
+}
+
+stop_session() {
+  local state="$1"
+  : > "$state/test-session-release"
+  wait "$session_parent"
+  [ ! -e "$session" ]
+  session_parent=""; session=""
+}
+
+refresh_updates() {
+  "${session_env[@]}" bash "$runtime" __tui-test-updates-refresh
+}
+
+run_available() {
+  local state="$1" scenario="$2" id="$3" current="$4"
+  rm -f "$state/available-versions/$id.tsv"
+  env AIUP_TUI_TESTING=1 AIUP_FAKE_PROVIDER_COMMAND="$PROVIDER" AIUP_FAKE_PROVIDER_SCENARIO="$scenario" \
+    AIUP_FAKE_PROVIDER_LOG="$state/provider.log" AIUP_AVAILABLE_VERSION_PROVIDER_TIMEOUT=1 \
+    AIUP_STATE_DIR="$state" PATH="$CAPTURE_PATH" "$AIUP" __tui-test-available "$id" "$current" >/dev/null
+}
+
+# Cached verified results appear in the very first session rows. Uncached
+# candidates are checking immediately and do not invoke a provider first.
+state="$TEST_DIR/immediate"; mkdir "$state"
+write_cache "$state" gemini 0.10.0 newer 9.9.9
+started="$(python3 -c 'import time; print(time.monotonic_ns())')"
+start_session "$state"
+elapsed_ms="$(python3 - "$started" <<'PY'
+import sys, time
+print((time.monotonic_ns() - int(sys.argv[1])) // 1_000_000)
+PY
+)"
+[ "$elapsed_ms" -lt 7000 ]
+grep -q $'^__cat:updates\t' "$session/rows-expanded.tsv"
+grep -q $'^__update:gemini\t' "$session/rows-expanded.tsv"
+grep -q 'Updates · 1 verified' "$session/rows-expanded.tsv"
+[ ! -s "$state/provider.log" ]
+grep -q $'\tchecking\t' "$session/updates-index.tsv"
+
+# Provider completion atomically adds/removes rows while query, expansion, and
+# selected stable identity remain untouched.
+printf 'gemini' > "$session/query"
+printf 'updates\ninfra\n' > "$session/expanded"
+printf '__update:gemini' > "$session/selected"
+before_query="$(cat "$session/query")"; before_expanded="$(cat "$session/expanded")"; before_selected="$(cat "$session/selected")"
+run_available "$state" newer fzf 0.74.3
+refresh_updates > "$TEST_DIR/refreshed-index"
+grep -q $'^__update:fzf\t' "$session/rows-expanded.tsv"
+[ "$before_query" = "$(cat "$session/query")" ]
+[ "$before_expanded" = "$(cat "$session/expanded")" ]
+[ "$before_selected" = "$(cat "$session/selected")" ]
+[ ! -e "$session/updates-index.tsv.next" ]
+
+# Current is distinct from unavailable; failures, timeouts, malformed data,
+# unfinished checks, stale installed-version keys, and stale timestamps never
+# become current.
+run_available "$state" current gemini 0.10.0
+refresh_updates >/dev/null
+grep -q $'^gemini\t0.10.0\t\tcurrent\t' "$session/updates-index.tsv"
+for scenario in failure timeout malformed; do
+  run_available "$state" "$scenario" gemini 0.10.0
+  refresh_updates >/dev/null
+  grep -q $'^gemini\t0.10.0\t\tunavailable\t' "$session/updates-index.tsv"
+done
+rm -f "$state/available-versions/gemini.tsv"
+refresh_updates >/dev/null
+grep -q $'^gemini\t0.10.0\t\tchecking\t' "$session/updates-index.tsv"
+write_cache "$state" gemini 0.9.0 newer 9.9.9
+refresh_updates >/dev/null
+grep -q $'^gemini\t0.10.0\t\tchecking\t' "$session/updates-index.tsv"
+write_cache "$state" gemini 0.10.0 newer 9.9.9 0
+refresh_updates >/dev/null
+grep -q $'^gemini\t0.10.0\t\tchecking\t' "$session/updates-index.tsv"
+printf 'malformed\n' > "$state/available-versions/gemini.tsv"
+refresh_updates >/dev/null
+grep -q $'^gemini\t0.10.0\t\tchecking\t' "$session/updates-index.tsv"
+run_available "$state" newer bf:owner/tap/tool 1.0.0
+[ -f "$state/available-versions/bf:owner%2Ftap%2Ftool.tsv" ]
+
+# Restore two eligible rows plus one lifecycle exception for identity, preview,
+# selection, bulk eligibility, and manual-review coverage.
+write_cache "$state" gemini 0.10.0 newer 9.9.9
+write_cache "$state" fzf 0.74.3 newer 9.9.9
+write_cache "$state" gpt4all 3.11.1 newer 9.9.9
+refresh_updates >/dev/null
+grep -q $'^gpt4all\t3.11.1\t9.9.9\tnewer\tmanual-review\t' "$session/updates-index.tsv"
+grep -q 'Update all verified items · 2' "$session/rows-expanded.tsv"
+"${session_env[@]}" python3 "$session/fast-helper.py" preview __update:gemini > "$TEST_DIR/update-preview"
+grep -q '^installed 0.10.0$' "$TEST_DIR/update-preview"
+grep -q '^available 9.9.9$' "$TEST_DIR/update-preview"
+grep -q '^action    update$' "$TEST_DIR/update-preview"
+"${session_env[@]}" bash "$runtime" docs --print __update:gemini | grep -qx 'https://github.com/google-gemini/gemini-cli'
+
+"${session_env[@]}" bash "$runtime" __tui-test-updates-resolve __update:gemini gemini > "$TEST_DIR/dedup"
+[ "$(grep -c $'^tool\tgemini$' "$TEST_DIR/dedup")" -eq 1 ]
+"${session_env[@]}" bash "$runtime" __tui-test-updates-resolve __updates:all gemini > "$TEST_DIR/all-resolved"
+grep -q $'^all\t1$' "$TEST_DIR/all-resolved"
+grep -q $'^tool\tfzf$' "$TEST_DIR/all-resolved"
+grep -q $'^tool\tgemini$' "$TEST_DIR/all-resolved"
+! grep -q $'^tool\tgpt4all$' "$TEST_DIR/all-resolved"
+if "${session_env[@]}" bash "$runtime" __tui-test-updates-resolve __update:not-real >/dev/null 2>&1; then exit 1; fi
+if "${session_env[@]}" bash "$runtime" __tui-test-updates-resolve __updates:bogus >/dev/null 2>&1; then exit 1; fi
+
+# Corrupt, partial, symlinked, wrong-runtime, and wrong-manifest indexes fail
+# closed. Exact originals restore the still-owned session.
+cp "$session/updates-meta.tsv" "$TEST_DIR/updates-meta.good"
+cp "$session/updates-index.tsv" "$TEST_DIR/updates-index.good"
+cp "$session/rows-expanded.tsv" "$TEST_DIR/rows-expanded.good"
+for mode in corrupt partial wrong-runtime wrong-manifest; do
+  cp "$TEST_DIR/updates-meta.good" "$session/updates-meta.tsv"
+  cp "$TEST_DIR/updates-index.good" "$session/updates-index.tsv"
+  cp "$TEST_DIR/rows-expanded.good" "$session/rows-expanded.tsv"
+  case "$mode" in
+    corrupt) printf 'corrupt\n' >> "$session/updates-index.tsv" ;;
+    partial) rm -f "$session/updates-index.tsv" ;;
+    wrong-runtime) sed 's/^runtime_hash\t.*/runtime_hash\twrong/' "$session/updates-meta.tsv" > "$session/updates-meta.tsv.next"; mv "$session/updates-meta.tsv.next" "$session/updates-meta.tsv" ;;
+    wrong-manifest) sed 's/^manifest_hash\t.*/manifest_hash\twrong/' "$session/updates-meta.tsv" > "$session/updates-meta.tsv.next"; mv "$session/updates-meta.tsv.next" "$session/updates-meta.tsv" ;;
+  esac
+  if "${session_env[@]}" python3 "$session/fast-helper.py" rows '' >/dev/null 2>&1; then exit 1; fi
+done
+cp "$TEST_DIR/updates-meta.good" "$session/updates-meta.tsv"
+cp "$TEST_DIR/rows-expanded.good" "$session/rows-expanded.tsv"
+mv "$session/updates-index.tsv" "$TEST_DIR/updates-index.partial" 2>/dev/null || true
+ln -s "$TEST_DIR/updates-index.good" "$session/updates-index.tsv"
+if "${session_env[@]}" python3 "$session/fast-helper.py" rows '' >/dev/null 2>&1; then exit 1; fi
+rm "$session/updates-index.tsv"
+cp "$TEST_DIR/updates-index.good" "$session/updates-index.tsv"
+"${session_env[@]}" python3 "$session/fast-helper.py" rows '' >/dev/null
+
+# One-item Enter/act and ctrl-r multi-select dispatch only exact verified
+# canonical IDs through the existing update path. Update-all cancellation logs
+# its exact prompt and performs no mutation.
+: > "$state/mutations.log"; : > "$state/confirms.log"
+"${session_env[@]}" AIUP_TUI_TEST_MUTATION_COMMAND="$UPDATER" AIUP_FAKE_UPDATER_LOG="$state/mutations.log" \
+  bash "$runtime" __tui-test-updates-apply __update:gemini >/dev/null
+grep -qx $'gemini\tupdate' "$state/mutations.log"
+: > "$state/mutations.log"
+"${session_env[@]}" AIUP_TUI_TEST_MUTATION_COMMAND="$UPDATER" AIUP_FAKE_UPDATER_LOG="$state/mutations.log" \
+  bash "$runtime" __tui-test-updates-apply __update:gemini __update:fzf >/dev/null
+[ "$(wc -l < "$state/mutations.log" | tr -d ' ')" -eq 2 ]
+grep -qx $'fzf\tupdate' "$state/mutations.log"
+grep -qx $'gemini\tupdate' "$state/mutations.log"
+: > "$state/mutations.log"
+"${session_env[@]}" AIUP_TUI_TEST_MUTATION_COMMAND="$UPDATER" AIUP_FAKE_UPDATER_LOG="$state/mutations.log" \
+  AIUP_TUI_TEST_CONFIRM_RESPONSE=n AIUP_TUI_TEST_CONFIRM_LOG="$state/confirms.log" \
+  bash "$runtime" __tui-test-updates-apply __updates:all >/dev/null
+[ ! -s "$state/mutations.log" ]
+grep -q '^Update all 2 verified items:' "$state/confirms.log"
+
+# A failed item does not stop later independent items or mark the whole batch
+# successful. Successful state changes disappear after authoritative current
+# enrichment; failed items remain after re-verification.
+: > "$state/mutations.log"; : > "$state/confirms.log"
+if "${session_env[@]}" AIUP_TUI_TEST_MUTATION_COMMAND="$UPDATER" AIUP_FAKE_UPDATER_LOG="$state/mutations.log" \
+  AIUP_FAKE_UPDATER_FAIL_TOOL=fzf AIUP_FAKE_UPDATER_ADVANCE=1 AIUP_TUI_TEST_CONFIRM_RESPONSE=y \
+  AIUP_TUI_TEST_CONFIRM_LOG="$state/confirms.log" bash "$runtime" __tui-test-updates-apply __updates:all > "$TEST_DIR/batch-result"; then
+  printf 'partially failed batch unexpectedly returned success\n' >&2; exit 1
+fi
+grep -q '^failed        fzf$' "$TEST_DIR/batch-result"
+grep -q '^successful    gemini$' "$TEST_DIR/batch-result"
+[ "$(wc -l < "$state/mutations.log" | tr -d ' ')" -eq 2 ]
+run_available "$state" current gemini 9.9.9
+run_available "$state" newer fzf 0.74.3
+refresh_updates >/dev/null
+! grep -q $'^__update:gemini\t' "$session/rows-expanded.tsv"
+grep -q $'^__update:fzf\t' "$session/rows-expanded.tsv"
+
+stop_session "$state"
+
+# Structural contracts: no synthetic identity can enter mutation dispatch,
+# dynamic reload uses stable fzf identity/listen support, workers refresh only
+# after provider completion, and the complete Homebrew universe stays lazy.
+grep -q -- '--track --id-nth=1' "$AIUP"
+grep -q -- '--listen-unsafe="$AIUP_TUI_LISTEN_SOCKET"' "$AIUP"
+grep -q 'Synthetic Updates identity reached action dispatch' "$AIUP"
+grep -q '^tui_updates_refresh_session()' "$AIUP"
+! grep -q 'brew formulae\|brew casks' "$state/provider.log"
+
+printf 'aiup dynamic Updates TUI tests: ok\n'

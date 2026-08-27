@@ -1,8 +1,8 @@
 # Scope, completion, and next work
 
-Status date: **2026-08-26**
+Status date: **2026-08-27**
 
-Current version: **2026.08.26-03**
+Current version: **2026.08.27-01**
 
 ## Current product scope
 
@@ -13,6 +13,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - install, update, remove, or adopt catalog items through explicit actions;
 - browse the managed catalog, detected-only local software, and Homebrew inventory through focused views;
 - show the installed version immediately from the session snapshot and append an available version only after cached or lazy provider metadata confirms a newer release;
+- show a dynamic Updates category first, with truthful checking, verified-current, verified-newer, and unavailable-to-verify states;
+- update one verified item, selected verified items, or an explicitly confirmed dependency-ordered snapshot of all bulk-eligible verified items through the existing authoritative updater;
 - validate once per interactive entry, materialize a coherent state snapshot, and serve cursor/search/resize/category helpers from an exact-runtime private session;
 - reuse only versioned, fingerprinted, atomically published disposable cache generations while treating live state as authoritative for every mutation;
 - search inside collapsed categories and restore a clean picker after provider actions;
@@ -27,7 +29,7 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - fail closed on offline, failed, empty, invalid, mismatched, partial, locked, or unactivatable public refreshes; and
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in.
 
-The cache/session authority and first performance slice are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md). The lazy/eager/background boundaries, provider TTLs, invalidation rules, fallbacks, and second-slice measurements are documented in [TUI performance slice 2](tui-performance-slice-2-2026-08-26.md).
+The cache/session authority and first performance slice are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md). The lazy/eager/background boundaries, provider TTLs, invalidation rules, fallbacks, and second-slice measurements are documented in [TUI performance slice 2](tui-performance-slice-2-2026-08-26.md). The virtual-category identity, verified bulk-update boundary, invalidation behavior, and same-host performance comparison are documented in [Dynamic Updates category and safe bulk updating](dynamic-updates-category-2026-08-27.md).
 
 The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Individual products can impose stricter constraints recorded in the [dated 83-entry accuracy audit](catalog-accuracy-2026-08-25.md). That audit left 81 managed entries with executable contracts.
 
@@ -72,4 +74,4 @@ Future tagged-release, CI, and cross-platform decisions remain separate scopes. 
 
 ## Workstream disposition
 
-The current macOS tool, second TUI performance slice, public repository, minimal site, continuously looping media, brand/discovery suite, and public/private documentation workstream is complete for its dated scope. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation remain separate optional release-hardening lanes rather than automated PTY claims.
+The current macOS tool, dynamic Updates category and safe bulk-update slice, public repository, minimal site, continuously looping media, brand/discovery suite, and public/private documentation workstream is complete for its dated scope. The independent final performance/regression closure remains the next implementation prompt. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation remain separate optional release-hardening lanes rather than automated PTY claims.

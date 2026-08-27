@@ -2,8 +2,9 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.26-03"
-AIUP_TUI_CACHE_SCHEMA="2"
+AIUP_VERSION="2026.08.27-01"
+AIUP_TUI_CACHE_SCHEMA="3"
+AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
@@ -118,6 +119,7 @@ AIUP_TUI_SNAPSHOT_GENERATION=""
 AIUP_TUI_SCAN_FILTER="all"
 AIUP_VERSIONS_REBUILT=0
 AIUP_TUI_PREFETCH_PID=""
+AIUP_TUI_LISTEN_SOCKET=""
 AIUP_PROVIDER_PID=""
 AIUP_PROVIDER_WATCHDOG_PID=""
 AIUP_ACTIVE_AVAILABLE_LOCK=""
@@ -142,6 +144,9 @@ RESULT_CANCELLED=()
 AIUP_LAST_UPDATE_STATUS=completed
 AIUP_TUI_ACTION_BASE_GENERATION=""
 AIUP_TUI_CACHED_ROWS=""
+PICK_UPDATE_ALL=0
+PICK_UPDATE_SYNTHETIC=0
+PICK_UPDATE_SNAPSHOT=()
 
 if [ -n "${ZSH_VERSION:-}" ]; then
   setopt SH_WORD_SPLIT 2>/dev/null || true
@@ -285,7 +290,7 @@ shell_quote() {
 }
 
 tui_helper_command() {
-  local runtime
+  local runtime session_snapshot
   runtime="$(tui_runtime_path)"
   printf 'env AIUP_TUI_SESSION_DIR=%s AIUP_TUI_SESSION_TOKEN=%s AIUP_CATALOG_MANIFEST=%s AIUP_ACTIVE_RUNTIME=%s AIUP_CATEGORY_FILTER=%s AIUP_VIEW_MODE=%s AIUP_SORT_MODE=%s bash %s' \
     "$(shell_quote "$AIUP_TUI_SESSION_DIR")" "$(shell_quote "$AIUP_TUI_SESSION_TOKEN")" \
@@ -1291,6 +1296,13 @@ ensure_catalog_deps() {
   local -a ordered=()
   local seen="|"
   for tool in "$@"; do
+    case "$tool" in
+      bc:*|bf:*)
+        case "$selected" in
+          *'|brew|'*) case "$seen" in *'|brew|'*) ;; *) seen="${seen}brew|"; ordered+=(brew) ;; esac ;;
+        esac
+        ;;
+    esac
     while IFS= read -r dep; do
       [ -n "$dep" ] || continue
       case "$seen" in
@@ -1801,6 +1813,7 @@ detected_search_url() {
 
 catalog_ansi() {
   case "$1" in
+    updates) printf '\033[38;5;82m' ;;
     infra) printf '\033[38;5;39m' ;;
     coding-agents) printf '\033[38;5;171m' ;;
     workspaces) printf '\033[38;5;219m' ;;
@@ -2077,6 +2090,7 @@ category_for_row() {
   local raw="$1"
   case "$raw" in
     __cat:*) printf '%s\n' "${raw#__cat:}" ;;
+    __update:*|__updates:all) printf 'updates\n' ;;
     bc:*|bf:*) catalog_category "$raw" ;;
     *) catalog_category "$raw" ;;
   esac
@@ -2177,6 +2191,7 @@ catalog_ui_state_save() {
   [ -n "$id" ] && printf '%s' "$id" > "$LIST_SELECTED_FILE"
   case "$id" in
     __cat:*) category="${id#__cat:}" ;;
+    __update:*|__updates:all) category='updates' ;;
     di:*) category='detected' ;;
     bc:*|bf:*) category="$(catalog_category "$id")" ;;
     *) category="$(catalog_category "$id")" ;;
@@ -2212,7 +2227,7 @@ refresh_fzf_listfile() {
 
 tui_internal_command() {
   case "${1:-}" in
-    __fzf-rows|__fzf-position|__search-query|__fzf-header|__cat-toggle|__cat-expand|__cat-collapse|__cat-nav|__cat-jump|__cat-expand-all|__cat-collapse-all|__enter-action|__available-preview|preview|docs|home|open) return 0 ;;
+    __fzf-rows|__fzf-position|__search-query|__fzf-header|__cat-toggle|__cat-expand|__cat-collapse|__cat-nav|__cat-jump|__cat-expand-all|__cat-collapse-all|__enter-action|__available-preview|__tui-test-updates-refresh|__tui-test-updates-resolve|__tui-test-updates-apply|preview|docs|home|open) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -2239,6 +2254,24 @@ tui_fast_dispatch() {
       [ -n "${1:-}" ] && [ -n "${2:-}" ] || return 1
       available_version_preview "$1" "$2"
       ;;
+    __tui-test-updates-refresh)
+      [ "${AIUP_TUI_TESTING:-0}" = 1 ] && capture_fixture_enabled || return 1
+      tui_updates_publish "$AIUP_TUI_SESSION_DIR" "$AIUP_TUI_SESSION_TOKEN" "$AIUP_TUI_SNAPSHOT_GENERATION" || return 1
+      cat "$AIUP_TUI_SESSION_DIR/updates-index.tsv"
+      ;;
+    __tui-test-updates-resolve|__tui-test-updates-apply)
+      [ "${AIUP_TUI_TESTING:-0}" = 1 ] && capture_fixture_enabled || return 1
+      PICK_ACTION=update; PICK_TOOLS=("$@"); PICK_UPDATE_ALL=0; PICK_UPDATE_SYNTHETIC=0; PICK_UPDATE_SNAPSHOT=()
+      tui_resolve_update_selection || return 1
+      if [ "$command" = '__tui-test-updates-apply' ]; then
+        apply_catalog_action update "${PICK_TOOLS[@]}"
+      else
+        printf 'action\t%s\n' "$PICK_ACTION"
+        printf 'all\t%s\n' "$PICK_UPDATE_ALL"
+        printf 'tool\t%s\n' "${PICK_TOOLS[@]}"
+        printf 'snapshot\t%s\n' "${PICK_UPDATE_SNAPSHOT[@]}"
+      fi
+      ;;
     preview)
       [ -n "${1:-}" ] || { error "usage: aiup preview <tool>"; return 1; }
       tui_session_print_preview "$1"
@@ -2252,6 +2285,7 @@ expand_all_categories() {
   local child
   ensure_dir "$STATE_DIR"
   {
+    printf 'updates\n'
     printf '%s\n' "${CATEGORY_ORDER[@]}"
     for child in "${HOMEBREW_CHILD_ORDER[@]}"; do
       printf 'homebrew/%s\n' "$child"
@@ -2741,7 +2775,7 @@ brew_formula_install_alongside() {
 apply_brew_extras() {
   local action="$1"
   shift
-  local id name app
+  local id name app failures=0
   mutation_authoritative_preflight "Homebrew extra $action" || return 1
   command_exists brew || { error "Homebrew required"; return 1; }
   for id in "$@"; do
@@ -2760,9 +2794,14 @@ apply_brew_extras() {
           update)
             if brew_cask_installed "$name"; then
               brew_ensure_target_tap "" "$name" cask || return 1
-              run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
+              if run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"; then
+                result_record completed "$id"
+              else
+                append_failure "$id"; failures=$((failures + 1))
+              fi
             else
               warn "$name is on your Mac outside Homebrew; skip brew upgrade. Press enter to switch it to Homebrew without --zap."
+              result_record skipped "$id"
             fi
             ;;
           *)
@@ -2789,9 +2828,14 @@ apply_brew_extras() {
           update)
             if brew_formula_installed "$name"; then
               brew_ensure_target_tap "" "$name" formula || return 1
-              run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$name" || true
+              if run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$name"; then
+                result_record completed "$id"
+              else
+                append_failure "$id"; failures=$((failures + 1))
+              fi
             else
               warn "$name is on PATH outside Homebrew; skip brew upgrade. Press enter to install a Homebrew copy alongside it."
+              result_record skipped "$id"
             fi
             ;;
           *)
@@ -2804,6 +2848,7 @@ apply_brew_extras() {
   brew_cache_invalidate
   scan_brew_index
   tui_cache_invalidate
+  [ "$failures" -eq 0 ]
 }
 
 open_url() {
@@ -2837,6 +2882,15 @@ cmd_docs() {
   local resolved url
   case "$tool" in
     __cat:*) return 0 ;;
+    __updates:all) return 0 ;;
+    __update:*)
+      resolved="${tool#__update:}"
+      [ -n "$resolved" ] && [ "$resolved" != "$tool" ] || return 1
+      if [ "$AIUP_TUI_SESSION_ACTIVE" -eq 1 ]; then
+        awk -F '\t' -v id="$resolved" '$1==id && $4=="newer" {found=1} END {exit found ? 0 : 1}' "$AIUP_TUI_SESSION_DIR/updates-index.tsv" || return 1
+      fi
+      tool="$resolved"
+      ;;
     di:*)
       url="$(detected_search_url "$tool")"
       if [ "$print_only" -eq 1 ]; then printf '%s\n' "$url"; return 0; fi
@@ -3036,9 +3090,10 @@ available_candidate_result() {
 # strictly newer supported version.
 available_version_uncached() {
   local tool="$1" current="$2"
-  local kind pkg formula cask endpoint latest target arch raw parsed rc
+  local kind pkg formula cask endpoint latest target arch raw parsed rc provider_key
   ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 1
-  raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.provider-${tool}.XXXXXX")" || return 1
+  provider_key="$(available_cache_key "$tool")"
+  raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.provider-${provider_key}.XXXXXX")" || return 1
   if [ "${AIUP_TUI_TESTING:-0}" = 1 ] && [ -n "${AIUP_FAKE_PROVIDER_COMMAND:-}" ]; then
     [ -x "$AIUP_FAKE_PROVIDER_COMMAND" ] || { rm -f "$raw"; return 1; }
     bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" "$AIUP_FAKE_PROVIDER_COMMAND" "$tool" "$current" || { rm -f "$raw"; return 1; }
@@ -3055,7 +3110,11 @@ available_version_uncached() {
     available_candidate_result "$current" "$latest"
     return $?
   fi
-  kind="$(catalog_kind "$tool")"
+  case "$tool" in
+    bf:*) kind='brew-formula'; formula="${tool#bf:}" ;;
+    bc:*) kind='brew-cask'; cask="${tool#bc:}" ;;
+    *) kind="$(catalog_kind "$tool")" ;;
+  esac
   pkg="$(catalog_npm_pkg "$tool")"
   if { [ "$kind" = 'aiup-npm' ] || [ -n "$pkg" ]; } && [ -n "$pkg" ] && command_exists npm; then
     bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env npm view "$pkg" version --fetch-retries=0 --fetch-timeout=3000 || { rm -f "$raw"; return 1; }
@@ -3064,7 +3123,7 @@ available_version_uncached() {
     return $?
   fi
   if [ "$kind" = 'brew-formula' ] && command_exists brew; then
-    formula="$(catalog_brew_formula "$tool")"
+    [ -n "${formula:-}" ] || formula="$(catalog_brew_formula "$tool")"
     bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --formula "$formula" || { rm -f "$raw"; return 1; }
     parsed="${raw}.parsed"
     python3 - "$raw" > "$parsed" <<'PY'
@@ -3081,7 +3140,7 @@ PY
     return $?
   fi
   if [ "$kind" = 'brew-cask' ] && command_exists brew; then
-    cask="$(catalog_brew_cask "$tool")"
+    [ -n "${cask:-}" ] || cask="$(catalog_brew_cask "$tool")"
     bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --cask "$cask" || { rm -f "$raw"; return 1; }
     parsed="${raw}.parsed"
     python3 - "$raw" > "$parsed" <<'PY'
@@ -3128,12 +3187,18 @@ PY
     [ "$rc" -eq 2 ] && return 0
     return 1
   fi
-  # Items without a supported remote metadata source are valid local-only rows.
-  return 0
+  # A missing provider contract is unavailable to verify, never proof that the
+  # installed item is current.
+  return 1
 }
 
 available_cache_file() {
-  printf '%s/%s.tsv\n' "$AVAILABLE_VERSION_CACHE_DIR" "$1"
+  printf '%s/%s.tsv\n' "$AVAILABLE_VERSION_CACHE_DIR" "$(available_cache_key "$1")"
+}
+
+available_cache_key() {
+  local key="$1"
+  printf '%s\n' "${key//\//%2F}"
 }
 
 available_cache_read() {
@@ -3162,9 +3227,10 @@ available_cache_prune() {
 }
 
 available_cache_write() {
-  local tool="$1" current="$2" status="$3" version="${4:-}" temp_file
+  local tool="$1" current="$2" status="$3" version="${4:-}" temp_file cache_key
   ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 1
-  temp_file="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.${tool}.XXXXXX")" || return 1
+  cache_key="$(available_cache_key "$tool")"
+  temp_file="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.${cache_key}.XXXXXX")" || return 1
   printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "$current" "$status" "$version" > "$temp_file" || { rm -f "$temp_file"; return 1; }
   mv "$temp_file" "$(available_cache_file "$tool")" || { rm -f "$temp_file"; return 1; }
   available_cache_prune || true
@@ -3185,7 +3251,7 @@ available_lock_recover() {
 }
 
 available_version_of_tool() {
-  local tool="$1" current="$2" lock_dir available rc tries=0 kind brew_lock
+  local tool="$1" current="$2" lock_dir available rc tries=0 kind brew_lock cache_key
   ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 0
   if available_cache_read "$tool" "$current"; then return 0; fi
   profile_note "available-cache miss tool=$tool current=$current"
@@ -3201,7 +3267,8 @@ available_version_of_tool() {
       ;;
   esac
   tries=0
-  lock_dir="$AVAILABLE_VERSION_CACHE_DIR/.${tool}.lock"
+  cache_key="$(available_cache_key "$tool")"
+  lock_dir="$AVAILABLE_VERSION_CACHE_DIR/.${cache_key}.lock"
   while ! mkdir "$lock_dir" 2>/dev/null; do
     available_lock_recover "$lock_dir" || true
     tries=$((tries + 1))
@@ -3247,6 +3314,219 @@ available_version_preview() {
   [ -n "$available" ] && printf 'available %s\n' "$available"
 }
 
+tui_updates_index_valid() {
+  local dir="${1:-$AIUP_TUI_SESSION_DIR}" marker="" schema="" runtime_version="" runtime_hash=""
+  local manifest_version="" manifest_hash="" token_hash="" owner_pid="" snapshot="" index_hash="" base_hash="" rows_hash=""
+  local runtime session_snapshot="" published="" seen='|'
+  [ -n "$dir" ] && [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  for name in updates-meta.tsv updates-index.tsv rows-base.tsv rows-expanded.tsv token; do
+    [ -f "$dir/$name" ] && [ ! -L "$dir/$name" ] || return 1
+  done
+  while IFS=$'\t' read -r key value extra; do
+    [ -z "${extra:-}" ] || return 1
+    case "$seen" in *"|$key|"*) return 1 ;; esac
+    seen="${seen}${key}|"
+    case "$key" in
+      marker) marker="$value" ;; schema) schema="$value" ;;
+      runtime_version) runtime_version="$value" ;; runtime_hash) runtime_hash="$value" ;;
+      manifest_version) manifest_version="$value" ;; manifest_hash) manifest_hash="$value" ;;
+      token_hash) token_hash="$value" ;; owner_pid) owner_pid="$value" ;; snapshot_generation) snapshot="$value" ;;
+      index_hash) index_hash="$value" ;; base_hash) base_hash="$value" ;; rows_hash) rows_hash="$value" ;;
+      published) published="$value" ;;
+      *) return 1 ;;
+    esac
+  done < "$dir/updates-meta.tsv"
+  runtime="$(tui_runtime_path)"
+  case "$published" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$marker" = 'aiup-tui-updates-v1' ] && [ "$schema" = "$AIUP_TUI_UPDATE_SCHEMA" ] || return 1
+  [ "$runtime_version" = "$AIUP_VERSION" ] && [ "$runtime_hash" = "$(sha256_file "$runtime")" ] || return 1
+  [ "$manifest_version" = "$CATALOG_MANIFEST_VERSION" ] && [ "$manifest_hash" = "$CATALOG_MANIFEST_HASH" ] || return 1
+  [ "$token_hash" = "$(sha256_file "$dir/token")" ] || return 1
+  case "${dir##*/}" in "$owner_pid"-*|.staging-"$owner_pid"-*) ;; *) return 1 ;; esac
+  kill -0 "$owner_pid" 2>/dev/null || return 1
+  session_snapshot="$(awk -F '\t' '$1=="snapshot_generation" {print $2; exit}' "$dir/meta.tsv" 2>/dev/null || true)"
+  if [ -n "$session_snapshot" ]; then
+    [ "$snapshot" = "$session_snapshot" ] || return 1
+  else
+    [ "$snapshot" = "${AIUP_TUI_SNAPSHOT_GENERATION:-$snapshot}" ] || return 1
+  fi
+  [ "$index_hash" = "$(sha256_file "$dir/updates-index.tsv")" ] || return 1
+  [ "$base_hash" = "$(sha256_file "$dir/rows-base.tsv")" ] || return 1
+  [ "$rows_hash" = "$(sha256_file "$dir/rows-expanded.tsv")" ] || return 1
+  awk -F '\t' '
+    NF != 9 {exit 1}
+    $1 !~ /^([a-z0-9-]+|b[cf]:[A-Za-z0-9@+._\/-]+)$/ {exit 1}
+    $4 !~ /^(newer|current|checking|unavailable)$/ {exit 1}
+    $5 !~ /^(eligible|manual-review)$/ {exit 1}
+    $9 !~ /^(none|[0-9]+:(newer|current|failure))$/ {exit 1}
+    {if (seen[$1]++) exit 1}
+  ' "$dir/updates-index.tsv" || return 1
+}
+
+tui_updates_publish() {
+  local dir="${1:-$AIUP_TUI_SESSION_DIR}" token="${2:-$AIUP_TUI_SESSION_TOKEN}" snapshot="${3:-$AIUP_TUI_SNAPSHOT_GENERATION}"
+  local lock index_tmp rows_tmp meta_tmp runtime now owner_pid
+  [ -n "$dir" ] && [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  [ -f "$dir/rows-base.tsv" ] && [ ! -L "$dir/rows-base.tsv" ] || return 1
+  lock="$dir/.updates-publish.lock"
+  mkdir "$lock" 2>/dev/null || return 0
+  index_tmp="$dir/updates-index.tsv.next.$(current_shell_pid)"
+  rows_tmp="$dir/rows-expanded.tsv.next.$(current_shell_pid)"
+  meta_tmp="$dir/updates-meta.tsv.next.$(current_shell_pid)"
+  runtime="$(tui_runtime_path)"
+  now="$(date +%s)"
+  owner_pid="$(awk -F '\t' '$1=="owner_pid" {print $2; exit}' "$dir/meta.tsv" 2>/dev/null || true)"
+  [ -n "$owner_pid" ] || owner_pid="$$"
+  if ! python3 - "$CATALOG_MANIFEST" "$dir/catalog-index.tsv" "$dir/brew-index.tsv" "$dir/versions-index.tsv" \
+    "$AVAILABLE_VERSION_CACHE_DIR" "$dir/rows-base.tsv" "$index_tmp" "$rows_tmp" "$now" \
+    "$AVAILABLE_VERSION_CACHE_TTL" "$AVAILABLE_VERSION_FAILURE_TTL" <<'PY'
+import csv, os, pathlib, re, sys
+
+(manifest_path, catalog_path, brew_path, versions_path, cache_path, base_path,
+ index_path, rows_path) = map(pathlib.Path, sys.argv[1:9])
+now, good_ttl, failure_ttl = map(int, sys.argv[9:12])
+
+def version_parts(value):
+    return tuple(int(part) for part in re.findall(r"\d+", value or ""))
+
+def greater(left, right):
+    a, b = version_parts(left), version_parts(right)
+    width = max(len(a), len(b))
+    return a + (0,) * (width - len(a)) > b + (0,) * (width - len(b))
+
+manifest = {}
+with manifest_path.open(encoding="utf-8") as handle:
+    for row in csv.reader((line for line in handle if not line.startswith("#")), delimiter="\t"):
+        if len(row) >= 6:
+            row += [""] * (8 - len(row))
+            manifest[row[0]] = {"kind": row[2], "lifecycle": row[3], "label": row[4]}
+versions = {}
+with versions_path.open(encoding="utf-8") as handle:
+    for row in csv.reader(handle, delimiter="\t"):
+        if len(row) >= 2 and row[0] not in versions: versions[row[0]] = row[1]
+candidates = []
+with catalog_path.open(encoding="utf-8") as handle:
+    for row in csv.reader(handle, delimiter="\t"):
+        if len(row) >= 3 and row[1] == "installed" and row[2] in manifest:
+            item = manifest[row[2]]
+            candidates.append((row[2], versions.get(row[2], "unknown"), item["lifecycle"], item["label"]))
+with brew_path.open(encoding="utf-8") as handle:
+    for row in csv.reader(handle, delimiter="\t"):
+        if len(row) >= 4 and row[1] == "installed" and row[2].startswith(("bc:", "bf:")):
+            candidates.append((row[2], versions.get(row[2], "unknown"), "active", row[3]))
+
+records = []
+for canonical, installed, lifecycle, label in candidates:
+    status, available, cache_identity = "checking", "", "none"
+    eligibility = "eligible" if lifecycle == "active" else "manual-review"
+    if not installed or installed in {"unknown", "not installed", "app present"}:
+        status = "unavailable"
+    else:
+        cache_file = cache_path / f"{canonical.replace('/', '%2F')}.tsv"
+        try:
+            if cache_file.is_symlink() or not cache_file.is_file(): raise ValueError
+            raw = cache_file.read_text(encoding="utf-8")
+            rows = list(csv.reader(raw.splitlines(), delimiter="\t"))
+            if len(rows) != 1 or len(rows[0]) != 4: raise ValueError
+            cached_at, cached_current, cached_status, cached_available = rows[0]
+            if not cached_at.isdigit() or cached_current != installed: raise ValueError
+            age = now - int(cached_at)
+            ttl = failure_ttl if cached_status == "failure" else good_ttl
+            if age < 0 or age >= ttl or cached_status not in {"newer", "current", "failure"}: raise ValueError
+            cache_identity = f"{cached_at}:{cached_status}"
+            if cached_status == "failure": status = "unavailable"
+            elif cached_status == "current": status = "current"
+            elif cached_available and greater(cached_available, installed): status, available = "newer", cached_available
+            else: status = "unavailable"
+        except (OSError, UnicodeError, ValueError):
+            status, available = "checking", ""
+    records.append((canonical, installed, available, status, eligibility, lifecycle, "update", label.replace("\t", " ").replace("\n", " "), cache_identity))
+
+with index_path.open("w", encoding="utf-8", newline="") as handle:
+    csv.writer(handle, delimiter="\t", lineterminator="\n").writerows(records)
+
+newer = [row for row in records if row[3] == "newer"]
+eligible = [row for row in newer if row[4] == "eligible"]
+checking = sum(row[3] == "checking" for row in records)
+unavailable = sum(row[3] == "unavailable" for row in records)
+if newer and not checking and not unavailable:
+    title = f"Updates available · {len(newer)}"
+elif newer:
+    parts = [f"Updates · {len(newer)} verified"]
+    if checking: parts.append(f"{checking} checking")
+    if unavailable: parts.append(f"{unavailable} unavailable to verify")
+    title = " · ".join(parts)
+elif checking:
+    title = "Updates · checking…"
+    if unavailable: title += f" · {unavailable} unavailable to verify"
+elif unavailable:
+    title = f"Updates · {unavailable} unavailable to verify"
+else:
+    title = "Updates · all verified items current"
+
+reset = "\033[0m"; green = "\033[38;5;82m"; dim = "\033[38;5;245m"
+rendered = [f"__cat:updates\t{green}▌{reset} ▸ {green}{title}{reset}\n"]
+if eligible:
+    rendered.append(f"__updates:all\t{green}▌{reset}     {green}Update all verified items · {len(eligible)}{reset}\n")
+for canonical, installed, available, status, eligibility, lifecycle, action, label, cache_identity in newer:
+    review = " · manual review" if eligibility != "eligible" else ""
+    rendered.append(f"__update:{canonical}\t{green}▌{reset} {canonical:<18.18} {installed} → {available} · update{review} · {label}\n")
+rendered.append(base_path.read_text(encoding="utf-8"))
+rows_path.write_text("".join(rendered), encoding="utf-8")
+PY
+  then
+    rm -f "$index_tmp" "$rows_tmp" "$meta_tmp"
+    rmdir "$lock" 2>/dev/null || true
+    return 1
+  fi
+  if ! mv "$index_tmp" "$dir/updates-index.tsv" || ! mv "$rows_tmp" "$dir/rows-expanded.tsv"; then
+    rm -f "$index_tmp" "$rows_tmp" "$meta_tmp"
+    rmdir "$lock" 2>/dev/null || true
+    return 1
+  fi
+  if ! {
+    printf 'marker\taiup-tui-updates-v1\n'
+    printf 'schema\t%s\n' "$AIUP_TUI_UPDATE_SCHEMA"
+    printf 'runtime_version\t%s\n' "$AIUP_VERSION"
+    printf 'runtime_hash\t%s\n' "$(sha256_file "$runtime")"
+    printf 'manifest_version\t%s\n' "$CATALOG_MANIFEST_VERSION"
+    printf 'manifest_hash\t%s\n' "$CATALOG_MANIFEST_HASH"
+    printf 'token_hash\t%s\n' "$(sha256_file "$dir/token")"
+    printf 'owner_pid\t%s\n' "$owner_pid"
+    printf 'snapshot_generation\t%s\n' "$snapshot"
+    printf 'published\t%s\n' "$now"
+    printf 'index_hash\t%s\n' "$(sha256_file "$dir/updates-index.tsv")"
+    printf 'base_hash\t%s\n' "$(sha256_file "$dir/rows-base.tsv")"
+    printf 'rows_hash\t%s\n' "$(sha256_file "$dir/rows-expanded.tsv")"
+  } > "$meta_tmp"; then
+    rm -f "$meta_tmp"
+    rmdir "$lock" 2>/dev/null || true
+    return 1
+  fi
+  if ! mv "$meta_tmp" "$dir/updates-meta.tsv"; then
+    rm -f "$meta_tmp"
+    rmdir "$lock" 2>/dev/null || true
+    return 1
+  fi
+  rmdir "$lock" 2>/dev/null || true
+  tui_updates_index_valid "$dir"
+}
+
+tui_updates_notify() {
+  local socket="${AIUP_TUI_LISTEN_SOCKET:-$AIUP_TUI_SESSION_DIR/fzf.sock}" fast
+  [ -S "$socket" ] || return 0
+  command_exists curl || return 0
+  fast="$(tui_fast_helper_command)"
+  curl -fsS --max-time 1 --unix-socket "$socket" http://localhost \
+    --data-binary "reload($fast rows {q})+refresh-preview" >/dev/null 2>&1 || true
+}
+
+tui_updates_refresh_session() {
+  [ "$AIUP_TUI_SESSION_ACTIVE" -eq 1 ] || return 0
+  tui_updates_publish "$AIUP_TUI_SESSION_DIR" "$AIUP_TUI_SESSION_TOKEN" "$AIUP_TUI_SNAPSHOT_GENERATION" || return 0
+  tui_updates_notify
+}
+
 tui_prefetch_brew_consolidated() {
   local raw parsed tool current status available has_brew=0 brew_lock
   capture_fixture_enabled && return 0
@@ -3260,11 +3540,18 @@ tui_prefetch_brew_consolidated() {
   printf '%s\t%s\n' "$(current_shell_pid)" "$(date +%s)" > "$brew_lock/meta"
   AIUP_ACTIVE_AVAILABLE_LOCK="$brew_lock"
   raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.brew-outdated.XXXXXX")" || { rm -f "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true; AIUP_ACTIVE_AVAILABLE_LOCK=""; return 0; }
-  bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew outdated --json=v2 || { rm -f "$raw" "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true; AIUP_ACTIVE_AVAILABLE_LOCK=""; return 0; }
+  if ! bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew outdated --json=v2; then
+    while IFS=$'\t' read -r tool current; do
+      case "$tool:$(catalog_kind "$tool")" in bf:*|bc:*|*:brew-formula|*:brew-cask) available_cache_write "$tool" "$current" failure '' || true ;; esac
+    done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
+    rm -f "$raw" "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true; AIUP_ACTIVE_AVAILABLE_LOCK=""
+    tui_updates_refresh_session
+    return 0
+  fi
   parsed="${raw}.parsed"
-  python3 - "$CATALOG_MANIFEST" "$AIUP_TUI_SESSION_DIR/catalog-index.tsv" "$AIUP_TUI_SESSION_DIR/versions-index.tsv" "$raw" > "$parsed" 2>/dev/null <<'PY'
+  python3 - "$CATALOG_MANIFEST" "$AIUP_TUI_SESSION_DIR/catalog-index.tsv" "$AIUP_TUI_SESSION_DIR/brew-index.tsv" "$AIUP_TUI_SESSION_DIR/versions-index.tsv" "$raw" > "$parsed" 2>/dev/null <<'PY'
 import csv, json, sys
-manifest, states_path, versions_path, raw_path = sys.argv[1:]
+manifest, states_path, brew_path, versions_path, raw_path = sys.argv[1:]
 targets = {}
 with open(manifest, encoding="utf-8") as handle:
     for row in csv.reader((line for line in handle if not line.startswith("#")), delimiter="\t"):
@@ -3273,6 +3560,12 @@ states = {}
 with open(states_path, encoding="utf-8") as handle:
     for row in csv.reader(handle, delimiter="\t"):
         if len(row) >= 3: states[row[2]] = row[1]
+with open(brew_path, encoding="utf-8") as handle:
+    for row in csv.reader(handle, delimiter="\t"):
+        if len(row) >= 3 and row[1] == "installed" and row[2].startswith(("bc:", "bf:")):
+            kind = "brew-cask" if row[2].startswith("bc:") else "brew-formula"
+            targets[row[2]] = (kind, row[2][3:])
+            states[row[2]] = row[1]
 versions = {}
 with open(versions_path, encoding="utf-8") as handle:
     for row in csv.reader(handle, delimiter="\t"):
@@ -3295,19 +3588,27 @@ PY
       if [ -n "$available" ] && [ "$(version_is_greater "$available" "$current")" = yes ]; then status=newer; else status=current; available=''; fi
       available_cache_write "$tool" "$current" "$status" "$available" || true
     done < "$parsed"
+  else
+    while IFS=$'\t' read -r tool current; do
+      case "$tool:$(catalog_kind "$tool")" in bf:*|bc:*|*:brew-formula|*:brew-cask) available_cache_write "$tool" "$current" failure '' || true ;; esac
+    done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
   fi
   rm -f "$raw" "$parsed"
   rm -f "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true
   AIUP_ACTIVE_AVAILABLE_LOCK=""
+  tui_updates_refresh_session
 }
 
 tui_prefetch_worker() {
   local offset="$1" tool current kind index=0
   while IFS=$'\t' read -r tool current; do
     [ -n "$tool" ] && [ -n "$current" ] || continue
-    kind="$(catalog_kind "$tool")"
+    case "$tool" in bf:*) kind=brew-formula ;; bc:*) kind=brew-cask ;; *) kind="$(catalog_kind "$tool")" ;; esac
     case "$kind" in brew-formula|brew-cask) continue ;; esac
-    [ $((index % TUI_PREFETCH_WORKERS)) -eq "$offset" ] && available_version_of_tool "$tool" "$current" >/dev/null 2>&1 || true
+    if [ $((index % TUI_PREFETCH_WORKERS)) -eq "$offset" ]; then
+      available_version_of_tool "$tool" "$current" >/dev/null 2>&1 || true
+      tui_updates_refresh_session
+    fi
     index=$((index + 1))
   done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
 }
@@ -4249,7 +4550,7 @@ tui_cache_invalidate() {
 
 tui_session_known_entry() {
   case "$1" in
-    meta.tsv|token|catalog-index.tsv|brew-index.tsv|inventory-index.tsv|versions-index.tsv|preview-local.tsv|preview-remote.tsv|preview-docs.tsv|fast-helper.py|rows-expanded.tsv|rows-collapsed.tsv|expanded|expanded.next.*|query|category|selected|list.tsv|list.tsv.next.*) return 0 ;;
+    meta.tsv|token|catalog-index.tsv|brew-index.tsv|inventory-index.tsv|versions-index.tsv|preview-local.tsv|preview-remote.tsv|preview-docs.tsv|fast-helper.py|rows-base.tsv|rows-expanded.tsv|rows-collapsed.tsv|updates-meta.tsv|updates-index.tsv|fzf.sock|.updates-publish.lock|expanded|expanded.next.*|query|category|selected|list.tsv|list.tsv.next.*|updates-meta.tsv.next.*|updates-index.tsv.next.*|rows-expanded.tsv.next.*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -4282,8 +4583,10 @@ tui_stale_sessions_cleanup() {
     done
     [ "$unfamiliar" -eq 0 ] || continue
     rm -f "$dir/meta.tsv" "$dir/token" "$dir/catalog-index.tsv" "$dir/brew-index.tsv" "$dir/inventory-index.tsv" "$dir/versions-index.tsv" "$dir/preview-local.tsv" "$dir/preview-remote.tsv" "$dir/preview-docs.tsv" "$dir/fast-helper.py" \
-      "$dir/rows-expanded.tsv" "$dir/rows-collapsed.tsv" "$dir/expanded" "$dir/expanded.next" "$dir/query" "$dir/category" "$dir/selected" \
-      "$dir/list.tsv" "$dir/list.tsv.next" "$dir"/expanded.next.* "$dir"/list.tsv.next.*
+      "$dir/rows-base.tsv" "$dir/rows-expanded.tsv" "$dir/rows-collapsed.tsv" "$dir/updates-meta.tsv" "$dir/updates-index.tsv" "$dir/fzf.sock" \
+      "$dir/expanded" "$dir/expanded.next" "$dir/query" "$dir/category" "$dir/selected" "$dir/list.tsv" "$dir/list.tsv.next" \
+      "$dir"/expanded.next.* "$dir"/list.tsv.next.* "$dir"/updates-meta.tsv.next.* "$dir"/updates-index.tsv.next.* "$dir"/rows-expanded.tsv.next.*
+    rmdir "$dir/.updates-publish.lock" 2>/dev/null || true
     rmdir "$dir" 2>/dev/null || true
   done
 }
@@ -4318,7 +4621,7 @@ tui_session_context_valid() {
   [ -n "$dir" ] && [ -n "$token" ] || return 1
   [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   case "$dir" in "$TUI_SESSIONS_ROOT"/*) ;; *) return 1 ;; esac
-  for name in meta.tsv token catalog-index.tsv brew-index.tsv inventory-index.tsv versions-index.tsv preview-local.tsv preview-remote.tsv preview-docs.tsv fast-helper.py rows-expanded.tsv rows-collapsed.tsv expanded query category selected; do
+  for name in meta.tsv token catalog-index.tsv brew-index.tsv inventory-index.tsv versions-index.tsv preview-local.tsv preview-remote.tsv preview-docs.tsv fast-helper.py rows-base.tsv rows-expanded.tsv rows-collapsed.tsv updates-meta.tsv updates-index.tsv expanded query category selected; do
     [ -f "$dir/$name" ] && [ ! -L "$dir/$name" ] || return 1
   done
   [ "$token" = "$(sed -n '1p' "$dir/token")" ] || return 1
@@ -4345,14 +4648,18 @@ tui_session_context_valid() {
   kill -0 "$owner_pid" 2>/dev/null || return 1
   [ "$session_view" = "$LIST_VIEW_MODE" ] && [ "$session_category" = "$LIST_CATEGORY_FILTER" ] && [ "$session_sort" = "$LIST_SORT_MODE" ] || return 1
   [ "$context_hash" = "$(files_content_hash "$runtime" "$CATALOG_MANIFEST" "$dir/catalog-index.tsv" "$dir/brew-index.tsv" \
-    "$dir/inventory-index.tsv" "$dir/preview-local.tsv" "$dir/preview-remote.tsv" "$dir/preview-docs.tsv" "$dir/fast-helper.py" "$dir/rows-expanded.tsv" "$dir/rows-collapsed.tsv")" ] || return 1
+    "$dir/inventory-index.tsv" "$dir/versions-index.tsv" "$dir/preview-local.tsv" "$dir/preview-remote.tsv" "$dir/preview-docs.tsv" "$dir/fast-helper.py" "$dir/rows-base.tsv" "$dir/rows-collapsed.tsv")" ] || return 1
+  tui_updates_index_valid "$dir" || return 1
 }
 
 tui_session_activate() {
   CATALOG_MANIFEST_VERSION="$(sed -n 's/^# aiup-runtime-version: //p' "$CATALOG_MANIFEST" | head -n 1)"
   [ "$CATALOG_MANIFEST_VERSION" = "$AIUP_VERSION" ] || return 1
+  CATALOG_MANIFEST_HASH="$(sha256_file "$CATALOG_MANIFEST")" || return 1
+  AIUP_RUNTIME_HASH="$(sha256_file "$(tui_runtime_path)")" || return 1
   tui_session_context_valid || return 1
   AIUP_TUI_SESSION_ACTIVE=1
+  AIUP_TUI_SNAPSHOT_GENERATION="$(awk -F '\t' '$1=="snapshot_generation" {print $2; exit}' "$AIUP_TUI_SESSION_DIR/meta.tsv")"
   CATALOG_INDEX="$AIUP_TUI_SESSION_DIR/catalog-index.tsv"
   BREW_INDEX="$AIUP_TUI_SESSION_DIR/brew-index.tsv"
   INVENTORY_INDEX="$AIUP_TUI_SESSION_DIR/inventory-index.tsv"
@@ -4382,11 +4689,14 @@ tui_session_cleanup() {
   fi
   tui_prefetch_stop
   rm -f "$dir/meta.tsv" "$dir/token" "$dir/catalog-index.tsv" "$dir/brew-index.tsv" "$dir/inventory-index.tsv" "$dir/versions-index.tsv" "$dir/preview-local.tsv" "$dir/preview-remote.tsv" "$dir/preview-docs.tsv" "$dir/fast-helper.py" \
-    "$dir/rows-expanded.tsv" "$dir/rows-collapsed.tsv" "$dir/expanded" "$dir/expanded.next" "$dir/query" "$dir/category" "$dir/selected" \
-    "$dir/list.tsv" "$dir/list.tsv.next" "$dir"/expanded.next.* "$dir"/list.tsv.next.*
+    "$dir/rows-base.tsv" "$dir/rows-expanded.tsv" "$dir/rows-collapsed.tsv" "$dir/updates-meta.tsv" "$dir/updates-index.tsv" "$dir/fzf.sock" \
+    "$dir/expanded" "$dir/expanded.next" "$dir/query" "$dir/category" "$dir/selected" "$dir/list.tsv" "$dir/list.tsv.next" \
+    "$dir"/expanded.next.* "$dir"/list.tsv.next.* "$dir"/updates-meta.tsv.next.* "$dir"/updates-index.tsv.next.* "$dir"/rows-expanded.tsv.next.*
+  rmdir "$dir/.updates-publish.lock" 2>/dev/null || true
   rmdir "$dir" 2>/dev/null || true
   AIUP_TUI_SESSION_DIR=""
   AIUP_TUI_SESSION_ACTIVE=0
+  AIUP_TUI_LISTEN_SOCKET=""
   CATALOG_INDEX="$DEFAULT_CATALOG_INDEX"
   BREW_INDEX="$DEFAULT_BREW_INDEX"
   INVENTORY_INDEX="$DEFAULT_INVENTORY_INDEX"
@@ -4398,7 +4708,7 @@ tui_session_cleanup() {
 }
 
 scan_versions_index() {
-  local next tool state installed fixture_versions
+  local next tool state installed fixture_versions brew_formula_versions brew_cask_versions
   if capture_fixture_enabled; then
     fixture_versions="${VERSIONS_INDEX}.fixture.$$"
     awk -F '\t' 'NF >= 2 {print $1 "\t" $2}' "$AIUP_CAPTURE_FIXTURE_DIR/versions.tsv" > "$fixture_versions"
@@ -4423,6 +4733,23 @@ scan_versions_index() {
     printf '%s\t%s\n' "$tool" "$installed" >> "$next"
     AIUP_VERSIONS_REBUILT=1
   done < "$CATALOG_INDEX"
+  if command_exists brew && [ -s "$BREW_INDEX" ]; then
+    brew_formula_versions="${VERSIONS_INDEX}.brew-formula.$$"
+    brew_cask_versions="${VERSIONS_INDEX}.brew-cask.$$"
+    env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew list --formula --versions > "$brew_formula_versions" 2>/dev/null || : > "$brew_formula_versions"
+    env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew list --cask --versions > "$brew_cask_versions" 2>/dev/null || : > "$brew_cask_versions"
+    awk -F '\t' -v formulae="$brew_formula_versions" -v casks="$brew_cask_versions" -v existing="$next" '
+      BEGIN {
+        while ((getline line < existing) > 0) { split(line, e, "\t"); if (e[1]) seen[e[1]]=1 }
+        close(existing)
+        while ((getline line < formulae) > 0) { split(line, f, /[[:space:]]+/); if (f[1] && f[2]) versions["bf:" f[1]]=f[2] }
+        while ((getline line < casks) > 0) { split(line, f, /[[:space:]]+/); if (f[1] && f[2]) versions["bc:" f[1]]=f[2] }
+        close(formulae); close(casks)
+      }
+      ($2 == "installed") && !seen[$3] && versions[$3] { print $3 "\t" versions[$3] }
+    ' "$BREW_INDEX" >> "$next"
+    rm -f "$brew_formula_versions" "$brew_cask_versions"
+  fi
   mv "$next" "$VERSIONS_INDEX"
   profile_mark "installed-version snapshot"
 }
@@ -4511,6 +4838,10 @@ with brew_path.open(encoding="utf-8") as handle:
         if not found_path and kind == "cask": found_path = fixture_apps.get(name, "")
         action = "update" if state == "installed" else "switch to Homebrew" if state == "on-disk" else "install"
         lines = [f"{item_id} · {category} · {state}", label, f"action   {action}"]
+        current = versions.get(item_id, "")
+        if state == "installed":
+            lines.insert(2, f"installed {current or 'unknown'}")
+            remote.append((item_id, current or "unknown"))
         if state == "on-disk":
             if found_path: lines.append(f"found    {found_path}")
             lines.append("safety   Homebrew adoption; aiup passes no --zap and does not directly delete ~/Library")
@@ -4544,7 +4875,7 @@ tui_fast_helper_render() {
 import pathlib, sys
 path = pathlib.Path(sys.argv[1])
 path.write_text(r'''#!/usr/bin/env python3
-import csv, os, pathlib, sys
+import csv, hashlib, os, pathlib, sys, time
 
 root = pathlib.Path(__file__).resolve().parent
 def fail(): raise SystemExit(1)
@@ -4552,6 +4883,43 @@ if root.is_symlink() or not root.is_dir(): fail()
 try:
     expected = (root / "token").read_text(encoding="utf-8").splitlines()[0]
 except Exception: fail()
+
+def regular(name):
+    item = root / name
+    return item.is_file() and not item.is_symlink()
+def digest(name):
+    return hashlib.sha256((root / name).read_bytes()).hexdigest()
+def load_updates():
+    for _ in range(5):
+        try:
+            required = {"updates-meta.tsv", "updates-index.tsv", "rows-base.tsv", "rows-expanded.tsv", "token"}
+            if not all(regular(name) for name in required): raise ValueError
+            update_meta = {}
+            with (root / "updates-meta.tsv").open(encoding="utf-8") as handle:
+                for line in handle:
+                    parts = line.rstrip("\n").split("\t")
+                    if len(parts) != 2 or parts[0] in update_meta: raise ValueError
+                    update_meta[parts[0]] = parts[1]
+            if update_meta.get("marker") != "aiup-tui-updates-v1": raise ValueError
+            if update_meta.get("runtime_version") != meta.get("runtime_version"): raise ValueError
+            if update_meta.get("runtime_hash") != meta.get("runtime_hash"): raise ValueError
+            if update_meta.get("manifest_version") != meta.get("manifest_version"): raise ValueError
+            if update_meta.get("manifest_hash") != meta.get("manifest_hash"): raise ValueError
+            if update_meta.get("owner_pid") != meta.get("owner_pid"): raise ValueError
+            if update_meta.get("snapshot_generation") != meta.get("snapshot_generation"): raise ValueError
+            if update_meta.get("token_hash") != digest("token"): raise ValueError
+            if update_meta.get("index_hash") != digest("updates-index.tsv"): raise ValueError
+            if update_meta.get("base_hash") != digest("rows-base.tsv"): raise ValueError
+            if update_meta.get("rows_hash") != digest("rows-expanded.tsv"): raise ValueError
+            rows = []
+            with (root / "updates-index.tsv").open(encoding="utf-8") as handle:
+                for row in csv.reader(handle, delimiter="\t"):
+                    if len(row) != 9 or row[3] not in {"newer", "current", "checking", "unavailable"}: raise ValueError
+                    rows.append(row)
+            return rows
+        except (OSError, UnicodeError, ValueError):
+            time.sleep(0.01)
+    fail()
 if not expected or os.environ.get("AIUP_TUI_SESSION_TOKEN") != expected: fail()
 meta = {}
 try:
@@ -4560,6 +4928,7 @@ try:
             key, value = line.rstrip("\n").split("\t", 1); meta[key] = value
     os.kill(int(meta["owner_pid"]), 0)
 except Exception: fail()
+UPDATE_ROWS = load_updates()
 
 def expanded():
     try: return set((root / "expanded").read_text(encoding="utf-8").splitlines())
@@ -4611,12 +4980,34 @@ def preview(item):
         print(f"action    {'collapse' if is_open else 'expand'} this category")
         print("keys     enter/ctrl-e toggle · pgup/pgdn category · ctrl-g jump")
         return
+    if item == "__updates:all":
+        eligible = [row for row in UPDATE_ROWS if row[3] == "newer" and row[4] == "eligible"]
+        print(f"Update all verified items · {len(eligible)}")
+        print("action    confirm exact snapshot, then update sequentially")
+        for row in eligible: print(f"item      {row[0]} · {row[1]} → {row[2]}")
+        print("safety    live runtime, manifest, filesystem, version, metadata, dependency, and updater preflight before every item")
+        return
+    alias_row = None
+    if item.startswith("__update:"):
+        canonical = item[len("__update:"):]
+        if not canonical or canonical.startswith("_"): fail()
+        alias_row = next((row for row in UPDATE_ROWS if row[0] == canonical and row[3] == "newer"), None)
+        if alias_row is None: fail()
+        item = canonical
+    elif item.startswith("__updates:"):
+        fail()
     found = False
     with (root / "preview-local.tsv").open(encoding="utf-8") as handle:
         for row in csv.reader(handle, delimiter="\t"):
             if len(row) >= 3 and row[0] == item:
+                if alias_row and (row[2].startswith("installed ") or row[2].startswith("action   ")): continue
                 print(row[2]); found = True
     if not found: fail()
+    if alias_row:
+        print(f"installed {alias_row[1]}")
+        print(f"available {alias_row[2]}")
+        print("action    update" if alias_row[4] == "eligible" else "action    manual review before update")
+        return
     current = ""
     with (root / "preview-remote.tsv").open(encoding="utf-8") as handle:
         for row in csv.reader(handle, delimiter="\t"):
@@ -4688,22 +5079,24 @@ tui_session_create() {
   [ -f "$DEFAULT_LIST_SELECTED_FILE" ] && cp "$DEFAULT_LIST_SELECTED_FILE" "$staging/selected" || : > "$staging/selected"
   printf '%s\n' "$token" > "$staging/token"
   chmod 600 "$staging/token"
+  runtime="$(tui_runtime_path)"
+  now="$(date +%s)"
+  snapshot="${AIUP_TUI_SNAPSHOT_GENERATION:-uncached-$now-$nonce}"
+  AIUP_TUI_SNAPSHOT_GENERATION="$snapshot"
   saved_expand="$EXPAND_FILE"; saved_query="$LIST_QUERY_FILE"; saved_category="$LIST_CATEGORY_FILE"; saved_selected="$LIST_SELECTED_FILE"
   EXPAND_FILE="$staging/expanded"; LIST_QUERY_FILE="$staging/query"; LIST_CATEGORY_FILE="$staging/category"; LIST_SELECTED_FILE="$staging/selected"
   expand_all_categories
   : > "$LIST_QUERY_FILE"
   if [ -n "$AIUP_TUI_CACHED_ROWS" ] && [ -f "$AIUP_TUI_CACHED_ROWS" ] && [ ! -L "$AIUP_TUI_CACHED_ROWS" ]; then
-    cp "$AIUP_TUI_CACHED_ROWS" "$staging/rows-expanded.tsv" || return 1
+    cp "$AIUP_TUI_CACHED_ROWS" "$staging/rows-base.tsv" || return 1
   else
-    emit_fzf_rows_from_index | sort_fzf_rows > "$staging/rows-expanded.tsv" || return 1
+    emit_fzf_rows_from_index | sort_fzf_rows > "$staging/rows-base.tsv" || return 1
   fi
+  tui_updates_publish "$staging" "$token" "$snapshot" || return 1
   : > "$EXPAND_FILE"
   awk -F '\t' '$1 ~ /^__cat:/ {print}' "$staging/rows-expanded.tsv" > "$staging/rows-collapsed.tsv" || return 1
   [ -f "$DEFAULT_LIST_QUERY_FILE" ] && cp "$DEFAULT_LIST_QUERY_FILE" "$staging/query" || : > "$staging/query"
   EXPAND_FILE="$saved_expand"; LIST_QUERY_FILE="$saved_query"; LIST_CATEGORY_FILE="$saved_category"; LIST_SELECTED_FILE="$saved_selected"
-  runtime="$(tui_runtime_path)"
-  now="$(date +%s)"
-  snapshot="${AIUP_TUI_SNAPSHOT_GENERATION:-uncached-$now-$nonce}"
   {
     printf 'marker\taiup-tui-session-v1\n'
     printf 'schema\t%s\n' "$AIUP_TUI_CACHE_SCHEMA"
@@ -4724,9 +5117,9 @@ tui_session_create() {
     printf 'versions_hash\t%s\n' "$(sha256_file "$staging/versions-index.tsv")"
     printf 'preview_hash\t%s\n' "$(sha256_file "$staging/preview-local.tsv")"
     printf 'helper_hash\t%s\n' "$(sha256_file "$staging/fast-helper.py")"
-    printf 'rows_hash\t%s\n' "$(sha256_file "$staging/rows-expanded.tsv")"
+    printf 'rows_hash\t%s\n' "$(sha256_file "$staging/rows-base.tsv")"
     printf 'context_hash\t%s\n' "$(files_content_hash "$runtime" "$CATALOG_MANIFEST" "$staging/catalog-index.tsv" "$staging/brew-index.tsv" \
-      "$staging/inventory-index.tsv" "$staging/preview-local.tsv" "$staging/preview-remote.tsv" "$staging/preview-docs.tsv" "$staging/fast-helper.py" "$staging/rows-expanded.tsv" "$staging/rows-collapsed.tsv")"
+      "$staging/inventory-index.tsv" "$staging/versions-index.tsv" "$staging/preview-local.tsv" "$staging/preview-remote.tsv" "$staging/preview-docs.tsv" "$staging/fast-helper.py" "$staging/rows-base.tsv" "$staging/rows-collapsed.tsv")"
   } > "$staging/meta.tsv" || return 1
   mv "$staging" "$final" || return 1
   AIUP_TUI_SESSION_DIR="$final"
@@ -5929,6 +6322,18 @@ run_tool_update() {
   mutation_authoritative_preflight "$tool update" || return 1
   info "========== TOOL START: $tool =========="
   AIUP_LAST_UPDATE_STATUS=completed
+  if [ "${AIUP_TUI_TESTING:-0}" = 1 ] && capture_fixture_enabled && [ -n "${AIUP_TUI_TEST_MUTATION_COMMAND:-}" ]; then
+    if "$AIUP_TUI_TEST_MUTATION_COMMAND" "$tool" update; then
+      result_record completed "$tool"
+      info "========== TOOL DONE: $tool =========="
+      tui_cache_invalidate
+      return 0
+    fi
+    error "========== TOOL FAILED: $tool =========="
+    append_failure "$tool"
+    tui_cache_invalidate
+    return 1
+  fi
   if type "update_$tool" >/dev/null 2>&1; then
     if "update_$tool"; then
       result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
@@ -6879,6 +7284,10 @@ copy_to_clipboard() {
 confirm_tty() {
   local prompt="$1"
   local answer=""
+  if [ "${AIUP_TUI_TESTING:-0}" = 1 ] && [ -n "${AIUP_TUI_TEST_CONFIRM_RESPONSE:-}" ]; then
+    [ -n "${AIUP_TUI_TEST_CONFIRM_LOG:-}" ] && printf '%s\n' "$prompt" >> "$AIUP_TUI_TEST_CONFIRM_LOG"
+    case "$AIUP_TUI_TEST_CONFIRM_RESPONSE" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
+  fi
   tty_usable || return 1
   printf '%s' "$prompt" >/dev/tty
   read -r answer </dev/tty || return 1
@@ -6933,7 +7342,7 @@ pick_catalog_tools() {
 
   local selected=""
   local key="enter"
-  local query_line second_line selected_id initial_pos tty_columns header_text
+  local query_line second_line selected_id raw_selected_id initial_pos tty_columns header_text
   local self fast
   self="$(tui_helper_command)"
   fast="$(tui_fast_helper_command)"
@@ -6945,6 +7354,8 @@ pick_catalog_tools() {
     local last_query
     local -a fzf_state_args=()
     listfile="$AIUP_TUI_SESSION_DIR/list.tsv"
+    AIUP_TUI_LISTEN_SOCKET="$AIUP_TUI_SESSION_DIR/fzf.sock"
+    export AIUP_TUI_LISTEN_SOCKET
     listfile_q="$(shell_quote "$listfile")"
     printf '%s\n' "${rows[@]}" > "$listfile"
     last_query="$(catalog_ui_state_read "$LIST_QUERY_FILE")"
@@ -6956,6 +7367,7 @@ pick_catalog_tools() {
     tui_prefetch_start
     selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --multi --delimiter=$'\t' --with-nth=2 \
       --track --id-nth=1 \
+      --listen-unsafe="$AIUP_TUI_LISTEN_SOCKET" \
       --no-height \
       --no-hscroll \
       --print-query \
@@ -7021,11 +7433,16 @@ pick_catalog_tools() {
     *) PICK_ACTION='apply' ;;
   esac
   PICK_TOOLS=()
+  PICK_UPDATE_ALL=0
+  PICK_UPDATE_SYNTHETIC=0
+  PICK_UPDATE_SNAPSHOT=()
   local id
   while IFS= read -r id; do
     [ -n "$id" ] && PICK_TOOLS+=("$id")
   done < <(printf '%s\n' "$selected" | awk -F '\t' '{print $1}')
-  selected_id="${PICK_TOOLS[0]:-}"
+  raw_selected_id="${PICK_TOOLS[0]:-}"
+  tui_resolve_update_selection || { tui_session_cleanup; return 1; }
+  selected_id="${raw_selected_id:-${PICK_TOOLS[0]:-}}"
   AIUP_TUI_ACTION_BASE_GENERATION="$(awk -F '\t' '$1=="snapshot_generation" {print $2; exit}' "$AIUP_TUI_SESSION_DIR/meta.tsv")"
   catalog_ui_state_save "$query_line" "$selected_id"
   tui_session_cleanup
@@ -7085,12 +7502,221 @@ read_pick_result() {
   done
 }
 
+tui_resolve_update_selection() {
+  local id canonical row has_synthetic=0 has_all=0 seen='|'
+  local -a original=("${PICK_TOOLS[@]}") resolved=() snapshot=()
+  for id in "${original[@]}"; do
+    case "$id" in
+      __update:*|__updates:*) has_synthetic=1 ;;
+    esac
+    [ "$id" = '__updates:all' ] && has_all=1
+  done
+  [ "$has_synthetic" -eq 1 ] || return 0
+  tui_updates_index_valid "$AIUP_TUI_SESSION_DIR" || {
+    error "The dynamic Updates snapshot is invalid or changed; no update was started"
+    return 1
+  }
+  if [ "$has_all" -eq 1 ]; then
+    while IFS= read -r row; do
+      [ -n "$row" ] || continue
+      canonical="${row%%$'\t'*}"
+      case "$seen" in *"|$canonical|"*) continue ;; esac
+      seen="${seen}${canonical}|"; resolved+=("$canonical"); snapshot+=("$row")
+    done < <(awk -F '\t' '$4=="newer" && $5=="eligible" {print}' "$AIUP_TUI_SESSION_DIR/updates-index.tsv")
+    PICK_UPDATE_ALL=1
+  else
+    for id in "${original[@]}"; do
+      case "$id" in
+        __cat:*) continue ;;
+        __updates:*) error "Unknown Updates action identity: $id"; return 1 ;;
+        __update:*) canonical="${id#__update:}" ;;
+        *) canonical="$id" ;;
+      esac
+      row="$(awk -F '\t' -v id="$canonical" '$1==id && $4=="newer" {print; exit}' "$AIUP_TUI_SESSION_DIR/updates-index.tsv")"
+      if [ -z "$row" ]; then
+        case "$id" in
+          __update:*) error "Updates identity is malformed, unknown, or no longer verified: $id"; return 1 ;;
+          *) warn "Ignoring unverified ordinary selection in Updates action: $id"; continue ;;
+        esac
+      fi
+      # Canonical rows selected alongside update aliases must themselves be a
+      # verified update; unverified ordinary rows never piggyback on ctrl-r.
+      case "$seen" in *"|$canonical|"*) continue ;; esac
+      seen="${seen}${canonical}|"; resolved+=("$canonical"); snapshot+=("$row")
+    done
+  fi
+  [ "${#resolved[@]}" -gt 0 ] || {
+    error "No verified eligible updates remain in the selected snapshot"
+    return 1
+  }
+  PICK_TOOLS=("${resolved[@]}")
+  PICK_UPDATE_SNAPSHOT=("${snapshot[@]}")
+  PICK_UPDATE_SYNTHETIC=1
+  PICK_ACTION=update
+}
+
+update_candidate_label() {
+  case "$1" in
+    bc:*) brew_extra_label cask "${1#bc:}" ;;
+    bf:*) brew_extra_label formula "${1#bf:}" ;;
+    *) catalog_label "$1" ;;
+  esac
+}
+
+update_candidate_version() {
+  local id="$1" name
+  if capture_fixture_enabled; then
+    version_of_tool "$id"
+    return $?
+  fi
+  case "$id" in
+    bc:*)
+      name="${id#bc:}"; brew_cask_installed "$name" || return 1
+      brew list --cask --versions "$name" 2>/dev/null | awk 'NF {$1=""; sub(/^ /, ""); print; exit}'
+      ;;
+    bf:*)
+      name="${id#bf:}"; brew_formula_installed "$name" || return 1
+      brew list --versions "$name" 2>/dev/null | awk 'NF {$1=""; sub(/^ /, ""); print; exit}'
+      ;;
+    *) version_of_tool "$id" ;;
+  esac
+}
+
+update_candidate_live_revalidate() {
+  local candidate_id="$1" id="$1" expected_installed="${2:-}" current available label dep lifecycle
+  mutation_authoritative_preflight "$id verified update candidate" || {
+    printf 'unavailable\t%s\t\t\t%s\tpreflight failed\n' "$id" "$(update_candidate_label "$id")"
+    return 0
+  }
+  id="$candidate_id"
+  case "$id" in
+    bc:*) brew_cask_installed "${id#bc:}" || { printf 'no-longer\t%s\t\t\t%s\tnot installed via Homebrew\n' "$id" "$(update_candidate_label "$id")"; return 0; } ;;
+    bf:*) brew_formula_installed "${id#bf:}" || { printf 'no-longer\t%s\t\t\t%s\tnot installed via Homebrew\n' "$id" "$(update_candidate_label "$id")"; return 0; } ;;
+    *)
+      catalog_manifest_field "$id" 1 >/dev/null 2>&1 || { printf 'unavailable\t%s\t\t\t%s\tunknown catalog item\n' "$id" "$id"; return 0; }
+      [ "$(catalog_state_for_tool "$id")" = installed ] || { printf 'no-longer\t%s\t\t\t%s\tnot installed under its update contract\n' "$id" "$(update_candidate_label "$id")"; return 0; }
+      while IFS= read -r dep; do
+        [ -n "$dep" ] || continue
+        tool_is_present "$dep" || { printf 'unavailable\t%s\t\t\t%s\tmissing dependency %s\n' "$id" "$(update_candidate_label "$id")" "$dep"; return 0; }
+      done < <(catalog_dep_closure "$id" | awk 'NF && !seen[$0]++')
+      ;;
+  esac
+  current="$(update_candidate_version "$id" || true)"
+  label="$(update_candidate_label "$id")"
+  case "$current" in ''|unknown|'not installed'|'app present') printf 'unavailable\t%s\t%s\t\t%s\tinstalled version unavailable\n' "$id" "$current" "$label"; return 0 ;; esac
+  [ -z "$expected_installed" ] || [ "$current" = "$expected_installed" ] || rm -f "$(available_cache_file "$id")"
+  if available="$(available_version_uncached "$id" "$current")"; then
+    if [ -z "$available" ]; then
+      printf 'no-longer\t%s\t%s\t\t%s\talready current\n' "$id" "$current" "$label"
+      return 0
+    fi
+  else
+    printf 'unavailable\t%s\t%s\t\t%s\tprovider unavailable to verify\n' "$id" "$current" "$label"
+    return 0
+  fi
+  lifecycle=active
+  case "$id" in bc:*|bf:*) ;; *) lifecycle="$(catalog_lifecycle "$id")" ;; esac
+  if [ "$lifecycle" = active ]; then
+    printf 'ready\t%s\t%s\t%s\t%s\tverified\n' "$id" "$current" "$available" "$label"
+  else
+    printf 'manual\t%s\t%s\t%s\t%s\t%s lifecycle\n' "$id" "$current" "$available" "$label" "$lifecycle"
+  fi
+}
+
+order_verified_update_tools() {
+  local tool dep seen='|' selected='|'
+  local -a ordered=()
+  for tool in "$@"; do selected="${selected}${tool}|"; done
+  for tool in "$@"; do
+    while IFS= read -r dep; do
+      case "$selected" in *"|$dep|"*) ;; *) continue ;; esac
+      case "$seen" in *"|$dep|"*) continue ;; esac
+      seen="${seen}${dep}|"; ordered+=("$dep")
+    done < <(catalog_dep_closure "$tool" | awk 'NF && !seen[$0]++')
+    case "$seen" in *"|$tool|"*) ;; *) seen="${seen}${tool}|"; ordered+=("$tool") ;; esac
+  done
+  printf '%s\n' "${ordered[@]}"
+}
+
+apply_verified_update_selection() {
+  local id candidate_id expected line status current available label reason names='' before_completed before_current before_failed old_synthetic old_verified
+  local -a ordered=() ready=() successful=() failed=() skipped=() no_longer=()
+  while IFS= read -r id; do [ -n "$id" ] && ordered+=("$id"); done < <(order_verified_update_tools "${PICK_TOOLS[@]}")
+  for id in "${ordered[@]}"; do
+    expected="$(printf '%s\n' "${PICK_UPDATE_SNAPSHOT[@]}" | awk -F '\t' -v wanted="$id" '$1==wanted {print $2; exit}')"
+    line="$(update_candidate_live_revalidate "$id" "$expected")"
+    IFS=$'\t' read -r status id current available label reason <<< "$line"
+    case "$status" in
+      ready) ready+=("$line") ;;
+      manual)
+        if confirm_tty "Manual review: update ${label} (${id}) from ${current} to ${available}? [y/N] "; then ready+=("$line"); else skipped+=("$id"); fi
+        ;;
+      no-longer) no_longer+=("$id") ;;
+      *) skipped+=("$id") ;;
+    esac
+  done
+  if [ "$PICK_UPDATE_ALL" -eq 1 ] && [ "${#ready[@]}" -gt 0 ]; then
+    for line in "${ready[@]}"; do
+      IFS=$'\t' read -r status id current available label reason <<< "$line"
+      [ -z "$names" ] || names="${names}, "
+      names="${names}${label} (${id})"
+    done
+    if ! confirm_tty "Update all ${#ready[@]} verified items: ${names}? [y/N] "; then
+      info "Update all cancelled; no mutations performed"
+      result_record cancelled "Update all ${#ready[@]} verified items"
+      return 0
+    fi
+  fi
+  old_synthetic="$PICK_UPDATE_SYNTHETIC"
+  old_verified="${AIUP_VERIFIED_SELECTION_ONLY:-0}"
+  PICK_UPDATE_SYNTHETIC=0
+  AIUP_VERIFIED_SELECTION_ONLY=1
+  for line in "${ready[@]}"; do
+    IFS=$'\t' read -r status id current available label reason <<< "$line"
+    candidate_id="$id"
+    line="$(update_candidate_live_revalidate "$id" "$current")"
+    IFS=$'\t' read -r status id current available label reason <<< "$line"
+    case "$status" in
+      ready|manual) ;;
+      no-longer) no_longer+=("$id"); continue ;;
+      *) skipped+=("$id"); continue ;;
+    esac
+    before_completed="${#RESULT_COMPLETED[@]}"; before_current="${#RESULT_CURRENT[@]}"; before_failed="${#RESULT_FAILED[@]}"
+    apply_catalog_action update "$candidate_id" || true
+    if [ "${#RESULT_FAILED[@]}" -gt "$before_failed" ]; then
+      failed+=("$candidate_id")
+    elif [ "${#RESULT_COMPLETED[@]}" -gt "$before_completed" ]; then
+      successful+=("$candidate_id")
+    elif [ "${#RESULT_CURRENT[@]}" -gt "$before_current" ]; then
+      no_longer+=("$candidate_id")
+    else
+      skipped+=("$candidate_id")
+    fi
+    rm -f "$(available_cache_file "$candidate_id")"
+  done
+  PICK_UPDATE_SYNTHETIC="$old_synthetic"
+  AIUP_VERIFIED_SELECTION_ONLY="$old_verified"
+  printf '\n=== verified update batch ===\n'
+  print_result_group successful ${successful[@]+"${successful[@]}"}
+  print_result_group failed ${failed[@]+"${failed[@]}"}
+  print_result_group skipped ${skipped[@]+"${skipped[@]}"}
+  print_result_group no-longer-applicable ${no_longer[@]+"${no_longer[@]}"}
+  [ "${#failed[@]}" -eq 0 ]
+}
+
 apply_catalog_action() {
   local action="$1"
   shift
   local -a tools=("$@")
   local tool
   [ "${#tools[@]}" -gt 0 ] || return 0
+  if [ "$action" = update ] && [ "$PICK_UPDATE_SYNTHETIC" -eq 1 ]; then
+    apply_verified_update_selection
+    return $?
+  fi
+  for tool in "${tools[@]}"; do
+    case "$tool" in __update:*|__updates:*) error "Synthetic Updates identity reached action dispatch: $tool"; return 1 ;; esac
+  done
   case "$action" in
     apply)
       NO_INSTALL=0
@@ -7343,6 +7969,13 @@ resolve_tools() {
 
 should_skip_install_for_missing() {
   local tool="$1"
+  if capture_fixture_enabled; then
+    if [ "$NO_INSTALL" -eq 1 ] && [ "$(catalog_state_for_tool "$tool")" != installed ]; then
+      warn "Skipping missing tool: $tool"
+      return 0
+    fi
+    return 1
+  fi
   if [ "$NO_INSTALL" -eq 1 ] && ! tool_is_present "$tool"; then
     warn "Skipping missing tool: $tool"
     return 0
@@ -7354,13 +7987,21 @@ main_update() {
   local tools=("$@")
   local tool required
   ensure_managed_paths
-  ensure_required_tools_present || return 1
-  for required in "${AIUP_REQUIRED_TOOLS[@]}"; do
-    case " ${tools[*]} " in
-      *" $required "*) ;;
-      *) tools=("$required" "${tools[@]}") ;;
-    esac
-  done
+  if [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ]; then
+    ensure_required_tools_present || return 1
+  else
+    for required in "${AIUP_REQUIRED_TOOLS[@]}"; do
+      tool_is_present "$required" || { error "Required infrastructure '$required' disappeared before the verified update"; return 1; }
+    done
+  fi
+  if [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ]; then
+    for required in "${AIUP_REQUIRED_TOOLS[@]}"; do
+      case " ${tools[*]} " in
+        *" $required "*) ;;
+        *) tools=("$required" "${tools[@]}") ;;
+      esac
+    done
+  fi
   ensure_catalog_deps "${tools[@]}" || return 1
   for tool in "${tools[@]}"; do
     case "$AIUP_REQUIRED_UPDATED" in
@@ -7547,8 +8188,10 @@ parse_args() {
         printf 'runtime\t%s\n' "$(tui_runtime_path)"
         printf 'manifest\t%s\n' "$CATALOG_MANIFEST"
       } > "$STATE_DIR/test-session-context.tsv"
-      local test_wait=0
-      while [ ! -f "$STATE_DIR/test-session-release" ] && [ "$test_wait" -lt 400 ]; do
+      local test_wait=0 test_wait_limit="${AIUP_TUI_TEST_SESSION_WAIT_STEPS:-400}"
+      case "$test_wait_limit" in ''|*[!0-9]*) test_wait_limit=400 ;; esac
+      [ "$test_wait_limit" -le 2400 ] || test_wait_limit=2400
+      while [ ! -f "$STATE_DIR/test-session-release" ] && [ "$test_wait" -lt "$test_wait_limit" ]; do
         sleep 0.05
         test_wait=$((test_wait + 1))
       done

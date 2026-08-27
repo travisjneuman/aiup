@@ -631,6 +631,8 @@ class Session:
         self.rows = rows
         self.term = Terminal(cols, rows)
         fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+        try: os.killpg(os.getpgid(self.pid), signal.SIGWINCH)
+        except ProcessLookupError: pass
 
     def pump(self, seconds: float) -> None:
         deadline = time.monotonic() + seconds
@@ -664,8 +666,20 @@ class Session:
         if not self.closed:
             try: os.kill(self.pid, signal.SIGTERM)
             except ProcessLookupError: pass
-        try: os.waitpid(self.pid, 0)
-        except ChildProcessError: pass
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            try:
+                waited, _ = os.waitpid(self.pid, os.WNOHANG)
+            except ChildProcessError:
+                waited = self.pid
+            if waited == self.pid:
+                break
+            time.sleep(0.05)
+        else:
+            try: os.kill(self.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            try: os.waitpid(self.pid, 0)
+            except ChildProcessError: pass
         try: os.close(self.fd)
         except OSError: pass
         self.closed = True
@@ -715,7 +729,7 @@ def assert_layout_state(session: Session, cols: int, rows: int) -> dict[str, obj
     )
     if expected_header not in text:
         raise RuntimeError(f"{cols}x{rows} omitted responsive header: {text}")
-    preview_visible = "category  infra" in text
+    preview_visible = "category  updates" in text
     if rows < 22 and preview_visible:
         raise RuntimeError(f"{cols}x{rows} should start with its preview hidden")
     if rows >= 22 and not preview_visible:
@@ -740,12 +754,12 @@ def validate_layout_matrix(work: pathlib.Path) -> list[dict[str, object]]:
         try:
             session.wait_for("aiup browse>")
             if rows >= 22:
-                session.wait_for("category  infra")
+                session.wait_for("category  updates")
             session.pump(0.5)
             result = assert_layout_state(session, cols, rows)
             if rows < 22:
                 session.send(b"\x1f")
-                session.wait_for("category  infra")
+                session.wait_for("category  updates")
                 result["preview_toggle"] = "verified"
                 session.send(b"\x1f")
                 session.pump(0.3)
@@ -756,14 +770,14 @@ def validate_layout_matrix(work: pathlib.Path) -> list[dict[str, object]]:
 
     resized = Session(work / "live-resize", ["list"], cols=167, rows=47)
     try:
-        resized.wait_for("category  infra")
+        resized.wait_for("category  updates")
         resized.resize(60, 18)
         resized.wait_for("search · enter act · ctrl-/ preview · esc close")
         resized.pump(0.5)
         assert_layout_state(resized, 60, 18)
         resized.resize(100, 30)
         resized.wait_for("type search · enter act/expand")
-        resized.wait_for("category  infra")
+        resized.wait_for("category  updates")
         resized.pump(0.5)
         assert_layout_state(resized, 100, 30)
         resized.send(b"\x1b")
