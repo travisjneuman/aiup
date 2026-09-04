@@ -7943,13 +7943,22 @@ emit_fzf_rows_from_index() {
         done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
         continue
       fi
+      # Media has a lead tool; explicit --sort label still overrides this.
+      if [ "$cat" = media ]; then
+        state="$(awk -F '\t' '$3=="remotion" {print $2; exit}' "$CATALOG_INDEX")"
+        if [ -n "$state" ] && row_visible_state "$state"; then
+          printf '%s\t%s\n' remotion "$(format_catalog_display remotion "$state")"
+        fi
+      fi
       while IFS=$'\t' read -r _ state tool; do
         [ -n "$tool" ] || continue
+        [ "$cat:$tool" != media:remotion ] || continue
         row_visible_state "$state" || continue
         printf '%s\t%s\n' "$tool" "$(format_catalog_display "$tool" "$state")"
       done < <(awk -F '\t' -v c="$cat" '$1==c && ($2=="installed" || $2=="on-disk") {print}' "$CATALOG_INDEX" | LC_ALL=C sort -t $'\t' -k3,3)
       while IFS= read -r tool; do
         [ -n "$tool" ] || continue
+        [ "$cat:$tool" != media:remotion ] || continue
         row_visible_state absent || continue
         printf '%s\t%s\n' "$tool" "$(format_catalog_display "$tool" absent)"
       done < <(awk -F '\t' -v c="$cat" '$1==c && $2=="absent" {print $3}' "$CATALOG_INDEX" | LC_ALL=C sort)
