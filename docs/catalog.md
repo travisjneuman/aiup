@@ -1,4 +1,4 @@
-# Catalog (2026.08.27-02)
+# Catalog (2026.09.04-01)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -71,6 +71,7 @@ Desktop hubs that drive those agents
 | `opencode-desktop` | OpenCode desktop client |
 | `hermes-desktop` | Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI |
 | `n8n` | n8n — workflow automation via the official npm package |
+| `remotion` | Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies |
 
 ## ✏️ editors
 

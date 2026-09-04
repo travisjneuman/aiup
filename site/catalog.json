@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.08.27-02",
+  "version": "2026.09.04-01",
   "categories": [
     {
       "id": "infra",
@@ -412,6 +412,14 @@
           "lifecycle": "active",
           "docs": "https://github.com/n8n-io/n8n",
           "label": "n8n — workflow automation via the official npm package"
+        },
+        {
+          "id": "remotion",
+          "category": "workspaces",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://www.remotion.dev/docs/cli",
+          "label": "Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies"
         }
       ]
     },
@@ -1404,6 +1412,14 @@
       "lifecycle": "sunset",
       "docs": "https://github.com/OpenHands/OpenHands-CLI",
       "label": "[SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained"
+    },
+    {
+      "id": "remotion",
+      "category": "workspaces",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://www.remotion.dev/docs/cli",
+      "label": "Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies"
     }
   ],
   "recommended": [

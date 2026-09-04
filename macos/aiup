@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.08.27-02"
+AIUP_VERSION="2026.09.04-01"
 AIUP_TUI_CACHE_SCHEMA="3"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -4063,7 +4063,7 @@ preferred_method_of() {
     pi) printf 'aiup-npm\n' ;;
     screenpipe) printf 'official-dmg\n' ;;
     warp) printf 'installer\n' ;;
-    crush|cline|continue|pi-acp|n8n) printf 'aiup-npm\n' ;;
+    crush|cline|continue|pi-acp|n8n|remotion) printf 'aiup-npm\n' ;;
     amp|droid|uv) printf 'installer\n' ;;
     kiro|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
     kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
@@ -7422,7 +7422,7 @@ pick_catalog_tools() {
     [ -n "$last_query" ] && fzf_state_args+=(--query "$last_query")
     [ -n "$initial_pos" ] && fzf_state_args+=(--bind "start:pos($initial_pos)")
     tui_prefetch_start
-    selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --multi --delimiter=$'\t' --with-nth=2 \
+    selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --exact --no-extended --ignore-case --multi --delimiter=$'\t' --with-nth=2 \
       --track --id-nth=1 \
       --listen-unsafe="$AIUP_TUI_LISTEN_SOCKET" \
       --no-height \
@@ -8002,7 +8002,7 @@ resolve_tools() {
   for arg in "$@"; do
     case "$arg" in
       brew|homebrew) out+=("brew") ;;
-      npm|uv|fzf|gh|wrangler|deno|bun|pnpm|jq|yq|ripgrep|fd|just|shellcheck|actionlint|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|vibe|openhands|llama-cpp|llama-app|whisper-cpp|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|warp-app|ghostty|iterm2) out+=("$arg") ;;
+      npm|uv|fzf|gh|wrangler|deno|bun|pnpm|jq|yq|ripgrep|fd|just|shellcheck|actionlint|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|vibe|openhands|llama-cpp|llama-app|whisper-cpp|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|remotion|warp-app|ghostty|iterm2) out+=("$arg") ;;
       vscode-code|code) out+=("vscode") ;;
       t3) out+=("t3-code") ;;
       grok-bot) out+=("grokbot") ;;

@@ -105,7 +105,7 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 
 ### 🔎 Your Mac, not a hardcoded demo
 
-The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them.
+The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them. Project-local dependencies, temporary `npx` downloads, and agent skills are not global installed tools. Remotion is managed as `@remotion/cli`; individual video projects still need their own matching Remotion dependencies.
 
 <p align="center">
   <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Responsive 100 by 30 aiup overview with 11 color-coded collapsed categories and a compact four-line category preview" />
@@ -133,7 +133,7 @@ The managed catalog is curated around reviewed install/update/remove contracts. 
 | <kbd>ctrl</kbd>+<kbd>/</kbd> | Toggle the preview pane |
 | <kbd>esc</kbd> | Leave |
 
-Type to search the entire catalog, including rows inside collapsed categories; clearing the query restores the compact collapsed overview. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the final category: it is a cross-source inventory of software found on this Mac, not a managed update list or an Applications-only list. Its header shows the total plus app/npm/uv/PATH subtotals. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, path, and web-search link in the preview. App-bundle rows also support an AppCleaner-style cleanup preview; `aiup cleanup <detected-app-id>` lists exact candidates without changing anything, and `--apply` moves confirmed candidates to Trash.
+Type to search for contiguous text (case-insensitive) across the entire catalog, including rows inside collapsed categories; clearing the query restores the compact collapsed overview. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the final category: it is a cross-source inventory of software found on this Mac, not a managed update list or an Applications-only list. Its header shows the total plus app/npm/uv/PATH subtotals. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, path, and web-search link in the preview. App-bundle rows also support an AppCleaner-style cleanup preview; `aiup cleanup <detected-app-id>` lists exact candidates without changing anything, and `--apply` moves confirmed candidates to Trash.
 
 Updates is the first category. It appears immediately as checking or from a valid installed-version-keyed cache, then refreshes as the existing two provider workers finish. Verified newer items show `installed → available` while provider failures, timeouts, malformed responses, and unfinished checks remain explicitly unverified. Enter or <kbd>ctrl</kbd>+<kbd>r</kbd> updates one row; check several rows and use <kbd>ctrl</kbd>+<kbd>r</kbd> to update only those verified items. `Update all verified items · N` confirms the exact names, revalidates each live item, and runs supported updates sequentially. Cached availability identifies candidates but never authorizes a mutation.
 
@@ -168,13 +168,13 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.08.27-02** · **81** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-01** · **82** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
 | ⚙️ | **infra** | Runtimes and installers other tools need | 16 tools |
 | 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
-| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 6 tools |
+| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 7 tools |
 | ✏️ | **editors** | Places you type code | 5 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
 | 💬 | **chat** | Cloud chat apps | 4 tools |

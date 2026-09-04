@@ -1,5 +1,5 @@
 # aiup managed catalog manifest
-# aiup-runtime-version: 2026.08.27-02
+# aiup-runtime-version: 2026.09.04-01
 # id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
 brew	infra	special	active	Homebrew — required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node
@@ -82,3 +82,4 @@ llama-cpp	local-ai	brew-formula	active	llama.cpp — local LLM inference engine 
 llama-app	local-ai	brew-cask	active	Llama — official local LLM menu-bar app	https://github.com/ggml-org/Llama-macOS
 whisper-cpp	local-ai	brew-formula	active	whisper.cpp local speech-to-text engine (model files are separate)	https://github.com/ggml-org/whisper.cpp	whisper-cpp
 openhands	coding-agents	uv-tool	sunset	[SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained	https://github.com/OpenHands/OpenHands-CLI
+remotion	workspaces	aiup-npm	active	Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies	https://www.remotion.dev/docs/cli	@remotion/cli
