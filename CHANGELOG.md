@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.09.04-04
+
+- Reviewed every catalog category; added media, automation, and dev-utils. Remotion leads media, with four new Homebrew-backed tools: DiffusionBee, Upscayl, FFmpeg, and Audacity (86 managed entries).
+- Rank literal name/alias/description search and explain empty results; exclude status text from matching.
+- Batch Homebrew check metadata and bound concurrent read-only provider checks; retain conservative failures and fresh mutation verification.
+- Add coverage, enhanced doctor diagnostics, exclusions, dated holds, named groups, failed-item retry, and explicit project npm dependency inspection.
+- Record per-tool durations, expose --timings, and keep live progress compact with completed/warning counts.
+- Centralize typed package targets in the manifest and retain dedicated cross-manager migration aliases.
+
 ## 2026.09.04-03
 
 - Added read-only `check` and `explain`, plus local `history` and per-tool `logs` commands.

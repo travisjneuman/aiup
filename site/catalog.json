@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.09.04-03",
+  "version": "2026.09.04-04",
   "categories": [
     {
       "id": "infra",
@@ -40,22 +40,6 @@
           "label": "fzf fuzzy finder — required interactive catalog"
         },
         {
-          "id": "gh",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/cli/cli",
-          "label": "GitHub CLI"
-        },
-        {
-          "id": "wrangler",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/cloudflare/workers-sdk",
-          "label": "Cloudflare Workers CLI (cloudflare-wrangler)"
-        },
-        {
           "id": "deno",
           "category": "infra",
           "kind": "brew-formula",
@@ -78,62 +62,6 @@
           "lifecycle": "active",
           "docs": "https://pnpm.io/",
           "label": "pnpm fast, disk-efficient JavaScript package manager"
-        },
-        {
-          "id": "jq",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://jqlang.github.io/jq/",
-          "label": "jq command-line JSON processor"
-        },
-        {
-          "id": "yq",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/mikefarah/yq",
-          "label": "yq command-line YAML, JSON, XML, CSV, and properties processor"
-        },
-        {
-          "id": "ripgrep",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/BurntSushi/ripgrep",
-          "label": "ripgrep fast recursive search (rg)"
-        },
-        {
-          "id": "fd",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/sharkdp/fd",
-          "label": "fd fast, user-friendly find replacement"
-        },
-        {
-          "id": "just",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://just.systems/",
-          "label": "just project command runner"
-        },
-        {
-          "id": "shellcheck",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://www.shellcheck.net/",
-          "label": "ShellCheck shell-script static analyzer"
-        },
-        {
-          "id": "actionlint",
-          "category": "infra",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://rhysd.github.io/actionlint/",
-          "label": "actionlint GitHub Actions workflow checker"
         }
       ]
     },
@@ -223,14 +151,6 @@
           "label": "OpenCode — official installer"
         },
         {
-          "id": "hermes",
-          "category": "coding-agents",
-          "kind": "special",
-          "lifecycle": "active",
-          "docs": "https://github.com/NousResearch/hermes-agent",
-          "label": "Hermes Agent — Nous Research"
-        },
-        {
           "id": "warp",
           "category": "coding-agents",
           "kind": "special",
@@ -311,14 +231,6 @@
           "label": "Kimi Code CLI — Moonshot (kimi-code)"
         },
         {
-          "id": "openclaw",
-          "category": "coding-agents",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/openclaw/openclaw",
-          "label": "OpenClaw — personal/local AI assistant CLI"
-        },
-        {
           "id": "cline",
           "category": "coding-agents",
           "kind": "aiup-npm",
@@ -333,14 +245,6 @@
           "lifecycle": "active",
           "docs": "https://github.com/continuedev/continue",
           "label": "Continue CLI — @continuedev/cli"
-        },
-        {
-          "id": "interpreter",
-          "category": "coding-agents",
-          "kind": "uv-tool",
-          "lifecycle": "active",
-          "docs": "https://github.com/openinterpreter/open-interpreter",
-          "label": "Open Interpreter — natural-language computer-use agent"
         },
         {
           "id": "vibe",
@@ -382,14 +286,6 @@
           "label": "T3 Code Nightly — desktop hub (nightly build)"
         },
         {
-          "id": "grokbot",
-          "category": "workspaces",
-          "kind": "brew-cask",
-          "lifecycle": "active",
-          "docs": "https://x.ai/bot",
-          "label": "Grok Bot — xAI teammates that work across your apps"
-        },
-        {
           "id": "opencode-desktop",
           "category": "workspaces",
           "kind": "brew-cask",
@@ -404,22 +300,6 @@
           "lifecycle": "active",
           "docs": "https://hermes-agent.nousresearch.com/desktop",
           "label": "Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI"
-        },
-        {
-          "id": "n8n",
-          "category": "workspaces",
-          "kind": "aiup-npm",
-          "lifecycle": "active",
-          "docs": "https://github.com/n8n-io/n8n",
-          "label": "n8n — workflow automation via the official npm package"
-        },
-        {
-          "id": "remotion",
-          "category": "workspaces",
-          "kind": "aiup-npm",
-          "lifecycle": "active",
-          "docs": "https://www.remotion.dev/docs/cli",
-          "label": "Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies"
         }
       ]
     },
@@ -549,9 +429,72 @@
       ]
     },
     {
+      "id": "media",
+      "emoji": "🎬",
+      "blurb": "Video, images, audio, transcription, and AI creation tools",
+      "tools": [
+        {
+          "id": "remotion",
+          "category": "media",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://www.remotion.dev/docs/cli",
+          "label": "Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies"
+        },
+        {
+          "id": "macwhisper",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://goodsnooze.gumroad.com/l/macwhisper",
+          "label": "MacWhisper — local speech-to-text"
+        },
+        {
+          "id": "whisper-cpp",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/ggml-org/whisper.cpp",
+          "label": "whisper.cpp local speech-to-text engine (model files are separate)"
+        },
+        {
+          "id": "diffusionbee",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://diffusionbee.com/",
+          "label": "DiffusionBee — local AI image generation"
+        },
+        {
+          "id": "upscayl",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://upscayl.org/",
+          "label": "Upscayl — AI image upscaling"
+        },
+        {
+          "id": "ffmpeg",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://ffmpeg.org/",
+          "label": "FFmpeg — audio/video conversion and encoding (media utility)"
+        },
+        {
+          "id": "audacity",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.audacityteam.org/",
+          "label": "Audacity — audio editing and recording (media utility)"
+        }
+      ]
+    },
+    {
       "id": "local-ai",
       "emoji": "🧠",
-      "blurb": "Models, capture, and engines that run on your Mac",
+      "blurb": "Local models, inference engines, and contextual capture",
       "tools": [
         {
           "id": "ollama",
@@ -618,14 +561,6 @@
           "label": "Ollama desktop app (Homebrew cask)"
         },
         {
-          "id": "macwhisper",
-          "category": "local-ai",
-          "kind": "brew-cask",
-          "lifecycle": "active",
-          "docs": "https://goodsnooze.gumroad.com/l/macwhisper",
-          "label": "MacWhisper — local speech-to-text"
-        },
-        {
           "id": "screenpipe",
           "category": "local-ai",
           "kind": "app",
@@ -648,14 +583,53 @@
           "lifecycle": "active",
           "docs": "https://github.com/ggml-org/Llama-macOS",
           "label": "Llama — official local LLM menu-bar app"
+        }
+      ]
+    },
+    {
+      "id": "automation",
+      "emoji": "⚡",
+      "blurb": "General-purpose agents and workflow automation",
+      "tools": [
+        {
+          "id": "hermes",
+          "category": "automation",
+          "kind": "special",
+          "lifecycle": "active",
+          "docs": "https://github.com/NousResearch/hermes-agent",
+          "label": "Hermes Agent — Nous Research"
         },
         {
-          "id": "whisper-cpp",
-          "category": "local-ai",
+          "id": "openclaw",
+          "category": "automation",
           "kind": "brew-formula",
           "lifecycle": "active",
-          "docs": "https://github.com/ggml-org/whisper.cpp",
-          "label": "whisper.cpp local speech-to-text engine (model files are separate)"
+          "docs": "https://github.com/openclaw/openclaw",
+          "label": "OpenClaw — personal/local AI assistant CLI"
+        },
+        {
+          "id": "grokbot",
+          "category": "automation",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://x.ai/bot",
+          "label": "Grok Bot — xAI teammates that work across your apps"
+        },
+        {
+          "id": "n8n",
+          "category": "automation",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/n8n-io/n8n",
+          "label": "n8n — workflow automation via the official npm package"
+        },
+        {
+          "id": "interpreter",
+          "category": "automation",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/openinterpreter/open-interpreter",
+          "label": "Open Interpreter — natural-language computer-use agent"
         }
       ]
     },
@@ -703,6 +677,85 @@
           "lifecycle": "active",
           "docs": "https://github.com/TheR1D/shell_gpt",
           "label": "shell-gpt (sgpt) via uv"
+        }
+      ]
+    },
+    {
+      "id": "dev-utils",
+      "emoji": "🛠️",
+      "blurb": "Development, search, data, and deployment utilities",
+      "tools": [
+        {
+          "id": "gh",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/cli/cli",
+          "label": "GitHub CLI"
+        },
+        {
+          "id": "wrangler",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/cloudflare/workers-sdk",
+          "label": "Cloudflare Workers CLI (cloudflare-wrangler)"
+        },
+        {
+          "id": "jq",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://jqlang.github.io/jq/",
+          "label": "jq command-line JSON processor"
+        },
+        {
+          "id": "yq",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/mikefarah/yq",
+          "label": "yq command-line YAML, JSON, XML, CSV, and properties processor"
+        },
+        {
+          "id": "ripgrep",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/BurntSushi/ripgrep",
+          "label": "ripgrep fast recursive search (rg)"
+        },
+        {
+          "id": "fd",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/sharkdp/fd",
+          "label": "fd fast, user-friendly find replacement"
+        },
+        {
+          "id": "just",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://just.systems/",
+          "label": "just project command runner"
+        },
+        {
+          "id": "shellcheck",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://www.shellcheck.net/",
+          "label": "ShellCheck shell-script static analyzer"
+        },
+        {
+          "id": "actionlint",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://rhysd.github.io/actionlint/",
+          "label": "actionlint GitHub Actions workflow checker"
         }
       ]
     },
@@ -799,7 +852,7 @@
     },
     {
       "id": "gh",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/cli/cli",
@@ -807,7 +860,7 @@
     },
     {
       "id": "wrangler",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/cloudflare/workers-sdk",
@@ -839,7 +892,7 @@
     },
     {
       "id": "jq",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://jqlang.github.io/jq/",
@@ -847,7 +900,7 @@
     },
     {
       "id": "yq",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/mikefarah/yq",
@@ -855,7 +908,7 @@
     },
     {
       "id": "ripgrep",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/BurntSushi/ripgrep",
@@ -863,7 +916,7 @@
     },
     {
       "id": "fd",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/sharkdp/fd",
@@ -871,7 +924,7 @@
     },
     {
       "id": "just",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://just.systems/",
@@ -879,7 +932,7 @@
     },
     {
       "id": "shellcheck",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://www.shellcheck.net/",
@@ -887,7 +940,7 @@
     },
     {
       "id": "actionlint",
-      "category": "infra",
+      "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://rhysd.github.io/actionlint/",
@@ -975,7 +1028,7 @@
     },
     {
       "id": "hermes",
-      "category": "coding-agents",
+      "category": "automation",
       "kind": "special",
       "lifecycle": "active",
       "docs": "https://github.com/NousResearch/hermes-agent",
@@ -1063,7 +1116,7 @@
     },
     {
       "id": "openclaw",
-      "category": "coding-agents",
+      "category": "automation",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/openclaw/openclaw",
@@ -1279,7 +1332,7 @@
     },
     {
       "id": "grokbot",
-      "category": "workspaces",
+      "category": "automation",
       "kind": "brew-cask",
       "lifecycle": "active",
       "docs": "https://x.ai/bot",
@@ -1342,8 +1395,16 @@
       "label": "Ollama desktop app (Homebrew cask)"
     },
     {
+      "id": "remotion",
+      "category": "media",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://www.remotion.dev/docs/cli",
+      "label": "Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies"
+    },
+    {
       "id": "macwhisper",
-      "category": "local-ai",
+      "category": "media",
       "kind": "brew-cask",
       "lifecycle": "active",
       "docs": "https://goodsnooze.gumroad.com/l/macwhisper",
@@ -1359,7 +1420,7 @@
     },
     {
       "id": "n8n",
-      "category": "workspaces",
+      "category": "automation",
       "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/n8n-io/n8n",
@@ -1367,7 +1428,7 @@
     },
     {
       "id": "interpreter",
-      "category": "coding-agents",
+      "category": "automation",
       "kind": "uv-tool",
       "lifecycle": "active",
       "docs": "https://github.com/openinterpreter/open-interpreter",
@@ -1399,7 +1460,7 @@
     },
     {
       "id": "whisper-cpp",
-      "category": "local-ai",
+      "category": "media",
       "kind": "brew-formula",
       "lifecycle": "active",
       "docs": "https://github.com/ggml-org/whisper.cpp",
@@ -1414,12 +1475,36 @@
       "label": "[SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained"
     },
     {
-      "id": "remotion",
-      "category": "workspaces",
-      "kind": "aiup-npm",
+      "id": "diffusionbee",
+      "category": "media",
+      "kind": "brew-cask",
       "lifecycle": "active",
-      "docs": "https://www.remotion.dev/docs/cli",
-      "label": "Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies"
+      "docs": "https://diffusionbee.com/",
+      "label": "DiffusionBee — local AI image generation"
+    },
+    {
+      "id": "upscayl",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://upscayl.org/",
+      "label": "Upscayl — AI image upscaling"
+    },
+    {
+      "id": "ffmpeg",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://ffmpeg.org/",
+      "label": "FFmpeg — audio/video conversion and encoding (media utility)"
+    },
+    {
+      "id": "audacity",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.audacityteam.org/",
+      "label": "Audacity — audio editing and recording (media utility)"
     }
   ],
   "recommended": [

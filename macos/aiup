@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-03"
+AIUP_VERSION="2026.09.04-04"
 AIUP_TUI_CACHE_SCHEMA="3"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -33,7 +33,7 @@ HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/in
 SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
-CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat local-ai llm-utils adapters homebrew detected)
+CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat media local-ai automation llm-utils dev-utils adapters homebrew detected)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
@@ -158,6 +158,9 @@ UPDATE_REPORT_CAPTURING=0
 UPDATE_REPORT_WARNING=0
 UPDATE_REPORT_LOG_START=0
 UPDATE_REPORT_LOG_END=0
+UPDATE_REPORT_TOOL_SECONDS=0
+UPDATE_REPORT_COMPLETED=0
+UPDATE_REPORT_WARNINGS=0
 AIUP_LOG_LIMIT="${AIUP_LOG_LIMIT:-20}"
 case "$AIUP_LOG_LIMIT" in [1-9]|[1-9][0-9]|100) ;; *) AIUP_LOG_LIMIT=20 ;; esac
 AIUP_TUI_ACTION_BASE_GENERATION=""
@@ -465,7 +468,7 @@ run_with_heartbeat() {
       if kill -0 "$pid" 2>/dev/null; then
         elapsed=$(( $(date +%s) - start_ts ))
         if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -t 4 ]; then
-          printf '\r\033[2K  › %-18s working · %ss' "$UPDATE_REPORT_CURRENT_TOOL" "$elapsed" >&4
+          printf '\r\033[2K  › %.20s · %s done · !%s · %ss' "$UPDATE_REPORT_CURRENT_TOOL" "$UPDATE_REPORT_COMPLETED" "$UPDATE_REPORT_WARNINGS" "$elapsed" >&4
         fi
         info "still working: $label (${elapsed}s elapsed)"
       fi
@@ -479,9 +482,9 @@ run_with_heartbeat() {
   wait "$hb_pid" 2>/dev/null || true
 
   if [ "$rc" -eq 0 ]; then
-    info "DONE: $label"
+    info "DONE: $label ($(( $(date +%s) - start_ts ))s)"
   else
-    error "FAILED: $label (exit $rc)"
+    error "FAILED: $label (exit $rc; $(( $(date +%s) - start_ts ))s)"
   fi
   return "$rc"
 }
@@ -1122,6 +1125,7 @@ expected_direct_path() {
 
 binary_of_tool() {
   case "$1" in
+    ripgrep) printf 'rg\n' ;;
     gsd2) printf 'gsd\n' ;;
     antigravity) printf 'agy\n' ;;
     cursor) printf 'cursor-agent\n' ;;
@@ -1213,15 +1217,6 @@ catalog_category() {
   manifest_category="$(catalog_manifest_field "$1" 2 2>/dev/null || true)"
   [ -n "$manifest_category" ] && { printf '%s\n' "$manifest_category"; return 0; }
   case "$1" in
-    brew|npm|uv|fzf|gh|wrangler|deno) printf 'infra\n' ;;
-    claude|copilot|codex|antigravity|grok|gemini|pi|kilo|gsd2|opencode|hermes|warp|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|interpreter) printf 'coding-agents\n' ;;
-    t3-code|t3-nightly|grokbot|opencode-desktop|hermes-desktop|n8n) printf 'workspaces\n' ;;
-    vscode|vscode-insiders|cursor-ide|zed|antigravity-ide) printf 'editors\n' ;;
-    cmux|warp-app|ghostty|iterm2) printf 'terminals\n' ;;
-    chatgpt|claude-app|copilot-app|perplexity) printf 'chat\n' ;;
-    ollama|ollama-app|lm-studio|jan|gpt4all|anythingllm|macwhisper|screenpipe|mlx|mlx-lm) printf 'local-ai\n' ;;
-    llm|mods|aichat|fabric|sgpt) printf 'llm-utils\n' ;;
-    pi-acp) printf 'adapters\n' ;;
     homebrew) printf 'homebrew\n' ;;
     *)
       case "$1" in
@@ -1248,7 +1243,10 @@ catalog_category_blurb() {
     editors) printf 'Places you type code\n' ;;
     terminals) printf 'Places you run commands\n' ;;
     chat) printf 'Cloud chat apps\n' ;;
-    local-ai) printf 'Models, capture, and engines that run on your Mac\n' ;;
+    media) printf 'Video, images, audio, transcription, and AI creation tools\n' ;;
+    automation) printf 'General-purpose agents and workflow automation\n' ;;
+    dev-utils) printf 'Development, search, data, and deployment utilities\n' ;;
+    local-ai) printf 'Local models, inference engines, and contextual capture\n' ;;
     llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
     adapters) printf 'Glue between agents and editors\n' ;;
     detected) printf 'Unmanaged software found on this Mac: apps, npm, uv, and PATH executables\n' ;;
@@ -1271,6 +1269,9 @@ catalog_category_emoji() {
     editors) printf '✏️\n' ;;
     terminals) printf '⌨️\n' ;;
     chat) printf '💬\n' ;;
+    media) printf '🎬\n' ;;
+    automation) printf '⚡\n' ;;
+    dev-utils) printf '🛠️\n' ;;
     local-ai) printf '🧠\n' ;;
     llm-utils) printf '🔧\n' ;;
     adapters) printf '🔌\n' ;;
@@ -1400,10 +1401,12 @@ catalog_dep_closure() {
 }
 
 ensure_catalog_deps() {
-  local tool dep
+  local tool dep policy
   local -a ordered=()
   local seen="|"
   for tool in "$@"; do
+    policy="$(policy_reason "$tool")" || return 1
+    [ -z "$policy" ] || continue
     case "$tool" in
       bc:*|bf:*)
         case "$selected" in
@@ -1494,10 +1497,6 @@ catalog_npm_pkg() {
     kilo) printf '@kilocode/cli\n' ;;
     gsd2) printf '@opengsd/gsd-pi\n' ;;
     pi) printf '@earendil-works/pi-coding-agent\n' ;;
-    crush) printf '@charmland/crush\n' ;;
-    cline) printf 'cline\n' ;;
-    continue) printf '@continuedev/cli\n' ;;
-    pi-acp) printf 'pi-acp\n' ;;
     copilot) printf '@github/copilot\n' ;;
     qwen) printf '@qwen-code/qwen-code\n' ;;
     *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
@@ -1506,21 +1505,7 @@ catalog_npm_pkg() {
 
 catalog_brew_formula() {
   case "$1" in
-    fzf) printf 'fzf\n' ;;
-    kimi) printf 'kimi-code\n' ;;
-    openclaw) printf 'openclaw-cli\n' ;;
-    gh) printf 'gh\n' ;;
-    wrangler) printf 'cloudflare-wrangler\n' ;;
-    deno) printf 'deno\n' ;;
-    llm) printf 'llm\n' ;;
-    mods) printf 'mods\n' ;;
-    aichat) printf 'aichat\n' ;;
-    fabric) printf 'fabric-ai\n' ;;
-    ollama) printf 'ollama\n' ;;
     n8n) printf 'n8n\n' ;;
-    mlx) printf 'mlx\n' ;;
-    mlx-lm) printf 'mlx-lm\n' ;;
-    llama-cpp) printf 'llama.cpp\n' ;;
     uv) printf 'uv\n' ;;
     goose) printf 'block-goose-cli\n' ;;
     cline) printf 'cline\n' ;;
@@ -1530,33 +1515,7 @@ catalog_brew_formula() {
 
 catalog_brew_cask() {
   case "$1" in
-    kiro) printf 'kiro-cli\n' ;;
-    chatgpt) printf 'chatgpt\n' ;;
-    cursor-ide) printf 'cursor\n' ;;
-    zed) printf 'zed\n' ;;
-    cmux) printf 'cmux\n' ;;
-    ollama-app) printf 'ollama-app\n' ;;
     cursor) printf 'cursor-cli\n' ;;
-    t3-code) printf 't3-code\n' ;;
-    t3-nightly) printf 't3-code@nightly\n' ;;
-    grokbot) printf 'grok-bot\n' ;;
-    hermes-desktop) printf 'hermes-desktop\n' ;;
-    vscode) printf 'visual-studio-code\n' ;;
-    vscode-insiders) printf 'visual-studio-code@insiders\n' ;;
-    claude-app) printf 'claude\n' ;;
-    copilot-app) printf 'github-copilot-app\n' ;;
-    opencode-desktop) printf 'opencode-desktop\n' ;;
-    antigravity-ide) printf 'antigravity-ide\n' ;;
-    perplexity) printf 'perplexity\n' ;;
-    macwhisper) printf 'macwhisper\n' ;;
-    lm-studio) printf 'lm-studio\n' ;;
-    warp-app) printf 'warp\n' ;;
-    ghostty) printf 'ghostty\n' ;;
-    iterm2) printf 'iterm2\n' ;;
-    jan) printf 'jan\n' ;;
-    gpt4all) printf 'gpt4all\n' ;;
-    anythingllm) printf 'anythingllm\n' ;;
-    llama-app) printf 'llama-app\n' ;;
     *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
@@ -1576,17 +1535,16 @@ catalog_curl_url() {
 
 catalog_uv_pkg() {
   case "$1" in
-    sgpt) printf 'shell-gpt\n' ;;
-    interpreter) printf 'open-interpreter\n' ;;
     llm) printf 'llm\n' ;;
-    vibe) printf 'mistral-vibe\n' ;;
-    openhands) printf 'openhands\n' ;;
     *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
 
 catalog_app_path() {
   case "$1" in
+    diffusionbee) printf '/Applications/DiffusionBee.app\n' ;;
+    upscayl) printf '/Applications/Upscayl.app\n' ;;
+    audacity) printf '/Applications/Audacity.app\n' ;;
     chatgpt) printf '/Applications/ChatGPT.app\n' ;;
     cursor-ide) printf '/Applications/Cursor.app\n' ;;
     zed) printf '/Applications/Zed.app\n' ;;
@@ -1928,6 +1886,9 @@ catalog_ansi() {
     editors) printf '\033[38;5;111m' ;;
     terminals) printf '\033[38;5;81m' ;;
     chat) printf '\033[38;5;51m' ;;
+    media) printf '\033[38;5;213m' ;;
+    automation) printf '\033[38;5;184m' ;;
+    dev-utils) printf '\033[38;5;75m' ;;
     local-ai) printf '\033[38;5;48m' ;;
     llm-utils) printf '\033[38;5;208m' ;;
     adapters) printf '\033[38;5;220m' ;;
@@ -1960,7 +1921,7 @@ catalog_header_text() {
   if [ "$columns" -lt 96 ]; then
     printf 'search · enter act · ctrl-/ preview · esc close\n'
   else
-    printf 'type search · enter act/expand · ctrl-g categories · ctrl-/ preview · esc close\n'
+    printf 'search names/aliases · enter act · ctrl-g categories · no match? aiup coverage · esc close\n'
   fi
 }
 
@@ -3498,7 +3459,8 @@ tui_updates_index_valid() {
 tui_updates_publish() {
   local dir="${1:-$AIUP_TUI_SESSION_DIR}" token="${2:-$AIUP_TUI_SESSION_TOKEN}" snapshot="${3:-$AIUP_TUI_SNAPSHOT_GENERATION}"
   local defer_validation="${4:-0}"
-  local lock index_tmp rows_tmp meta_tmp runtime now owner_pid
+  local lock index_tmp rows_tmp meta_tmp runtime now owner_pid policies
+  policies="$(preferences reasons)" || return 1
   [ -n "$dir" ] && [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   [ -f "$dir/rows-base.tsv" ] && [ ! -L "$dir/rows-base.tsv" ] || return 1
   lock="$dir/.updates-publish.lock"
@@ -3513,7 +3475,7 @@ tui_updates_publish() {
   if ! python3 - "$CATALOG_MANIFEST" "$dir/catalog-index.tsv" "$dir/brew-index.tsv" "$dir/versions-index.tsv" \
     "$AVAILABLE_VERSION_CACHE_DIR" "$dir/rows-base.tsv" "$index_tmp" "$rows_tmp" "$now" \
     "$AVAILABLE_VERSION_CACHE_TTL" "$AVAILABLE_VERSION_FAILURE_TTL" "$meta_tmp" "$runtime" "$dir/token" \
-    "$owner_pid" "$snapshot" "$AIUP_TUI_UPDATE_SCHEMA" "$AIUP_VERSION" "$CATALOG_MANIFEST_VERSION" <<'PY'
+    "$owner_pid" "$snapshot" "$AIUP_TUI_UPDATE_SCHEMA" "$AIUP_VERSION" "$CATALOG_MANIFEST_VERSION" "$policies" <<'PY'
 import csv, hashlib, os, pathlib, re, sys
 
 (manifest_path, catalog_path, brew_path, versions_path, cache_path, base_path,
@@ -3521,6 +3483,7 @@ import csv, hashlib, os, pathlib, re, sys
 now, good_ttl, failure_ttl = map(int, sys.argv[9:12])
 meta_path, runtime_path, token_path = map(pathlib.Path, sys.argv[12:15])
 owner_pid, snapshot, schema, runtime_version, manifest_version = sys.argv[15:20]
+policies=dict(line.split("\t",1) for line in sys.argv[20].splitlines() if "\t" in line)
 
 def version_parts(value):
     return tuple(int(part) for part in re.findall(r"\d+", value or ""))
@@ -3580,6 +3543,7 @@ for canonical, installed, lifecycle, label in candidates:
             else: status = "unavailable"
         except (OSError, UnicodeError, ValueError):
             status, available = "checking", ""
+    if canonical in policies: eligibility="manual-review"; label += " · " + policies[canonical]
     records.append((canonical, installed, available, status, eligibility, lifecycle, "update", label.replace("\t", " ").replace("\n", " "), cache_identity))
 
 with index_path.open("w", encoding="utf-8", newline="") as handle:
@@ -3705,12 +3669,15 @@ with open(versions_path, encoding="utf-8") as handle:
         if len(row) >= 2: versions[row[0]] = row[1]
 with open(raw_path, encoding="utf-8") as handle: data = json.load(handle)
 outdated = {}
-for item in data.get("formulae") or []:
+if not isinstance(data.get("formulae"), list) or not isinstance(data.get("casks"), list): raise ValueError("invalid brew snapshot")
+for item in data["formulae"]:
     name = item.get("name", ""); value = item.get("current_version", "")
-    if name: outdated[("brew-formula", name)] = value
-for item in data.get("casks") or []:
+    if not isinstance(name,str) or not name or not isinstance(value,str) or not value: raise ValueError("invalid formula record")
+    outdated[("brew-formula", name)] = value
+for item in data["casks"]:
     name = item.get("name", "") or item.get("token", ""); value = item.get("current_version", "")
-    if name: outdated[("brew-cask", name)] = value
+    if not isinstance(name,str) or not name or not isinstance(value,str) or not value: raise ValueError("invalid cask record")
+    outdated[("brew-cask", name)] = value
 for tool, (kind, target) in targets.items():
     if states.get(tool) not in {"installed", "on-disk"}: continue
     print(tool, versions.get(tool, "unknown"), outdated.get((kind, target), ""), sep="\t")
@@ -4914,12 +4881,15 @@ scan_versions_index() {
 }
 
 tui_preview_static_render() {
+  local policies
+  policies="$(preferences reasons)" || return 1
   local fixture_apps="${AIUP_CAPTURE_FIXTURE_DIR:-}/apps.tsv"
   [ -f "$fixture_apps" ] || fixture_apps=/dev/null
-  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$BREW_INDEX" "$INVENTORY_INDEX" "$VERSIONS_INDEX" "$1" "$2" "$3" "$fixture_apps" <<'PY'
+  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$BREW_INDEX" "$INVENTORY_INDEX" "$VERSIONS_INDEX" "$1" "$2" "$3" "$fixture_apps" "$policies" <<'PY'
 import csv, pathlib, sys
 from urllib.parse import quote_plus
-manifest_path, state_path, brew_path, inventory_path, versions_path, output_path, remote_path, docs_path, apps_path = map(pathlib.Path, sys.argv[1:])
+manifest_path, state_path, brew_path, inventory_path, versions_path, output_path, remote_path, docs_path, apps_path = map(pathlib.Path, sys.argv[1:10])
+policies=dict(line.split("\t",1) for line in sys.argv[10].splitlines() if "\t" in line)
 states = {}
 with state_path.open(encoding="utf-8") as handle:
     for row in csv.reader(handle, delimiter="\t"):
@@ -4980,6 +4950,7 @@ for item_id, category, kind, lifecycle, label, docs, target, endpoint in rows:
     if state in {"installed", "on-disk"}:
         lines.append(f"installed {current or 'unknown'}")
         remote.append((item_id, current or "unknown"))
+    if item_id in policies: action="skipped"; lines.append("preference " + policies[item_id])
     lines.append(f"action   {action}")
     for dep in closure(item_id):
         dep_state = "ready" if states.get(dep) in {"installed", "on-disk"} else "missing"
@@ -5034,7 +5005,7 @@ tui_fast_helper_render() {
 import pathlib, sys
 path = pathlib.Path(sys.argv[1])
 path.write_text(r'''#!/usr/bin/env python3
-import csv, hashlib, os, pathlib, sys, time
+import csv, hashlib, os, pathlib, sys, time, re
 
 root = pathlib.Path(__file__).resolve().parent
 def fail(): raise SystemExit(1)
@@ -5132,6 +5103,7 @@ def category_of(item):
             if item_id == item: return current
     return ""
 def emit_rows(query=""):
+    (root / "query").write_text(query, encoding="utf-8")
     opened, show, lines = expanded(), False, []
     filt, view = os.environ.get("AIUP_CATEGORY_FILTER", ""), os.environ.get("AIUP_VIEW_MODE", "overview")
     with (root / "rows-expanded.tsv").open(encoding="utf-8") as handle:
@@ -5144,6 +5116,32 @@ def emit_rows(query=""):
                     show = True
                 lines.append(line)
             elif show: lines.append(line)
+    if query.strip():
+        q=query.casefold().strip()
+        terms=q.split()
+        labels={}
+        aliases={'ripgrep':'rg', 'fd':'fd find', 'remotion':'@remotion/cli video react',
+                 'macwhisper':'transcription speech audio', 'whisper-cpp':'whisper-cli transcription speech audio',
+                 'diffusionbee':'stable diffusion image generation', 'upscayl':'image upscale enhancement',
+                 'ffmpeg':'ffprobe video audio encoding', 'audacity':'audio recording editing'}
+        with manifest.open(encoding='utf-8') as handle:
+            for row in csv.reader((l for l in handle if not l.startswith('#')),delimiter='\t'):
+                if len(row)>=6: labels[row[0]]=' '.join([row[0],row[4],row[6] if len(row)>6 else '',aliases.get(row[0],'')])
+        for filename in ('brew-index.tsv','inventory-index.tsv'):
+            with (root/filename).open(encoding='utf-8') as handle:
+                for row in csv.reader(handle,delimiter='\t'):
+                    if len(row)>=4: labels[row[2]]=row[2]+' '+row[3]
+        matches=[]; seen=set()
+        for line in lines:
+            item=line.split('\t',1)[0]
+            canonical=item[len('__update:'):] if item.startswith('__update:') else item
+            if item.startswith('__cat:') or canonical in seen: continue
+            text=labels.get(canonical,canonical).casefold()
+            if not all(t in text for t in terms): continue
+            name=(canonical[3:] if canonical.startswith(('bf:','bc:')) else canonical).casefold()
+            score=0 if q==name else 1 if q in aliases.get(canonical,'').split() else 2 if name.startswith(q) else 3 if q in name else 4
+            matches.append((score,name,line));seen.add(canonical)
+        lines=[line for _,_,line in sorted(matches)]
     temp = root / f"list.tsv.next.{os.getpid()}"
     temp.write_text("".join(lines), encoding="utf-8")
     os.replace(temp, root / "list.tsv")
@@ -5204,7 +5202,9 @@ def preview(item):
 def header():
     try: columns = int(os.environ.get("FZF_COLUMNS", "100"))
     except ValueError: columns = 100
-    print("search · enter act · ctrl-/ preview · esc close" if columns < 96 else "type search · enter act/expand · ctrl-g categories · ctrl-/ preview · esc close")
+    if (root/"query").read_text().strip() and not (root/"list.tsv").read_text().strip():
+        print("No matches · try a name or alias · aiup coverage shows detection gaps"); return
+    print("search · enter act · ctrl-/ preview · esc close" if columns < 96 else "search names/aliases · enter act · ctrl-g categories · no match? aiup coverage · esc close")
 def nav(direction, current):
     rows = (root / "list.tsv").read_text(encoding="utf-8").splitlines()
     ids = [line.split("\t", 1)[0] for line in rows]
@@ -6531,6 +6531,185 @@ remove_by_kind() {
 }
 
 
+# Preferences are data, never shell code. Atomic writes are serialized separately
+# from package-manager operations; malformed preferences fail closed.
+preferences() {
+  case "$1" in show|reason|reasons|group-read) ;; *)
+    if [ "$DRY_RUN" -eq 1 ]; then printf 'DRY-RUN: preferences %s\n' "$*"; return 0; fi ;;
+  esac
+  python3 - "$STATE_DIR" "$CATALOG_MANIFEST" "$@" <<'PYPREF'
+import datetime, json, os, re, sys
+from pathlib import Path
+root, manifest, action, *args = sys.argv[1:]
+root=Path(root); path=root/'preferences.json'
+if root.is_symlink() or path.is_symlink(): raise SystemExit('Refusing symbolic-link preferences')
+if action in ('reason','reasons') and not path.exists(): raise SystemExit(0)
+ids={l.split('\t')[0] for l in Path(manifest).read_text().splitlines() if l and not l.startswith('#')}
+def read():
+    data=json.loads(path.read_text()) if path.exists() else {'excluded':[], 'holds':{}, 'groups':{}}
+    if not isinstance(data,dict) or not isinstance(data.get('excluded'),list) or not isinstance(data.get('holds'),dict) or not isinstance(data.get('groups'),dict): raise ValueError('Invalid preferences')
+    if any(x not in ids for x in data['excluded']): raise ValueError('Unknown excluded tool')
+    for tool,until in data['holds'].items():
+        if tool not in ids: raise ValueError('Unknown held tool')
+        datetime.date.fromisoformat(until)
+    for name,tools in data['groups'].items():
+        if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,39}',name) or not isinstance(tools,list) or any(t not in ids for t in tools): raise ValueError('Invalid group')
+    return data
+def reason(data,tool):
+    if tool in data['excluded']: return 'Excluded by preference; aiup include '+tool+' to restore'
+    until=data['holds'].get(tool)
+    if until and until>=datetime.date.today().isoformat(): return 'Held through '+until+'; aiup unhold '+tool+' to restore'
+    return ''
+try:
+    if action in ('show','reason','reasons','group-read'):
+        data=read()
+        if action=='show': print(json.dumps(data,indent=2))
+        elif action=='reason': print(reason(data,args[0]))
+        elif action=='reasons':
+            for tool in sorted(ids):
+                if reason(data,tool): print(tool+'\t'+reason(data,tool))
+        else:
+            if args[0] not in data['groups']: raise ValueError('Unknown group: '+args[0])
+            print('\n'.join(data['groups'][args[0]]))
+        raise SystemExit(0)
+    root.mkdir(parents=True,exist_ok=True)
+    lock=root/'.preferences.lock'
+    try: lock.mkdir(mode=0o700)
+    except FileExistsError: raise SystemExit('Preferences are being edited; retry after the other command finishes')
+    try:
+        data=read()
+        if action in ('exclude','include','hold','unhold'):
+            tool=args[0]
+            if tool not in ids: raise ValueError('Use a managed catalog tool ID')
+            if action=='exclude': data['excluded']=sorted(set(data['excluded']+[tool]))
+            elif action=='include': data['excluded']=[t for t in data['excluded'] if t!=tool]
+            elif action=='unhold': data['holds'].pop(tool,None)
+            else:
+                until=datetime.date.fromisoformat(args[1])
+                if until<datetime.date.today(): raise ValueError('Hold date must be today or later')
+                data['holds'][tool]=until.isoformat()
+        elif action=='group-set':
+            name=args[0]
+            if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,39}',name) or not args[1:] or any(t not in ids for t in args[1:]): raise ValueError('Use a simple group name and managed tool IDs')
+            data['groups'][name]=list(dict.fromkeys(args[1:]))
+        elif action=='group-remove': data['groups'].pop(args[0],None)
+        else: raise ValueError('Unknown preference operation')
+        temp=lock/'next.json'
+        with temp.open('x') as handle:
+            os.chmod(temp,0o600);json.dump(data,handle,indent=2);handle.write('\n')
+        os.replace(temp,path)
+        print('Preferences saved.')
+    finally:
+        if (lock/'next.json').exists(): (lock/'next.json').unlink()
+        lock.rmdir()
+except (ValueError, OSError, IndexError, TypeError) as e: raise SystemExit('Preferences: '+str(e))
+PYPREF
+}
+
+policy_reason() { preferences reason "$1"; }
+
+cmd_project() {
+  python3 - "$1" <<'PYPROJECT'
+import json, sys
+from pathlib import Path
+root=Path(sys.argv[1]).expanduser().resolve()
+path=root/'package.json'
+if not path.is_file() or path.stat().st_size>1048576: raise SystemExit('Provide a project directory with a package.json under 1 MiB')
+try:
+    data=json.loads(path.read_text())
+    if not isinstance(data,dict) or any(not isinstance(data.get(k,{}),dict) for k in ('dependencies','devDependencies','peerDependencies')): raise ValueError('Invalid dependency sections')
+except (ValueError,OSError) as e: raise SystemExit('Cannot inspect package.json: '+str(e))
+print('aiup · project dependencies\n'+str(root)+'\n')
+for section in ('dependencies','devDependencies','peerDependencies'):
+    for name,value in sorted(data.get(section,{}).items()):
+        print(f'{section:18} {name:36} {value}')
+print('\nDeclared version ranges only. No scripts executed, packages changed, or repositories scanned.')
+PYPROJECT
+}
+
+cmd_coverage() {
+  scan_catalog_index all || return 1
+  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$INVENTORY_INDEX" "$BREW_INDEX" "${1:-}" <<'PYCOVER'
+import csv, sys, os
+from collections import Counter
+from pathlib import Path
+def rows(path):
+    return list(csv.reader((l for l in Path(path).read_text().splitlines() if not l.startswith('#')),delimiter='\t'))
+def ink(t,c): return '\033[38;5;'+c+'m'+t+'\033[0m' if sys.stdout.isatty() and not os.environ.get('NO_COLOR') else t
+catalog=rows(sys.argv[1]); states={r[2]:r[1] for r in rows(sys.argv[2]) if len(r)>2}; detected=rows(sys.argv[3]); brew=rows(sys.argv[4])
+print(ink('\naiup · coverage','141'))
+counts=Counter(r[1] for r in catalog if len(r)>2)
+for category,n in counts.items():
+    installed=sum(states.get(r[0]) in ('installed','on-disk') for r in catalog if len(r)>2 and r[1]==category)
+    print(f'  {category:18} {installed:3} present / {n:3} supported')
+all_rows=sys.argv[5]=='--all'
+present=[r for r in catalog if len(r)>=6 and states.get(r[0]) in ('installed','on-disk')]
+adoption=sum(states[r[0]]=='on-disk' and r[2]=='brew-cask' for r in present)
+print('\n'+ink(f'{len(present)} catalog tools present · {adoption} require explicit adoption','81'))
+for r in catalog:
+    if not all_rows or len(r)<6 or states.get(r[0]) not in ('installed','on-disk'): continue
+    scope='Explicit adoption required' if states[r[0]]=='on-disk' and r[2]=='brew-cask' else 'Managed update contract'
+    print(f'  {r[0]:22} {scope} · {r[2]} · {r[3]}')
+print('\n'+ink('Coverage gaps on this Mac · candidates for reviewed adapters','220'))
+gaps=[r for r in detected if len(r)>=7]
+for r in gaps if all_rows else gaps[:12]:
+    if len(r)>=7: print(f'  {r[3]} · {r[5]} · detected only; updater not reviewed')
+if not all_rows and len(gaps)>12: print(f'  … {len(gaps)-12} more · aiup coverage --all or aiup inventory')
+print(f'\n  {sum(len(r)>2 and r[1]=="installed" for r in brew)} installed Homebrew extras have explicit picker actions.')
+print('  Default updates cover installed catalog tools; detection alone never authorizes updates.')
+PYCOVER
+}
+
+cmd_diagnostics() {
+  brew_cache_load; ensure_system_npm_prefix
+  local tool bin method location reason pkg app shade reset=''
+  printf '\naiup · installation diagnostics\n\n'
+  for tool in "${TOOLS_CATALOG[@]}"; do
+    tool_is_present "$tool" || continue
+    bin="$(binary_of_tool "$tool")"
+    method="$(install_method_of "$tool")"
+    location="$(resolved_path_of "$tool")"
+    if [ "$location" = n/a ]; then app="$(catalog_app_path "$tool")"; [ -z "$app" ] || location="$app"; fi
+    shade=''; reset=''
+    if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then shade="$(catalog_ansi "$(catalog_category "$tool")")"; reset=$'\033[0m'; fi
+    printf '%s%-20s%s %s · %s\n' "$shade" "$tool" "$reset" "$method" "$location"
+    pkg="$(catalog_npm_pkg "$tool")"
+    if [ -n "$pkg" ] && [ "$SYSTEM_NPM_PREFIX" != "$AIUP_NPM_PREFIX" ] && aiup_npm_pkg_installed "$pkg" && system_npm_pkg_installed "$pkg"; then
+      printf '  ! Package exists in both npm prefixes; aiup explain %s shows the active manager.\n' "$tool"
+    fi
+    app="$(catalog_app_path "$tool")"
+    if [ -n "$app" ] && [ -d "$app" ] && [ -d "$HOME/Applications/${app##*/}" ]; then
+      printf '  ! App copies in /Applications and ~/Applications; review which copy you launch.\n'
+    fi
+    reason="$(policy_reason "$tool")" || return 1
+    [ -z "$reason" ] || printf '  %s\n' "$reason"
+    [ -n "$bin" ] || continue
+    python3 - "$bin" "$AIUP_NPM_BIN" <<'PYDIAG'
+import os, sys
+from pathlib import Path
+name,managed=sys.argv[1:]; paths=[]; broken=[]; seen=set()
+for directory in [*os.environ.get('PATH','').split(os.pathsep),managed]:
+    if not directory: continue
+    p=Path(directory)/name
+    if str(p) in seen: continue
+    seen.add(str(p))
+    if p.is_symlink() and not p.exists(): broken.append(str(p))
+    elif p.is_file() and os.access(p,os.X_OK): paths.append(p)
+resolved={str(p.resolve()) for p in paths}
+if len(resolved)>1:
+    print('  ! Multiple executable installations; PATH selects '+str(paths[0]))
+    shown={str(paths[0].resolve())}
+    for p in paths[1:]:
+        if str(p.resolve()) not in shown: print('    shadowed: '+str(p)); shown.add(str(p.resolve()))
+    print('    Review aiup explain before choosing one manager or changing PATH.')
+for p in broken: print('  ! Broken executable link: '+p+'; review its owner before repair.')
+PYDIAG
+  done
+  printf '\nSetup warnings from the latest run:\n'
+  run_history warnings
+  printf 'No profiles or packages changed. Full inventory: aiup doctor --details\n'
+}
+
 # Local run history uses exact generated names and never follows symlinks.
 run_history() {
   python3 - "$STATE_DIR/logs" "$1" "$AIUP_LOG_LIMIT" "${2:-}" <<'PYHISTORY'
@@ -6542,7 +6721,7 @@ if root.is_symlink(): raise SystemExit("Refusing a symbolic-link log directory")
 def ink(value, code="38;5;141"):
     return "\033["+code+"m"+value+"\033[0m" if sys.stdout.isatty() and not os.environ.get("NO_COLOR") else value
 if not root.is_dir():
-    if action != "prune": print("No saved runs yet.")
+    if action not in ("prune", "retry"): print("No saved runs yet.")
     raise SystemExit(0)
 def plain(value):
     return re.sub(r"[\x00-\x1f\x7f-\x9f]", "", re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(value)))
@@ -6581,6 +6760,20 @@ if action == "prune":
     raise SystemExit(0)
 selected = [(log, data, alive) for _,log,_,_,alive,data in records
             if not tool or (data and any(r.get("tool")==tool for r in data.get("tools",[])))]
+if action == "warnings":
+    data=selected[0][1] if selected else None
+    warnings=[r for r in data['tools'] if r.get('warning')] if data else []
+    for r in warnings: print('  ! '+plain(r['tool'])+': '+plain(r.get('note',''))+' · aiup logs '+plain(r['tool']))
+    if not warnings: print('  No recorded setup warnings in the latest run.')
+    raise SystemExit(0)
+if action == "retry":
+    if not selected: raise SystemExit(0)
+    log,data,alive=selected[0]
+    if alive: raise SystemExit("Latest run is still active; wait for it to finish")
+    if not data: raise SystemExit("Latest run has no structured results; inspect aiup logs")
+    for row in data['tools']:
+        if row.get('result')=='failed': print(row['tool'])
+    raise SystemExit(0)
 if action == "logs":
     if not selected: print("No saved log for " + (tool or "an update run") + "."); raise SystemExit(1)
     log, data, _ = selected[0]
@@ -6609,11 +6802,11 @@ for log, data, alive in selected[:limit]:
     rows = [r for r in data.get("tools",[]) if not tool or r.get("tool")==tool]
     counts = Counter(r.get("result","unknown") for r in rows)
     status = "running" if alive else ("interrupted" if data.get("status")=="running" else "complete")
-    print("  " + status + " · " + " · ".join(str(n)+" "+plain(k) for k,n in counts.items()))
+    print("  " + status + " · " + str(data.get("duration",0)) + "s · " + " · ".join(str(n)+" "+plain(k) for k,n in counts.items()))
     for row in rows if tool else []:
         before, after = row.get("before","unknown"),row.get("after","unknown")
         value = str(before)+" → "+str(after) if before!=after else str(after)
-        print("  " + plain(row.get("tool", "")) + " · " + plain(value) + (" · ! warning" if row.get("warning") else ""))
+        print("  " + plain(row.get("tool", "")) + " · " + plain(value) + " · " + str(row.get("duration",0)) + "s" + (" · ! warning" if row.get("warning") else ""))
 PYHISTORY
 }
 
@@ -6644,6 +6837,7 @@ PYWARN
 update_report_begin() {
   [ "$UPDATE_REPORT_ACTIVE" -eq 0 ] || return 0
   local tool version
+  [ "$UPDATE_REPORT_MODE" != update ] || preferences reasons >/dev/null || return 1
   [ "$UPDATE_REPORT_MODE" != update ] || ensure_managed_paths
   [ ! -L "$STATE_DIR/logs" ] || { error "Refusing a symbolic-link log directory"; return 1; }
   ensure_dir "$STATE_DIR/logs"
@@ -6663,12 +6857,14 @@ update_report_begin() {
   printf '  Reading installed versions…\n' >&4
   brew_cache_load
   ensure_system_npm_prefix
+  profile_mark "inventory providers"
   for tool in "$@"; do
     version='not installed'
     if tool_is_present "$tool"; then version="$(version_of_tool "$tool")"; fi
     UPDATE_REPORT_TOOLS+=("$tool")
     UPDATE_REPORT_BEFORE+=("${version:-unknown}")
   done
+  profile_mark "installed versions"
 }
 
 update_report_record() {
@@ -6686,19 +6882,20 @@ update_report_record() {
   shade="$(catalog_ansi "$(catalog_category "$tool")")"
   shade="${shade#$'\033['}"
   shade="${shade%m}"
-  UPDATE_REPORT_ROWS+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' "$tool" "$status" "$before" "${after:-unknown}" "$shade" "$UPDATE_REPORT_NOTE" "$UPDATE_REPORT_LOG_START" "$UPDATE_REPORT_LOG_END" "$UPDATE_REPORT_WARNING")")
+  UPDATE_REPORT_ROWS+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' "$tool" "$status" "$before" "${after:-unknown}" "$shade" "$UPDATE_REPORT_NOTE" "$UPDATE_REPORT_LOG_START" "$UPDATE_REPORT_LOG_END" "$UPDATE_REPORT_WARNING" "$UPDATE_REPORT_TOOL_SECONDS")")
   print_update_report --save-only
 }
 
 run_tool_update() {
-  local tool="$1" rc=0 sink live=0
+  local tool="$1" rc=0 sink live=0 tool_started
+  tool_started="$(date +%s)"
   if [ "$UPDATE_REPORT_ACTIVE" -eq 0 ]; then run_tool_update_impl "$tool"; return $?; fi
   UPDATE_REPORT_NOTE=''
   UPDATE_REPORT_WARNING=0
   UPDATE_REPORT_CURRENT_TOOL="$tool"
   UPDATE_REPORT_LOG_START="$(wc -c < "$UPDATE_REPORT_LOG")"
   if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ]; then
-    printf '\r\033[2K  › %-18s checking…' "$tool" >&4
+    printf '\r\033[2K  › %.20s · %s done · checking…' "$tool" "$UPDATE_REPORT_COMPLETED" >&4
   else
     printf '  › %s\n' "$tool" >&4
   fi
@@ -6717,7 +6914,11 @@ run_tool_update() {
   fi
   if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ]; then printf '\r\033[2K' >&4; fi
   UPDATE_REPORT_LOG_END="$(wc -c < "$UPDATE_REPORT_LOG")"
+  UPDATE_REPORT_TOOL_SECONDS=$(( $(date +%s) - tool_started ))
+  UPDATE_REPORT_COMPLETED=$((UPDATE_REPORT_COMPLETED + 1))
+  profile_mark "update $tool"
   update_report_warnings
+  UPDATE_REPORT_WARNINGS=$((UPDATE_REPORT_WARNINGS + UPDATE_REPORT_WARNING))
   brew_cache_invalidate
   brew_cache_load
   if [ "$rc" -eq 0 ]; then
@@ -6763,14 +6964,14 @@ for line in sys.stdin:
         else: status = "unverified"
     versions = before + " → " + after if before != after else after
     if status == "planned": versions = before
-    rows[tool] = (status, versions, category, note, before, after, start, end, warning)
+    rows[tool] = (status, versions, category, note, before, after, start, end, warning, int(fields[9]) if len(fields)>9 else 0)
 counts = Counter(row[0] for row in rows.values())
 warning_count = sum(bool(row[8]) for row in rows.values())
 if mode == "update":
     data = {"schema": "aiup-run-v1", "started": time.time()-int(seconds), "duration": int(seconds),
             "status": "running" if save_only else "complete", "log": Path(logfile).name,
             "tools": [{"tool": tool, "result": row[0], "before": row[4], "after": row[5],
-                       "note": row[3], "start": row[6], "end": row[7], "warning": bool(row[8])}
+                       "note": row[3], "start": row[6], "end": row[7], "warning": bool(row[8]), "duration": row[9]}
                       for tool,row in rows.items()]}
     target = Path(logfile + ".json")
     temp = Path(logfile + ".json.next")
@@ -6786,10 +6987,11 @@ for part in textwrap.wrap(" · ".join(str(n)+" "+state for state,n in counts.ite
 print(ink("  " + "─" * (width-4), "38;5;60"))
 if width >= 76:
     print(ink("  " + "TOOL".ljust(19) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
-for tool, (status, versions, category, note, before, after, start, end, warning) in rows.items():
+for tool, (status, versions, category, note, before, after, start, end, warning, duration) in rows.items():
     code = "38;2;57;255;20" if status in ("updated", "installed", "update") else "38;5;245"
     if status in ("failed", "unverified"): code = "38;5;203"
     elif status in ("skipped", "planned"): code = "38;5;220"
+    if mode == "update": versions += " · " + str(duration) + "s"
     if warning: status += " !"
     name = ink(tool.ljust(19) if width >= 76 else tool, category if re.fullmatch(r"[0-9;]+", category) else "38;5;250")
     if width >= 76:
@@ -6815,7 +7017,16 @@ else:
 
 run_tool_update_impl() {
   local tool="$1"
-  local result_kind
+  local result_kind policy
+  policy="$(policy_reason "$tool")" || { append_failure "$tool"; return 1; }
+  if [ -n "$policy" ]; then
+    UPDATE_REPORT_NOTE="$policy"
+    update_status_set skipped
+    result_record skipped "$tool"
+    info "$tool: $policy"
+    tool_is_present "$tool" || { append_failure "$tool"; return 1; }
+    return 0
+  fi
   mutation_authoritative_preflight "$tool update" || return 1
   brew_cache_load
   ensure_system_npm_prefix
@@ -6888,7 +7099,7 @@ print_summary_versions() {
 }
 
 print_doctor() {
-  ensure_managed_paths
+  ensure_system_npm_prefix
   progress_start 1 "Looking for tools on your Mac"
   progress_tick "Reading your Homebrew inventory"
   brew_cache_load
@@ -7864,8 +8075,9 @@ pick_catalog_tools() {
     header_text="$(catalog_header_text "$tty_columns")"
     [ -n "$last_query" ] && fzf_state_args+=(--query "$last_query")
     [ -n "$initial_pos" ] && fzf_state_args+=(--bind "start:pos($initial_pos)")
+    [ -z "$last_query" ] || "$AIUP_TUI_SESSION_DIR/fast-helper.py" rows "$last_query" > /dev/null
     tui_prefetch_start
-    selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --exact --no-extended --ignore-case --multi --delimiter=$'\t' --with-nth=2 \
+    selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --disabled --no-sort --multi --delimiter=$'\t' --with-nth=2 \
       --track --id-nth=1 \
       --listen-unsafe="$AIUP_TUI_LISTEN_SOCKET" \
       --no-height \
@@ -7880,6 +8092,7 @@ pick_catalog_tools() {
       --bind 'ctrl-/:toggle-preview' \
       --bind "resize:transform-header($fast header)+refresh-preview" \
       --bind "change:reload($fast rows {q})" \
+      --bind "load:transform-header($fast header)" \
       --bind "enter:transform:$self __enter-action {1} {q}" \
       --bind "left:reload($fast collapse {1} {q})" \
       --bind "right:reload($fast expand {1} {q})" \
@@ -8089,6 +8302,9 @@ update_candidate_live_revalidate() {
     return 0
   }
   id="$candidate_id"
+  local policy
+  policy="$(policy_reason "$id")" || policy="Preferences unreadable"
+  if [ -n "$policy" ]; then printf 'unavailable\t%s\t\t\t%s\t%s\n' "$id" "$(update_candidate_label "$id")" "$policy"; return 0; fi
   case "$id" in
     bc:*) brew_cask_installed "${id#bc:}" || { printf 'no-longer\t%s\t\t\t%s\tnot installed via Homebrew\n' "$id" "$(update_candidate_label "$id")"; return 0; } ;;
     bf:*) brew_formula_installed "${id#bf:}" || { printf 'no-longer\t%s\t\t\t%s\tnot installed via Homebrew\n' "$id" "$(update_candidate_label "$id")"; return 0; } ;;
@@ -8368,10 +8584,12 @@ cmd_catalog_browse() {
 # Read-only provider status. Empty output is not enough to prove current;
 # the cache records transport/parser failures separately from valid responses.
 check_tool_status() {
-  local tool="$1" current="$2" kind method cache stamp cached_current state value extra candidate
+  local tool="$1" current="$2" kind method cache stamp cached_current state value extra candidate policy
   CHECK_STATUS=unverified
   CHECK_AVAILABLE="$current"
   CHECK_NOTE='No read-only provider contract; the normal updater remains available.'
+  policy="$(policy_reason "$tool")" || { CHECK_NOTE='Preferences could not be read; resolve before updating.'; return 1; }
+  if [ -n "$policy" ]; then CHECK_STATUS=skipped; CHECK_NOTE="$policy"; return 0; fi
   kind="$(catalog_kind "$tool")"
   method="$(install_method_of "$tool")"
   if [ "$current" = 'not installed' ]; then
@@ -8394,16 +8612,64 @@ check_tool_status() {
   if available_cache_read "$tool" "$current" >/dev/null; then
     IFS=$'\t' read -r stamp cached_current state value extra < "$cache"
     case "$state" in
-      newer) CHECK_STATUS=update; CHECK_AVAILABLE="$value"; CHECK_NOTE='Newer version available.' ;;
-      current) CHECK_STATUS=current; CHECK_NOTE='No newer version reported by the provider.' ;;
+      newer) CHECK_STATUS=update; CHECK_AVAILABLE="$value"; CHECK_NOTE='' ;;
+      current) CHECK_STATUS=current; CHECK_NOTE='' ;;
       failure) CHECK_NOTE='Provider unavailable, unsupported, or returned invalid metadata; not confirmed current.' ;;
     esac
   fi
 }
 
+# One provider snapshot feeds all selected Homebrew tools. Invalid/missing
+# records deliberately fall back to the existing per-tool provider contract.
+check_brew_snapshot() {
+  local raw tool current kind target i=0 state available
+  CHECK_BREW_REFRESHED="|"
+  ensure_dir "$AVAILABLE_VERSION_CACHE_DIR"
+  raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.check-brew.XXXXXX")" || return 1
+  for tool in "$@"; do
+    current="${UPDATE_REPORT_BEFORE[$i]}"; i=$((i+1))
+    [ "$current" != 'not installed' ] || continue
+    if [ "$INVENTORY_REFRESH" -eq 0 ] && available_cache_read "$tool" "$current" >/dev/null; then continue; fi
+    kind="$(catalog_kind "$tool")"
+    case "$kind" in
+      brew-formula) target="$(catalog_brew_formula "$tool")" ;;
+      brew-cask) brew_cask_installed "$(catalog_brew_cask "$tool")" || continue; target="$(catalog_brew_cask "$tool")" ;;
+      *) continue ;;
+    esac
+    printf '%s\t%s\t%s\t%s\n' "$tool" "$current" "$kind" "$target" >> "${raw}.targets"
+  done
+  if [ -s "${raw}.targets" ] && bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --installed; then
+    python3 - "$raw" "${raw}.targets" > "${raw}.parsed" 2>/dev/null <<'PYBREWCHECK'
+import json,sys
+from pathlib import Path
+data=json.loads(Path(sys.argv[1]).read_text()); found={}
+for group,kind in [('formulae','brew-formula'),('casks','brew-cask')]:
+    if not isinstance(data.get(group),list): raise SystemExit(1)
+    for r in data[group]:
+        if not isinstance(r,dict): raise SystemExit(1)
+        name=r.get('name') if kind=='brew-formula' else r.get('token')
+        if isinstance(name,str): found[kind,name]=r
+for line in Path(sys.argv[2]).read_text().splitlines():
+    tool,current,kind,target=line.split('\t');r=found.get((kind,target)) or found.get((kind,target.rsplit('/',1)[-1]))
+    if not r or not isinstance(r.get('outdated'),bool): continue
+    version=(r.get('versions') or {}).get('stable') if kind=='brew-formula' else r.get('version')
+    if not isinstance(version,str) or not version: continue
+    print(tool,current,'newer' if r['outdated'] else 'current',version if r['outdated'] else '',sep='\t')
+PYBREWCHECK
+    if [ $? -eq 0 ]; then
+      while IFS=$'\t' read -r tool current state available; do
+        if [ "$state" = newer ] && [ "$(version_is_greater "$available" "$current")" != yes ]; then continue; fi
+        available_cache_write "$tool" "$current" "$state" "$available"
+        CHECK_BREW_REFRESHED="${CHECK_BREW_REFRESHED}${tool}|"
+      done < "${raw}.parsed"
+    fi
+  fi
+  rm -f "$raw" "${raw}.targets" "${raw}.parsed"
+}
+
 cmd_check() {
-  local tool current shade i=0 resolved
-  local -a selected=()
+  local tool current shade i=0 resolved offset pid job row
+  local -a selected=() workers=()
   if [ "$#" -gt 0 ]; then
     resolved="$(resolve_tools "$@")" || return 1
     while IFS= read -r tool; do [ -z "$tool" ] || selected+=("$tool"); done <<< "$resolved"
@@ -8415,12 +8681,34 @@ cmd_check() {
   [ "${#selected[@]}" -gt 0 ] || { printf 'No installed catalog tools found.\n'; return 0; }
   UPDATE_REPORT_MODE=check
   update_report_begin "${selected[@]}" || return 1
-  for tool in "${selected[@]}"; do
-    current="${UPDATE_REPORT_BEFORE[$i]}"; i=$((i+1))
-    check_tool_status "$tool" "$current"
-    shade="$(catalog_ansi "$(catalog_category "$tool")")"; shade="${shade#$'\033['}"; shade="${shade%m}"
-    UPDATE_REPORT_ROWS+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s\t0\t0\t0' "$tool" "$CHECK_STATUS" "$current" "$CHECK_AVAILABLE" "$shade" "$CHECK_NOTE")")
+  local CHECK_REQUEST_REFRESH="$INVENTORY_REFRESH"
+  # Refresh once, then workers reuse the installed-version-bound responses.
+  check_brew_snapshot "${selected[@]}"
+  profile_mark "batched Homebrew metadata"
+  for ((offset=0; offset<TUI_PREFETCH_WORKERS; offset++)); do
+    (
+      for ((i=offset; i<${#selected[@]}; i+=TUI_PREFETCH_WORKERS)); do
+        tool="${selected[$i]}"; current="${UPDATE_REPORT_BEFORE[$i]}"
+        if [ "$INVENTORY_REFRESH" -eq 1 ]; then
+          # Only Homebrew records refreshed above bypass a second request.
+          case "$CHECK_BREW_REFRESHED" in *"|$tool|"*) INVENTORY_REFRESH=0 ;; esac
+        fi
+        check_tool_status "$tool" "$current"
+        INVENTORY_REFRESH="$CHECK_REQUEST_REFRESH"
+        shade="$(catalog_ansi "$(catalog_category "$tool")")"; shade="${shade#$'\033['}"; shade="${shade%m}"
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t0\t0\t0\n' "$tool" "$CHECK_STATUS" "$current" "$CHECK_AVAILABLE" "$shade" "$CHECK_NOTE" > "${UPDATE_REPORT_LOG}.check.$i"
+      done
+    ) & workers+=("$!")
   done
+  trap 'for pid in "${workers[@]}"; do kill "$pid" 2>/dev/null || true; done; wait 2>/dev/null || true; rm -f "${UPDATE_REPORT_LOG}".check.* "${UPDATE_REPORT_LOG}.active" "$UPDATE_REPORT_LOG"; exit 130' INT TERM HUP
+  for pid in "${workers[@]}"; do wait "$pid" || true; done
+  trap - INT TERM HUP
+  for ((i=0; i<${#selected[@]}; i++)); do
+    job="${UPDATE_REPORT_LOG}.check.$i"
+    if [ -f "$job" ]; then row="$(cat "$job")"; UPDATE_REPORT_ROWS+=("$row"); rm -f "$job"
+    else UPDATE_REPORT_ROWS+=("$(printf '%s\tunverified\tunknown\tunknown\t38;5;203\tCheck worker did not finish' "${selected[$i]}")"); fi
+  done
+  profile_mark "parallel provider checks"
   print_update_report
 }
 
@@ -8482,6 +8770,18 @@ aiup $AIUP_VERSION
 
 Usage:
   aiup                     Scan your Mac and update whatever is already installed
+  aiup coverage             Managed coverage and detected-only gaps
+  aiup doctor [--details]   Installation conflicts; --details retains full inventory
+  aiup retry                Retry failures in the latest inactive run
+  aiup --timings check      Show discovery and provider timings
+  aiup preferences          Show exclusions, holds, and named groups
+  aiup exclude|include TOOL Exclude or restore a catalog tool
+  aiup hold TOOL YYYY-MM-DD  Hold through a date (inclusive)
+  aiup unhold TOOL          Remove a temporary hold
+  aiup group set NAME TOOLS...  Save a named group
+  aiup group check|run NAME Check or update installed group members
+  aiup group remove NAME   Remove a saved group
+  aiup project DIRECTORY    Inspect declared npm dependencies read-only
   aiup check [tools...]     Check installed/available versions without updating tools
   aiup explain <tool>      Explain detection, manager, location, and next action
   aiup history [tool]      Show recent local update results
@@ -8498,7 +8798,6 @@ Usage:
   aiup docs --print <tool> Print that URL
   aiup preview <tool>      Print the picker preview (name, category, versions, docs URL)
   npm-update               Convenience wrapper for: aiup only npm
-  aiup doctor              Print diagnostics for the catalog
   aiup list                Interactive catalog (install/update/uninstall/docs)
   aiup list --plain        Print the categorized table plus local detections
   aiup list --category CAT Focus the list on one category (or homebrew/detected)
@@ -8634,6 +8933,11 @@ parse_args() {
   local args=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
+      --timings)
+        AIUP_PROFILE_ENABLED=1
+        profile_begin
+        shift
+        ;;
       --force)
         AIUP_FORCE=1
         shift
@@ -8826,6 +9130,50 @@ parse_args() {
       }
       available_version_of_tool "${args[1]:-}" "${args[2]:-}"
       ;;
+    coverage)
+      cmd_coverage "${args[1]:-}"
+      ;;
+    project)
+      [ "${#args[@]}" -eq 2 ] || { error 'Usage: aiup project <directory>'; return 1; }
+      cmd_project "${args[1]}"
+      ;;
+    preferences)
+      preferences show
+      ;;
+    exclude|include|unhold)
+      [ "${#args[@]}" -eq 2 ] || { error 'Specify one managed tool ID'; return 1; }
+      preferences "${args[0]}" "${args[1]}"
+      ;;
+    hold)
+      [ "${#args[@]}" -eq 3 ] || { error 'Usage: aiup hold TOOL YYYY-MM-DD'; return 1; }
+      preferences hold "${args[1]}" "${args[2]}"
+      ;;
+    group)
+      case "${args[1]:-}" in
+        set) preferences group-set "${args[@]:2}" ;;
+        remove) preferences group-remove "${args[2]:-}" ;;
+        run|check)
+          local members member
+          local -a group_tools=()
+          members="$(preferences group-read "${args[2]:-}")" || return 1
+          while IFS= read -r member; do [ -z "$member" ] || group_tools+=("$member"); done <<< "$members"
+          [ "${#group_tools[@]}" -gt 0 ] || { error 'Group is empty'; return 1; }
+          if [ "${args[1]}" = check ]; then cmd_check "${group_tools[@]}"
+          else update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${group_tools[@]}" && main_update "${group_tools[@]}"; fi
+          ;;
+        *) error 'Usage: aiup group set NAME TOOLS… | run NAME | check NAME | remove NAME'; return 1 ;;
+      esac
+      ;;
+    retry)
+      local retry_tools retry_tool
+      local -a retry_selected=()
+      retry_tools="$(run_history retry)" || return 1
+      while IFS= read -r retry_tool; do [ -z "$retry_tool" ] || retry_selected+=("$retry_tool"); done <<< "$retry_tools"
+      [ "${#retry_selected[@]}" -gt 0 ] || { printf 'No failed tools in the latest saved run.\n'; return 0; }
+      resolve_tools "${retry_selected[@]}" >/dev/null || return 1
+      [ "$NO_INSTALL_EXPLICIT" -eq 1 ] || NO_INSTALL=0
+      update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${retry_selected[@]}" && main_update "${retry_selected[@]}"
+      ;;
     check)
       cmd_check "${args[@]:1}"
       ;;
@@ -8838,7 +9186,7 @@ parse_args() {
       run_history "${args[0]}" "${args[1]:-}"
       ;;
     doctor)
-      print_doctor
+      if [ "${args[1]:-}" = --details ]; then print_doctor; else cmd_diagnostics; fi
       ;;
     catalog)
       if [ "${args[1]:-}" = '--contracts' ]; then

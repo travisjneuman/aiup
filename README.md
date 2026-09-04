@@ -62,11 +62,36 @@ aiup list
 | `aiup logs remotion` | Read just that tool’s output from its latest saved run |
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup remove grok` | 🗑️ Confirm and remove one managed tool |
-| `aiup doctor` | 🩺 How each tool was detected |
+| `aiup doctor` | 🩺 Conflicts and setup warnings; `--details` retains full detection detail |
 
 Each update run ends with one color-coded table: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
 
 Routine installer output is saved in a private run log under `~/.local/share/aiup/logs/`; `aiup --verbose` also streams it. A **!** marks tools with provider warnings even when their version is unchanged. Blocked setup scripts receive an explicit review message and a tool-log command. Dry runs are labeled **planned**, never updated.
+
+New maintenance controls:
+
+```bash
+aiup check --timings               # see where read-only checking spends time
+aiup coverage                      # compact support and detection gaps
+aiup coverage --all                # expand all installed and detected rows
+aiup doctor                        # PATH conflicts, duplicates, setup warnings
+aiup doctor --details               # comprehensive legacy detection detail
+aiup exclude remotion              # persistently skip its updates
+aiup include remotion              # restore updates
+aiup hold remotion 2026-09-30       # skip through this date, inclusive
+aiup unhold remotion
+aiup group set video remotion ffmpeg macwhisper
+aiup group check video
+aiup group run video               # update installed members; honor preferences
+aiup retry                         # retry failures from the latest inactive run
+aiup project /path/to/project       # read declared npm dependency ranges only
+```
+
+Preferences are local in `~/.local/share/aiup/preferences.json`. Exclusions and holds apply to CLI and picker updates, including `--force`; remove a preference explicitly to resume. Holds expire after the indicated local calendar date. A held missing prerequisite stops dependent work. Named groups do not install absent members by default. `--dry-run` also prevents preference writes. No preferences are enabled on your behalf. `retry` may reinstall a failed absent tool; use `--no-install retry` to prevent that.
+
+Search ranks exact names, aliases, name prefixes, then descriptions. Multiple words must all match meaningful name/package/description fields; status text and category headings do not generate unrelated hits. Clear the query to return to category browsing.
+
+The **media** category starts with Remotion and includes MacWhisper, whisper.cpp, DiffusionBee, Upscayl, FFmpeg, and Audacity. AI creation/transcription tools and supporting media utilities are labeled distinctly. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md).
 
 AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section. Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
 
@@ -182,18 +207,21 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-03** · **82** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-04** · **86** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
-| ⚙️ | **infra** | Runtimes and installers other tools need | 16 tools |
-| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
-| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 7 tools |
+| ⚙️ | **infra** | Runtimes and installers other tools need | 7 tools |
+| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 24 tools |
+| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 4 tools |
 | ✏️ | **editors** | Places you type code | 5 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
 | 💬 | **chat** | Cloud chat apps | 4 tools |
-| 🧠 | **local-ai** | Models, capture, and engines that run on your Mac | 13 tools |
+| 🎬 | **media** | Video, images, audio, transcription, and AI creation tools | 7 tools |
+| 🧠 | **local-ai** | Local models, inference engines, and contextual capture | 11 tools |
+| ⚡ | **automation** | General-purpose agents and workflow automation | 5 tools |
 | 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
+| 🛠️ | **dev-utils** | Development, search, data, and deployment utilities | 9 tools |
 | 🔌 | **adapters** | Glue between agents and editors | 1 tool |
 | 🍺 | **homebrew** | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->

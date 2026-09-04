@@ -1,4 +1,4 @@
-# Catalog (2026.09.04-03)
+# Catalog (2026.09.04-04)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -12,18 +12,9 @@ Runtimes and installers other tools need
 | `npm` | Node/npm via Homebrew (infrastructure; update-only, not removable) |
 | `uv` | Astral uv/uvx — Python toolchain (also used to install Aider/llm) |
 | `fzf` | fzf fuzzy finder — required interactive catalog |
-| `gh` | GitHub CLI |
-| `wrangler` | Cloudflare Workers CLI (cloudflare-wrangler) |
 | `deno` | Deno runtime |
 | `bun` | Bun JavaScript runtime, bundler, test runner, and package manager |
 | `pnpm` | pnpm fast, disk-efficient JavaScript package manager |
-| `jq` | jq command-line JSON processor |
-| `yq` | yq command-line YAML, JSON, XML, CSV, and properties processor |
-| `ripgrep` | ripgrep fast recursive search (rg) |
-| `fd` | fd fast, user-friendly find replacement |
-| `just` | just project command runner |
-| `shellcheck` | ShellCheck shell-script static analyzer |
-| `actionlint` | actionlint GitHub Actions workflow checker |
 
 ## 🤖 coding-agents
 
@@ -41,7 +32,6 @@ Agents that write and edit code in the terminal
 | `kilo` | Kilo Code CLI — @kilocode/cli |
 | `gsd2` | GSD (gsd-pi) — @opengsd/gsd-pi |
 | `opencode` | OpenCode — official installer |
-| `hermes` | Hermes Agent — Nous Research |
 | `warp` | Warp Agent CLI (warp / Oz TUI) |
 | `aider` | Aider — git-native pair programming CLI |
 | `goose` | Goose — open-source agent CLI |
@@ -52,10 +42,8 @@ Agents that write and edit code in the terminal
 | `kiro` | Kiro CLI — Amazon Q Developer CLI successor |
 | `droid` | Factory Droid — Factory.ai coding agent |
 | `kimi` | Kimi Code CLI — Moonshot (kimi-code) |
-| `openclaw` | OpenClaw — personal/local AI assistant CLI |
 | `cline` | Cline CLI — npm cline |
 | `continue` | Continue CLI — @continuedev/cli |
-| `interpreter` | Open Interpreter — natural-language computer-use agent |
 | `vibe` | Mistral Vibe — open-source CLI coding assistant |
 | `openhands` | [SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained |
 
@@ -67,11 +55,8 @@ Desktop hubs that drive those agents
 |---|---|
 | `t3-code` | T3 Code — desktop hub that drives Codex/Claude/Grok/OpenCode |
 | `t3-nightly` | T3 Code Nightly — desktop hub (nightly build) |
-| `grokbot` | Grok Bot — xAI teammates that work across your apps |
 | `opencode-desktop` | OpenCode desktop client |
 | `hermes-desktop` | Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI |
-| `n8n` | n8n — workflow automation via the official npm package |
-| `remotion` | Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies |
 
 ## ✏️ editors
 
@@ -107,9 +92,23 @@ Cloud chat apps
 | `copilot-app` | GitHub Copilot native desktop app |
 | `perplexity` | Perplexity desktop (Personal Computer agent) |
 
+## 🎬 media
+
+Video, images, audio, transcription, and AI creation tools
+
+| Id | Label |
+|---|---|
+| `remotion` | Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies |
+| `macwhisper` | MacWhisper — local speech-to-text |
+| `whisper-cpp` | whisper.cpp local speech-to-text engine (model files are separate) |
+| `diffusionbee` | DiffusionBee — local AI image generation |
+| `upscayl` | Upscayl — AI image upscaling |
+| `ffmpeg` | FFmpeg — audio/video conversion and encoding (media utility) |
+| `audacity` | Audacity — audio editing and recording (media utility) |
+
 ## 🧠 local-ai
 
-Models, capture, and engines that run on your Mac
+Local models, inference engines, and contextual capture
 
 | Id | Label |
 |---|---|
@@ -121,11 +120,21 @@ Models, capture, and engines that run on your Mac
 | `mlx` | MLX — Apple Silicon engine for running local AI (not a chat app) |
 | `mlx-lm` | mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX |
 | `ollama-app` | Ollama desktop app (Homebrew cask) |
-| `macwhisper` | MacWhisper — local speech-to-text |
 | `screenpipe` | screenpipe — local screen/audio capture (official stable DMG updater) |
 | `llama-cpp` | llama.cpp — local LLM inference engine and server |
 | `llama-app` | Llama — official local LLM menu-bar app |
-| `whisper-cpp` | whisper.cpp local speech-to-text engine (model files are separate) |
+
+## ⚡ automation
+
+General-purpose agents and workflow automation
+
+| Id | Label |
+|---|---|
+| `hermes` | Hermes Agent — Nous Research |
+| `openclaw` | OpenClaw — personal/local AI assistant CLI |
+| `grokbot` | Grok Bot — xAI teammates that work across your apps |
+| `n8n` | n8n — workflow automation via the official npm package |
+| `interpreter` | Open Interpreter — natural-language computer-use agent |
 
 ## 🔧 llm-utils
 
@@ -138,6 +147,22 @@ Unix-pipe LLM CLIs
 | `aichat` | aichat — all-in-one terminal AI workstation |
 | `fabric` | fabric-ai — Daniel Miessler prompt-pattern CLI |
 | `sgpt` | shell-gpt (sgpt) via uv |
+
+## 🛠️ dev-utils
+
+Development, search, data, and deployment utilities
+
+| Id | Label |
+|---|---|
+| `gh` | GitHub CLI |
+| `wrangler` | Cloudflare Workers CLI (cloudflare-wrangler) |
+| `jq` | jq command-line JSON processor |
+| `yq` | yq command-line YAML, JSON, XML, CSV, and properties processor |
+| `ripgrep` | ripgrep fast recursive search (rg) |
+| `fd` | fd fast, user-friendly find replacement |
+| `just` | just project command runner |
+| `shellcheck` | ShellCheck shell-script static analyzer |
+| `actionlint` | actionlint GitHub Actions workflow checker |
 
 ## 🔌 adapters
 

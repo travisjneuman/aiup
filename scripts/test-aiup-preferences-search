@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+"""Focused regression checks for held updates, search ranking and retry selection."""
+import datetime, json, os, subprocess, tempfile
+from pathlib import Path
+root=Path(__file__).resolve().parents[1]
+code=(root/'macos/aiup').read_text().rsplit('\nprofile_begin\n',1)[0]
+with tempfile.TemporaryDirectory(prefix='.aiup-preferences-',dir=root) as d:
+    d=Path(d); source=d/'runtime';source.write_text(code)
+    env=dict(os.environ,AIUP_STATE_DIR=str(d/'state'),AIUP_CATALOG_MANIFEST=str(root/'macos/catalog/manifest.tsv'),SOURCE=str(source))
+    def run(body,ok=True):
+        r=subprocess.run(['bash'],input='source "$SOURCE"\n'+body,text=True,capture_output=True,env=env,timeout=15)
+        assert (r.returncode==0)==ok,(r.stdout,r.stderr)
+        return r.stdout
+    run('preferences exclude remotion')
+    assert 'Excluded' in run('policy_reason remotion')
+    assert 'skipped' in run('tool_is_present() { return 0; }; mutation_authoritative_preflight() { exit 99; }; run_tool_update_impl remotion; printf "%s" "$AIUP_LAST_UPDATE_STATUS"')
+    run('preferences include remotion')
+    assert not run('policy_reason remotion').strip()
+    tomorrow=(datetime.date.today()+datetime.timedelta(days=1)).isoformat()
+    run('preferences hold remotion '+tomorrow)
+    assert 'Held through' in run('policy_reason remotion')
+    run('preferences hold remotion 2000-01-01',ok=False)
+    run('preferences unhold remotion')
+    run('preferences group-set video remotion ffmpeg remotion')
+    assert run('preferences group-read video').splitlines()==['remotion','ffmpeg']
+    run('preferences group-set video unknown-tool',ok=False)
+    prefs=d/'state/preferences.json';prefs.write_text('{invalid')
+    run('run_tool_update_impl remotion',ok=False)
+    prefs.unlink()
+    print('PASS: exclusions, inclusive holds, groups, invalid data, and mutation prevention')
+    # Exercise the real generated search function without changing session authority code.
+    helper=d/'helper.py'
+    run('tui_fast_helper_render '+str(helper))
+    generated=helper.read_text()
+    start=generated.index('def emit_rows(');end=generated.index('def mutate(',start)
+    namespace={'root':d,'manifest':root/'macos/catalog/manifest.tsv','os':os,'sys':__import__('sys'),'csv':__import__('csv'),'expanded':lambda:set()}
+    (d/'brew-index.tsv').write_text('homebrew/recommended\tabsent\tbc:notion\tNotion\n')
+    (d/'inventory-index.tsv').write_text('')
+    (d/'rows-expanded.tsv').write_text('__cat:media\tmedia\nremotion\tRemotion\nffmpeg\tFFmpeg\n__cat:homebrew\trecommended\nbc:notion\trecommended absent install Notion\n')
+    exec(compile(generated[start:end],str(helper),'exec'),namespace)
+    import contextlib,io
+    def search(q):
+        with contextlib.redirect_stdout(io.StringIO()) as out: namespace['emit_rows'](q)
+        return out.getvalue()
+    assert search('remotion')=='remotion\tRemotion\n'
+    assert search('@remotion/cli')=='remotion\tRemotion\n'
+    assert search('recommended')==''
+    assert search('ffprobe')=='ffmpeg\tFFmpeg\n'
+    print('PASS: literal names, package aliases, meaningful fields, no status-text matches')
+    logs=d/'state/logs';logs.mkdir();log=logs/'update-20260904-120000.ABC123';log.write_text('')
+    Path(str(log)+'.json').write_text(json.dumps({'schema':'aiup-run-v1','log':log.name,'status':'complete','tools':[{'tool':'remotion','result':'failed'},{'tool':'ffmpeg','result':'updated'}]}))
+    assert run('run_history retry').splitlines()==['remotion']
+    Path(str(log)+'.active').write_text(str(os.getpid()))
+    run('run_history retry',ok=False)
+    print('PASS: retry selects only failures and rejects an active run')
