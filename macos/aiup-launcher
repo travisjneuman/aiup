@@ -191,7 +191,12 @@ activated=0
 activation_lock_held=0
 activation_lock_owner=""
 activation_owner_tmp=""
+download_runtime_pid=""
+download_manifest_pid=""
 cleanup() {
+  for download_pid in "$download_runtime_pid" "$download_manifest_pid"; do
+    [ -z "$download_pid" ] || { kill "$download_pid" 2>/dev/null || true; wait "$download_pid" 2>/dev/null || true; }
+  done
   [ -z "$tmp_runtime" ] || rm -f "$tmp_runtime"
   [ -z "$tmp_manifest" ] || rm -f "$tmp_manifest"
   if [ -n "$staging_dir" ]; then
@@ -226,14 +231,21 @@ case "$AIUP_MANIFEST_URL" in
   *\?*) manifest_url="${AIUP_MANIFEST_URL}&aiup_refresh=$(date +%s)-$$" ;;
   *) manifest_url="${AIUP_MANIFEST_URL}?aiup_refresh=$(date +%s)-$$" ;;
 esac
-if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
-  -H 'Cache-Control: no-cache' "$runtime_url" -o "$tmp_runtime"; then
-  die "could not fetch the live public runtime from $AIUP_UPSTREAM_URL"
-fi
-if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
-  -H 'Cache-Control: no-cache' "$manifest_url" -o "$tmp_manifest"; then
-  die "could not fetch the live public catalog from $AIUP_MANIFEST_URL"
-fi
+# Fetch the independent pair together; activation still requires both validations.
+curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 --max-filesize 1048576 \
+  -H 'Cache-Control: no-cache' "$runtime_url" -o "$tmp_runtime" &
+download_runtime_pid=$!
+curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 --max-filesize 1048576 \
+  -H 'Cache-Control: no-cache' "$manifest_url" -o "$tmp_manifest" &
+download_manifest_pid=$!
+runtime_download_status=0
+manifest_download_status=0
+wait "$download_runtime_pid" || runtime_download_status=$?
+download_runtime_pid=""
+wait "$download_manifest_pid" || manifest_download_status=$?
+download_manifest_pid=""
+[ "$runtime_download_status" -eq 0 ] || die "could not fetch the live public runtime from $AIUP_UPSTREAM_URL"
+[ "$manifest_download_status" -eq 0 ] || die "could not fetch the live public catalog from $AIUP_MANIFEST_URL"
 
 # Nothing becomes active until both downloads have passed pair validation.
 validate_runtime "$tmp_runtime"

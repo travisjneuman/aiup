@@ -55,13 +55,20 @@ readme = re.sub(
     count=1,
     flags=re.S,
 )
-readme_path.write_text(readme)
+if readme_path.read_text() != readme:
+    readme_path.write_text(readme)
+site_path = root / "site" / "index.html"
+site_html = site_path.read_text()
+updated_html = re.sub(r'("softwareVersion":\s*)"[^"]*"', lambda m: m[1] + json.dumps(data["version"]), site_html)
+if updated_html != site_html:
+    site_path.write_text(updated_html)
 print(f"synced catalog {data['version']} ({len(data['tools'])} tools)")
 PY
 
 python3 - "$ROOT" <<'PY'
 import pathlib
 import shutil
+import filecmp
 import sys
 
 root = pathlib.Path(sys.argv[1])
@@ -76,6 +83,8 @@ for name in names:
     source_path = source / name
     if not source_path.is_file():
         raise SystemExit(f"missing canonical media asset: {source_path}")
-    shutil.copyfile(source_path, destination / name)
+    target = destination / name
+    if not target.is_file() or not filecmp.cmp(source_path, target, shallow=False):
+        shutil.copyfile(source_path, target)
 print(f"synced {len(names)} canonical media assets")
 PY

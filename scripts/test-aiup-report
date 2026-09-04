@@ -18,6 +18,8 @@ ensure_managed_paths() { :; }
 mutation_authoritative_preflight() { :; }
 tui_cache_invalidate() { :; }
 brew_cache_invalidate() { :; }
+brew_cache_load() { :; }
+ensure_system_npm_prefix() { :; }
 catalog_category() { printf 'coding-agents\n'; }
 tool_is_present() { [ "$1" != missing ]; }
 version_of_tool() {
@@ -56,13 +58,22 @@ with tempfile.TemporaryDirectory(prefix='.aiup-report-', dir=root) as folder:
     out = result.stdout
     for text in ('updated', '1.0.0 → 2.0.0', 'unchanged', 'skipped',
                  'Not managed by this provider', 'failed', 'unverified',
-                 'npm warn install-scripts', 'planned'):
+                 'Setup scripts need review', 'planned'):
         assert text in out, (text, out)
     assert 'Detected tool versions' not in out
     assert 'routine provider chatter' not in out
     assert '\x1b' not in out
-    assert 'routine provider chatter' in next(Path(folder).glob('logs/*')).read_text()
+    assert 'routine provider chatter' in next(p for p in Path(folder).glob('logs/update-*') if p.suffix not in ('.json','.active','.next')).read_text()
     print(out)
+    verbose_env = dict(env, AIUP_STATE_DIR=str(Path(folder) / 'verbose'))
+    verbose = subprocess.run(['/bin/bash'], input=bootstrap+stubs.replace('changed_version=1.0.0\n', 'AIUP_VERBOSE=1\nchanged_version=1.0.0\n'),
+                             env=verbose_env, text=True, capture_output=True, timeout=20)
+    assert verbose.returncode == 0, verbose.stderr
+    assert 'routine provider chatter' in verbose.stdout
+    verbose_log = next(p for p in (Path(folder)/'verbose/logs').glob('update-*') if p.suffix not in ('.json','.active','.next'))
+    text = verbose_log.read_text()
+    assert 'routine provider chatter' in text and text.count('TOOL START: changed') == 1
+    print('PASS: verbose streams and retains details without duplicate log entries')
     master, slave = pty.openpty()
     fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 52, 0, 0))
     def terminal_session():

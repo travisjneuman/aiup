@@ -32,7 +32,8 @@ with contracts_path.open(encoding="utf-8", newline="") as handle:
 
 assert runtime_version == manifest_version == catalog["version"], "runtime/manifest/catalog versions drifted"
 assert f"# Catalog ({runtime_version})" in markdown, "Markdown catalog version drifted"
-assert len(contracts) == len(catalog["tools"]) == 81, "managed catalog must contain 81 post-audit entries"
+manifest_ids = {line.split("\t")[0] for line in manifest.splitlines() if line and not line.startswith("#")}
+assert len(contracts) == len(catalog["tools"]) == len(manifest_ids), "catalog entry counts drifted from manifest"
 assert len({row["id"] for row in contracts}) == len(contracts), "duplicate contract id"
 assert {row["id"] for row in contracts} == {tool["id"] for tool in catalog["tools"]}, "contract/catalog ids drifted"
 assert not ({"omp", "plandex"} & {row["id"] for row in contracts}), "removed entries remain managed"
@@ -46,10 +47,11 @@ assert by_id["gemini"]["lifecycle"] == "active"
 assert by_id["continue"]["lifecycle"] == "active"
 assert by_id["gpt4all"]["lifecycle"] == "maintenance"
 assert by_id["n8n"]["kind"] == "aiup-npm"
+assert by_id["remotion"]["kind"] == "aiup-npm"
 assert by_id["pi"]["docs"] == "https://github.com/earendil-works/pi"
 assert by_id["gsd2"]["docs"] == "https://github.com/open-gsd/gsd-pi"
 assert by_id["opencode"]["docs"] == "https://github.com/anomalyco/opencode"
 assert by_id["goose"]["docs"] == "https://github.com/aaif-goose/goose"
 PY
 
-printf 'catalog contracts: ok (81 managed entries; runtime, manifest, JSON, and Markdown synchronized)\n'
+printf 'catalog contracts: ok (all managed entries; runtime, manifest, JSON, and Markdown synchronized)\n'

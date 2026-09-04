@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""Bounded fake-provider checks for check/history/logs and no-op optimizations."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import time
+
+root = Path(__file__).resolve().parents[1]
+code = (root / 'macos/aiup').read_text().rsplit('\nprofile_begin\n', 1)[0]
+with tempfile.TemporaryDirectory(prefix='.aiup-maintenance-', dir=root) as folder:
+    folder = Path(folder)
+    source = folder / 'functions.bash'
+    source.write_text(code)
+    bindir = folder / 'bin'
+    bindir.mkdir()
+    fake_npm = bindir / 'npm'
+    fake_npm.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$CALLS"\nif [ "$1" = view ]; then printf "%s\\n" "$LATEST"; exit "${PROVIDER_RC:-0}"; fi\nexit 98\n')
+    fake_npm.chmod(0o700)
+    prefix = folder / 'npm'
+    pkg = prefix / 'lib/node_modules/demo'
+    pkg.mkdir(parents=True)
+    (prefix / 'bin').mkdir()
+    (pkg / 'package.json').write_text(json.dumps({'name':'demo','version':'1.0.0','bin':{'demo':'cli.js'}}))
+    (pkg / 'cli.js').write_text('#!/bin/sh\nexit 0\n')
+    (pkg / 'cli.js').chmod(0o700)
+    (prefix / 'bin/demo').symlink_to(pkg / 'cli.js')
+    env = dict(os.environ, AIUP_STATE_DIR=str(folder / 'state'), AIUP_NPM_PREFIX=str(prefix),
+               CALLS=str(folder / 'calls'), LATEST='1.0.0', PATH=str(bindir)+':'+os.environ['PATH'])
+    def run(body, updates=False, **overrides):
+        script = 'source "$SOURCE"\n'+body
+        e = dict(env, SOURCE=str(source), **overrides)
+        r = subprocess.run(['/bin/bash'], input=script, text=True, capture_output=True, env=e, timeout=20)
+        assert r.returncode == 0, (r.stdout,r.stderr)
+        return r.stdout
+    npm_stubs = r'''
+ensure_managed_paths() { :; }
+bounded_provider_capture() { local file="$1"; shift 2; "$@" > "$file"; }
+run_with_heartbeat() { printf 'INSTALL\n'; }
+npm_install_aiup_latest demo@latest
+'''
+    assert 'INSTALL' not in run(npm_stubs)
+    assert 'INSTALL' in run(npm_stubs, LATEST='2.0.0')
+    assert 'INSTALL' in run(npm_stubs, LATEST='')
+    assert 'INSTALL' in run(npm_stubs, PROVIDER_RC='1')
+    assert 'INSTALL' in run(npm_stubs.replace('npm_install_aiup_latest demo@latest','AIUP_FORCE=1\nnpm_install_aiup_latest demo@latest'))
+    (prefix / 'bin/demo').unlink()
+    assert 'INSTALL' in run(npm_stubs)
+    print('PASS: exact current npm skips install; newer/empty/failure/force/broken-bin retains install')
+
+    # No package/profile mutations allowed in the read-only command paths.
+    read_stubs = r'''
+ensure_managed_paths() { echo 'MUTATION'; return 99; }
+run_tool_update() { echo 'MUTATION'; return 99; }
+run_with_heartbeat() { echo 'MUTATION'; return 99; }
+brew_cache_load() { :; }
+ensure_system_npm_prefix() { :; }
+resolve_tools() { printf '%s\n' "$@"; }
+catalog_kind() { printf 'aiup-npm\n'; }
+install_method_of() { printf 'aiup-npm\n'; }
+catalog_category() { printf 'workspaces\n'; }
+tool_is_present() { return 0; }
+version_of_tool() { printf '1.0.0\n'; }
+available_version_uncached() {
+  case "$1" in
+    newer) printf '2.0.0\n' ;;
+    current) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+INVENTORY_REFRESH=1
+cmd_check newer current unavailable
+'''
+    output = run(read_stubs)
+    for expected in ('update check','1.0.0 → 2.0.0','current','unverified','Read-only check'):
+        assert expected in output, output
+    assert 'MUTATION' not in output
+    assert not list((folder / 'state/logs').glob('*.json'))
+    print('PASS: check distinguishes current/newer/unavailable without updater or profile calls')
+
+    # Cache batches Homebrew list + version reads once, not once per tool.
+    cache_stubs = r'''
+command_exists() { return 0; }
+env() {
+  printf 'READ\n' >> "$CALLS"
+  case "$*" in *--formula*) printf 'fzf 0.74.3\ngh 2.100.0\n' ;; esac
+}
+brew_cache_load
+brew_formula_installed fzf || exit 1
+for tool in fzf gh fzf gh; do version_of_tool "$tool"; done
+'''
+    # Limit metadata lookups to the real formula-version branch.
+    cache_stubs = 'ensure_system_npm_prefix() { :; }\ncatalog_kind() { echo brew-formula; }\ncatalog_brew_formula() { echo "$1"; }\n'+cache_stubs
+    (folder / 'calls').write_text('')
+    values = run(cache_stubs)
+    assert values.count('0.74.3') == 2 and values.count('2.100.0') == 2, values
+    assert (folder / 'calls').read_text().count('READ') == 2
+    print('PASS: four formula-version reads need only two shared Homebrew inventory calls')
+
+    brew_stubs = r'''
+bounded_provider_capture() { printf "%s" "$BREW_JSON" > "$1"; }
+brew_target_current formula fzf && echo CURRENT || echo UPDATE
+brew_target_current formula gh && echo CURRENT || echo UPDATE
+'''
+    assert run(brew_stubs, BREW_JSON='{"formulae":[{"name":"gh"}],"casks":[]}').splitlines() == ['CURRENT','UPDATE']
+    assert run(brew_stubs, BREW_JSON='{}').splitlines() == ['UPDATE','UPDATE']
+    assert run('AIUP_VERIFIED_SELECTION_ONLY=1\n'+brew_stubs, BREW_JSON='{"formulae":[],"casks":[]}').splitlines() == ['UPDATE','UPDATE']
+    print('PASS: Homebrew no-op snapshot is conservative on outdated/malformed/verified selections')
+    scoped = prefix / 'lib/node_modules/@scope/demo'
+    scoped.mkdir(parents=True)
+    old_stamp = run('npm_inventory_stamp\n')
+    (scoped / 'package.json').write_text('{"version":"1.0.0"}')
+    assert run('npm_inventory_stamp\n') != old_stamp
+    print('PASS: scoped npm package changes invalidate the inventory fingerprint')
+
+    logs = folder / 'state/logs'
+    for i in range(5):
+        name = f'update-20260901-00000{i}.abcdef'
+        log = logs / name
+        log.write_text('before\nDEMO DETAIL\nafter\n')
+        os.utime(log, (time.time()-100+i,)*2)
+        data = {'schema':'aiup-run-v1','log':name,'status':'complete','tools':[
+            {'tool':'demo','result':'unchanged','before':'1.0.0','after':'1.0.0','start':7,'end':19,'warning':i==4}]}
+        Path(str(log)+'.json').write_text(json.dumps(data))
+    oldest = logs / 'update-20260901-000000.abcdef'
+    Path(str(oldest)+'.active').write_text(str(os.getpid()))
+    protected = logs / 'update-20260901-000009.abcdef'
+    protected.symlink_to(folder / 'calls')
+    run('AIUP_LOG_LIMIT=2\nrun_history prune\n')
+    remaining = [p for p in logs.iterdir() if p.is_file() and p.name.endswith('.abcdef') and not p.is_symlink()]
+    assert len(remaining) == 3 and oldest.exists() and protected.is_symlink(), remaining
+    output = run('run_history logs demo\n')
+    assert 'DEMO DETAIL' in output and 'before\n' not in output and 'after\n' not in output, output
+    assert '! warning' in run('run_history history demo\n')
+    print('PASS: bounded completed history preserves active runs/symlinks; tool logs use exact byte ranges')

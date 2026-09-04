@@ -56,13 +56,23 @@ aiup list
 |---|---|
 | `aiup` | 🔍 Ensure fzf, scan your Mac → update **installed** tools |
 | `aiup list` | 🎛️ Full-screen catalog |
+| `aiup check` | Read-only availability report; accepts optional tool names |
+| `aiup explain remotion` | Show detection, manager, location, and next action |
+| `aiup history` | Recent update results; optionally filter by tool |
+| `aiup logs remotion` | Read just that tool’s output from its latest saved run |
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup remove grok` | 🗑️ Confirm and remove one managed tool |
 | `aiup doctor` | 🩺 How each tool was detected |
 
 Each update run ends with one color-coded table: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
 
-Routine installer output is saved in a private run log under `~/.local/share/aiup/logs/`; the report prints its path. Use `aiup --verbose` to stream detailed updater output instead. Dry runs are labeled **planned**, never updated. Logs are local and retained for troubleshooting.
+Routine installer output is saved in a private run log under `~/.local/share/aiup/logs/`; `aiup --verbose` also streams it. A **!** marks tools with provider warnings even when their version is unchanged. Blocked setup scripts receive an explicit review message and a tool-log command. Dry runs are labeled **planned**, never updated.
+
+AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section. Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
+
+Npm packages are not reinstalled when fresh provider metadata exactly matches a healthy installation in AIUP’s prefix. Homebrew no-op upgrades are skipped only after a valid post-refresh outdated snapshot. Missing, broken, newer, or unverifiable installations keep the existing update path; `--force` bypasses these shortcuts for repairs. Native updaters and manager-switch rules remain in effect.
+
+`aiup check [tools…]` checks versions without updating software or changing shell profiles. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
 
 ### 🔄 Always live
 
@@ -172,7 +182,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-02** · **82** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-03** · **82** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.09.04-03
+
+- Added read-only `check` and `explain`, plus local `history` and per-tool `logs` commands.
+- Added separate warning markers, actionable setup-script warnings, atomic run records, and bounded completed-run retention with active-run protection.
+- Skip healthy current npm reinstalls using fresh metadata and generic Homebrew no-op upgrades using a conservative post-refresh snapshot; `--force` retains explicit repairs.
+- Share Homebrew membership/version listings, reconcile managed shell paths once per process, and notice scoped npm package changes in inventory caches.
+- Fetch the public runtime/catalog pair concurrently while retaining validation, activation, and rollback rules.
+- Avoid rewriting unchanged media, synchronize the site version, and derive catalog contract counts from the manifest.
+
+## 2026.09.04-02
+
+- Unified update outcomes and before/after versions into one styled, responsive report, with quiet progress and local logs.
+
+## 2026.09.04-01
+
+- Added the official Remotion CLI and changed catalog search to contiguous, case-insensitive matching.
+
 ## 2026.08.27-02
 
 - Audited the integrated `aiup list` performance program with independent cache, session, provider, Updates, mutation-safety, command, PTY, launcher, and publication regression evidence; the public implementation is closed, while the required private closure record remains blocked by its preserved canonical checkout.

@@ -51,3 +51,7 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | `~/.local/share/aiup/list-query` / `list-category` | Last picker query and selected category, stored locally to resume navigation |
 
 These are local cache, not a cloud profile.
+
+## Local run history
+
+Update runs save private logs and structured version/result records under the AIUP state directory. `aiup history` and `aiup logs` read them locally; nothing is uploaded. The latest 20 completed runs are retained by default, with active and recent legacy runs protected. Logs can contain provider output and local paths. See the README for `AIUP_LOG_LIMIT` and per-tool log access.
