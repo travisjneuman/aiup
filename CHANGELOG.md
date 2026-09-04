@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.09.04-05
+
+- Expand to 101 managed tools with 15 reviewed media additions: Draw Things, Superwhisper, Buzz, OBS, Blender, LosslessCut, HandBrake, Shotcut, Kdenlive, Krita, Inkscape, ImageMagick, SoX, yt-dlp, and libvips.
+- Recognize Final Cut Pro, Motion, Pixelmator Pro, Darkroom, and Luminar AI as manual-update media apps using actual bundle identity and receipt presence; keep them outside managed counts and automated actions.
+- Show manual media apps in the picker, plain list, coverage report, and inventory metadata, with specific guidance and official links. Preserve unique row identities and managed-only filtering.
+- Group registered npm sibling commands with their parent package only when executable paths match; retain unrelated same-name executables.
+- Derive preferred managers for new generic entries from manifest kinds; map ImageMagick to its magick command.
+
 ## 2026.09.04-04
 
 - Reviewed every catalog category; added media, automation, and dev-utils. Remotion leads media, with four new Homebrew-backed tools: DiffusionBee, Upscayl, FFmpeg, and Audacity (86 managed entries).

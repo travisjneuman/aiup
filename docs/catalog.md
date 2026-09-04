@@ -1,4 +1,4 @@
-# Catalog (2026.09.04-04)
+# Catalog (2026.09.04-05)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -105,6 +105,21 @@ Video, images, audio, transcription, and AI creation tools
 | `upscayl` | Upscayl — AI image upscaling |
 | `ffmpeg` | FFmpeg — audio/video conversion and encoding (media utility) |
 | `audacity` | Audacity — audio editing and recording (media utility) |
+| `draw-things` | Draw Things — local AI image generation; models downloaded separately |
+| `superwhisper` | Superwhisper — AI dictation and LLM reformatting; vendor licensing applies |
+| `buzz` | Buzz — audio transcription and translation; models downloaded separately |
+| `obs` | OBS Studio — recording and streaming (media utility) |
+| `blender` | Blender — 3D modeling, animation, and rendering (media utility) |
+| `losslesscut` | LosslessCut — lossless audio/video trimming (media utility) |
+| `handbrake-app` | HandBrake — desktop video transcoding (media utility) |
+| `shotcut` | Shotcut — video editing (media utility) |
+| `kdenlive` | Kdenlive — non-linear video editing (media utility) |
+| `krita` | Krita — digital painting and illustration (media utility; AI plugins are separate) |
+| `inkscape` | Inkscape — vector graphics and SVG editing (media utility) |
+| `imagemagick` | ImageMagick — command-line image conversion and processing (magick) |
+| `sox` | SoX — command-line audio processing (media utility) |
+| `yt-dlp` | yt-dlp — command-line audio/video downloads (media utility) |
+| `vips` | libvips — efficient image processing CLI/library (media utility) |
 
 ## 🧠 local-ai
 

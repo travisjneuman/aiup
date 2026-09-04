@@ -91,7 +91,7 @@ Preferences are local in `~/.local/share/aiup/preferences.json`. Exclusions and 
 
 Search ranks exact names, aliases, name prefixes, then descriptions. Multiple words must all match meaningful name/package/description fields; status text and category headings do not generate unrelated hits. Clear the query to return to category browsing.
 
-The **media** category starts with Remotion and includes MacWhisper, whisper.cpp, DiffusionBee, Upscayl, FFmpeg, and Audacity. AI creation/transcription tools and supporting media utilities are labeled distinctly. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md).
+The **media** category starts with Remotion and now contains **22 managed tools** for AI image generation, transcription/dictation, video editing, animation, audio, and image processing. It also recognizes five installed media apps with **manual update** guidance: Final Cut Pro, Motion, Pixelmator Pro, Darkroom, and Luminar AI. Those remain inspect-only, are excluded from managed counts, and never enter automated updates. `--view managed` hides manual rows; `--view detected` retains them in the inventory. AI creation/transcription tools and supporting media utilities are labeled distinctly. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md) and [media expansion review](docs/media-expansion-2026-09-04.md).
 
 AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section. Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
 
@@ -207,7 +207,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-04** · **86** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-05** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -217,7 +217,7 @@ _**2026.09.04-04** · **86** tools in the main catalog. Generated from `macos/ai
 | ✏️ | **editors** | Places you type code | 5 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
 | 💬 | **chat** | Cloud chat apps | 4 tools |
-| 🎬 | **media** | Video, images, audio, transcription, and AI creation tools | 7 tools |
+| 🎬 | **media** | Video, images, audio, transcription, and AI creation tools | 22 tools |
 | 🧠 | **local-ai** | Local models, inference engines, and contextual capture | 11 tools |
 | ⚡ | **automation** | General-purpose agents and workflow automation | 5 tools |
 | 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |

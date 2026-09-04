@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.09.04-04",
+  "version": "2026.09.04-05",
   "categories": [
     {
       "id": "infra",
@@ -488,6 +488,126 @@
           "lifecycle": "active",
           "docs": "https://www.audacityteam.org/",
           "label": "Audacity — audio editing and recording (media utility)"
+        },
+        {
+          "id": "draw-things",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://drawthings.ai/",
+          "label": "Draw Things — local AI image generation; models downloaded separately"
+        },
+        {
+          "id": "superwhisper",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://superwhisper.com/",
+          "label": "Superwhisper — AI dictation and LLM reformatting; vendor licensing applies"
+        },
+        {
+          "id": "buzz",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/chidiwilliams/buzz",
+          "label": "Buzz — audio transcription and translation; models downloaded separately"
+        },
+        {
+          "id": "obs",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://obsproject.com/",
+          "label": "OBS Studio — recording and streaming (media utility)"
+        },
+        {
+          "id": "blender",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.blender.org/",
+          "label": "Blender — 3D modeling, animation, and rendering (media utility)"
+        },
+        {
+          "id": "losslesscut",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/mifi/lossless-cut",
+          "label": "LosslessCut — lossless audio/video trimming (media utility)"
+        },
+        {
+          "id": "handbrake-app",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://handbrake.fr/",
+          "label": "HandBrake — desktop video transcoding (media utility)"
+        },
+        {
+          "id": "shotcut",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.shotcut.org/",
+          "label": "Shotcut — video editing (media utility)"
+        },
+        {
+          "id": "kdenlive",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://kdenlive.org/",
+          "label": "Kdenlive — non-linear video editing (media utility)"
+        },
+        {
+          "id": "krita",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://krita.org/",
+          "label": "Krita — digital painting and illustration (media utility; AI plugins are separate)"
+        },
+        {
+          "id": "inkscape",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://inkscape.org/",
+          "label": "Inkscape — vector graphics and SVG editing (media utility)"
+        },
+        {
+          "id": "imagemagick",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://imagemagick.org",
+          "label": "ImageMagick — command-line image conversion and processing (magick)"
+        },
+        {
+          "id": "sox",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://sox.sourceforge.net/",
+          "label": "SoX — command-line audio processing (media utility)"
+        },
+        {
+          "id": "yt-dlp",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/yt-dlp/yt-dlp",
+          "label": "yt-dlp — command-line audio/video downloads (media utility)"
+        },
+        {
+          "id": "vips",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/libvips/libvips",
+          "label": "libvips — efficient image processing CLI/library (media utility)"
         }
       ]
     },
@@ -1505,6 +1625,126 @@
       "lifecycle": "active",
       "docs": "https://www.audacityteam.org/",
       "label": "Audacity — audio editing and recording (media utility)"
+    },
+    {
+      "id": "draw-things",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://drawthings.ai/",
+      "label": "Draw Things — local AI image generation; models downloaded separately"
+    },
+    {
+      "id": "superwhisper",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://superwhisper.com/",
+      "label": "Superwhisper — AI dictation and LLM reformatting; vendor licensing applies"
+    },
+    {
+      "id": "buzz",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/chidiwilliams/buzz",
+      "label": "Buzz — audio transcription and translation; models downloaded separately"
+    },
+    {
+      "id": "obs",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://obsproject.com/",
+      "label": "OBS Studio — recording and streaming (media utility)"
+    },
+    {
+      "id": "blender",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.blender.org/",
+      "label": "Blender — 3D modeling, animation, and rendering (media utility)"
+    },
+    {
+      "id": "losslesscut",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/mifi/lossless-cut",
+      "label": "LosslessCut — lossless audio/video trimming (media utility)"
+    },
+    {
+      "id": "handbrake-app",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://handbrake.fr/",
+      "label": "HandBrake — desktop video transcoding (media utility)"
+    },
+    {
+      "id": "shotcut",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.shotcut.org/",
+      "label": "Shotcut — video editing (media utility)"
+    },
+    {
+      "id": "kdenlive",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://kdenlive.org/",
+      "label": "Kdenlive — non-linear video editing (media utility)"
+    },
+    {
+      "id": "krita",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://krita.org/",
+      "label": "Krita — digital painting and illustration (media utility; AI plugins are separate)"
+    },
+    {
+      "id": "inkscape",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://inkscape.org/",
+      "label": "Inkscape — vector graphics and SVG editing (media utility)"
+    },
+    {
+      "id": "imagemagick",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://imagemagick.org",
+      "label": "ImageMagick — command-line image conversion and processing (magick)"
+    },
+    {
+      "id": "sox",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://sox.sourceforge.net/",
+      "label": "SoX — command-line audio processing (media utility)"
+    },
+    {
+      "id": "yt-dlp",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/yt-dlp/yt-dlp",
+      "label": "yt-dlp — command-line audio/video downloads (media utility)"
+    },
+    {
+      "id": "vips",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/libvips/libvips",
+      "label": "libvips — efficient image processing CLI/library (media utility)"
     }
   ],
   "recommended": [

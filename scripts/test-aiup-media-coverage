@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Regressions for manual media identity and path-verified npm sibling binaries."""
+import json, os, plistlib, subprocess, tempfile
+from pathlib import Path
+root=Path(__file__).resolve().parents[1]
+source=(root/'macos/aiup').read_text().rsplit('\nprofile_begin\n',1)[0]
+with tempfile.TemporaryDirectory(prefix='.aiup-media-',dir=root) as folder:
+    d=Path(folder); home=d/'home'; home.mkdir(); runtime=d/'runtime'
+    # Confine the actual reader to fixture apps, preserving its identity/receipt logic.
+    runtime.write_text(source.replace("Path('/Applications'),Path(sys.argv[1])/'Applications'", "Path(sys.argv[1])/'Applications',Path(sys.argv[1])/'Applications'"))
+    for name,bundle,receipt in [('Final Cut Pro','com.apple.FinalCut',True),('Motion','unrelated.bundle',True),('Luminar AI','com.skylum.luminarAI',False)]:
+        contents=home/'Applications'/(name+'.app')/'Contents';contents.mkdir(parents=True)
+        (contents/'Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':bundle,'CFBundleShortVersionString':'1.2.3'}))
+        if receipt: (contents/'_MASReceipt').mkdir(); (contents/'_MASReceipt/receipt').write_bytes(b'fixture')
+    paths={name:d/(name+'.tsv') for name in ('catalog','brew','inventory','versions')}
+    for p in paths.values():p.write_text('')
+    paths['inventory'].write_text('detected\tdetected\tdi:app:com.apple.FinalCut\t[app] Final Cut Pro\t1.2.3\tapp bundle\t'+str(home/'Applications/Final Cut Pro.app')+'\n')
+    env=dict(os.environ,HOME=str(home),SOURCE=str(runtime),AIUP_STATE_DIR=str(d/'state'),AIUP_CATALOG_MANIFEST=str(root/'macos/catalog/manifest.tsv'),AIUP_CATALOG_INDEX=str(paths['catalog']),AIUP_BREW_INDEX=str(paths['brew']),AIUP_INVENTORY_INDEX=str(paths['inventory']),AIUP_VERSIONS_INDEX=str(paths['versions']))
+    def run(body):
+        r=subprocess.run(['bash'],input='source "$SOURCE"\n'+body,text=True,capture_output=True,env=env,timeout=15)
+        assert r.returncode==0,(r.stdout,r.stderr)
+        return r.stdout
+    rows=run('manual_media_load; printf "%s" "$MANUAL_MEDIA_ROWS"')
+    assert 'App Store' in rows and 'vendor/manual' in rows and 'Motion' not in rows,rows
+    out=run('manual_media_load; emit_manual_media_rows')
+    assert out.startswith('di:app:com.apple.FinalCut\t') and 'manual update' in out,out
+    assert not run('LIST_VIEW_MODE=managed; emit_manual_media_rows')
+    allrows=run('manual_media_load; category_visible() { case \"$1\" in media|detected) return 0 ;; *) return 1 ;; esac; }; category_expanded() { return 0; }; emit_fzf_rows_from_index')
+    assert sum(l.startswith('di:app:com.apple.FinalCut\t') for l in allrows.splitlines())==1,allrows
+    assert 'inspect only' in run('print_catalog_preview di:app:com.apple.FinalCut')
+    local,remote,docs=(d/n for n in ('local','remote','docs'))
+    run(f'tui_preview_static_render "{local}" "{remote}" "{docs}"')
+    assert 'coverage manual update' in local.read_text()
+    assert 'com.apple.FinalCut' not in remote.read_text()
+    assert 'support.apple.com' in docs.read_text()
+    print('PASS: receipt guidance, exact bundle identity, inspect-only media rows, managed-view exclusion, protected preview data')
+    # Read the same alias collector used by inventory_index_init, with fixture prefixes.
+    code=source.split("<<'PYALIASES'\n",1)[1].split('\nPYALIASES',1)[0]
+    prefix=d/'npm';pkg=prefix/'lib/node_modules/@remotion/cli';pkg.mkdir(parents=True)
+    bindir=prefix/'bin';bindir.mkdir();localbin=d/'bin';localbin.mkdir()
+    (pkg/'package.json').write_text(json.dumps({'bin':{'remotionb':'b.js','remotiond':'d.js'}}))
+    for name in ('b.js','d.js'):(pkg/name).write_text('#!/bin/sh\n');(pkg/name).chmod(0o700)
+    (bindir/'remotionb').symlink_to(pkg/'b.js')
+    (bindir/'remotiond').write_text('#!/bin/sh\n');(bindir/'remotiond').chmod(0o700)
+    r=subprocess.run(['python3','-c',code,str(prefix),'',str(localbin),'@remotion/cli'],capture_output=True,text=True,check=True)
+    assert r.stdout.splitlines()==[str(bindir/'remotionb')],r.stdout
+    print('PASS: registered sibling link grouped; unrelated same-name executable preserved')

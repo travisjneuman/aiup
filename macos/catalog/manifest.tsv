@@ -1,5 +1,5 @@
 # aiup managed catalog manifest
-# aiup-runtime-version: 2026.09.04-04
+# aiup-runtime-version: 2026.09.04-05
 # id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
 brew	infra	special	active	Homebrew — required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node
@@ -87,3 +87,18 @@ diffusionbee	media	brew-cask	active	DiffusionBee — local AI image generation	h
 upscayl	media	brew-cask	active	Upscayl — AI image upscaling	https://upscayl.org/	upscayl
 ffmpeg	media	brew-formula	active	FFmpeg — audio/video conversion and encoding (media utility)	https://ffmpeg.org/	ffmpeg
 audacity	media	brew-cask	active	Audacity — audio editing and recording (media utility)	https://www.audacityteam.org/	audacity
+draw-things	media	brew-cask	active	Draw Things — local AI image generation; models downloaded separately	https://drawthings.ai/	draw-things
+superwhisper	media	brew-cask	active	Superwhisper — AI dictation and LLM reformatting; vendor licensing applies	https://superwhisper.com/	superwhisper
+buzz	media	brew-cask	active	Buzz — audio transcription and translation; models downloaded separately	https://github.com/chidiwilliams/buzz	buzz
+obs	media	brew-cask	active	OBS Studio — recording and streaming (media utility)	https://obsproject.com/	obs
+blender	media	brew-cask	active	Blender — 3D modeling, animation, and rendering (media utility)	https://www.blender.org/	blender
+losslesscut	media	brew-cask	active	LosslessCut — lossless audio/video trimming (media utility)	https://github.com/mifi/lossless-cut	losslesscut
+handbrake-app	media	brew-cask	active	HandBrake — desktop video transcoding (media utility)	https://handbrake.fr/	handbrake-app
+shotcut	media	brew-cask	active	Shotcut — video editing (media utility)	https://www.shotcut.org/	shotcut
+kdenlive	media	brew-cask	active	Kdenlive — non-linear video editing (media utility)	https://kdenlive.org/	kdenlive
+krita	media	brew-cask	active	Krita — digital painting and illustration (media utility; AI plugins are separate)	https://krita.org/	krita
+inkscape	media	brew-cask	active	Inkscape — vector graphics and SVG editing (media utility)	https://inkscape.org/	inkscape
+imagemagick	media	brew-formula	active	ImageMagick — command-line image conversion and processing (magick)	https://imagemagick.org	imagemagick
+sox	media	brew-formula	active	SoX — command-line audio processing (media utility)	https://sox.sourceforge.net/	sox
+yt-dlp	media	brew-formula	active	yt-dlp — command-line audio/video downloads (media utility)	https://github.com/yt-dlp/yt-dlp	yt-dlp
+vips	media	brew-formula	active	libvips — efficient image processing CLI/library (media utility)	https://github.com/libvips/libvips	vips

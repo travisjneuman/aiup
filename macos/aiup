@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-04"
+AIUP_VERSION="2026.09.04-05"
 AIUP_TUI_CACHE_SCHEMA="3"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -74,9 +74,12 @@ DEFAULT_EXPAND_FILE="$EXPAND_FILE"
 DEFAULT_LIST_QUERY_FILE="$LIST_QUERY_FILE"
 DEFAULT_LIST_CATEGORY_FILE="$LIST_CATEGORY_FILE"
 DEFAULT_LIST_SELECTED_FILE="$LIST_SELECTED_FILE"
+MANUAL_MEDIA_READY=0
+MANUAL_MEDIA_ROWS=''
 INVENTORY_SEEN_IDS='|'
 INVENTORY_MANAGED_BINARIES='|'
 INVENTORY_MANAGED_APPS='|'
+INVENTORY_MANAGED_ALIAS_PATHS='|'
 INVENTORY_INDEX_READY=0
 BREW_CATALOG_NAMES="|"
 AIUP_BREW_CATALOG_INDEX_READY=0
@@ -1125,6 +1128,7 @@ expected_direct_path() {
 
 binary_of_tool() {
   case "$1" in
+    imagemagick) printf 'magick\n' ;;
     ripgrep) printf 'rg\n' ;;
     gsd2) printf 'gsd\n' ;;
     antigravity) printf 'agy\n' ;;
@@ -1542,6 +1546,17 @@ catalog_uv_pkg() {
 
 catalog_app_path() {
   case "$1" in
+    draw-things) printf '/Applications/Draw Things.app\n' ;;
+    superwhisper) printf '/Applications/superwhisper.app\n' ;;
+    buzz) printf '/Applications/Buzz.app\n' ;;
+    obs) printf '/Applications/OBS.app\n' ;;
+    blender) printf '/Applications/Blender.app\n' ;;
+    losslesscut) printf '/Applications/LosslessCut.app\n' ;;
+    handbrake-app) printf '/Applications/HandBrake.app\n' ;;
+    shotcut) printf '/Applications/Shotcut.app\n' ;;
+    kdenlive) printf '/Applications/kdenlive.app\n' ;;
+    krita) printf '/Applications/Krita.app\n' ;;
+    inkscape) printf '/Applications/Inkscape.app\n' ;;
     diffusionbee) printf '/Applications/DiffusionBee.app\n' ;;
     upscayl) printf '/Applications/Upscayl.app\n' ;;
     audacity) printf '/Applications/Audacity.app\n' ;;
@@ -1973,6 +1988,7 @@ print_catalog_preview() {
       printf 'action   inspect only · no verified aiup updater/remover contract\n'
       printf 'found via %s\n' "$inv_source"
       printf 'location %s\n' "$inv_path"
+      manual_media_preview "$tool" || true
       catalog_preview_controls detected
       printf 'search   %s\n' "$(detected_search_url "$tool")"
       if [[ "$tool" == di:app:* ]]; then
@@ -2138,6 +2154,10 @@ format_inventory_display() {
   reset=$'\033[0m'
   bar="$(catalog_ansi detected)▌${reset}"
   state_txt=$'\033[38;5;250m'"$(printf '%-14s' 'detected-only')""${reset}"
+  if [ -n "$(manual_media_record "$id")" ]; then
+    state_txt=$'\033[38;5;220m'"$(printf '%-14s' 'manual update')""${reset}"
+    bar="$(catalog_ansi media)▌${reset}"
+  fi
   name_txt="$(printf '%-26s' "$(inventory_item_name "$label")")"
   version_txt="$(printf '%-12s' "${version:-unknown}")"
   source_txt="$(printf '%-18s' "$source")"
@@ -2398,6 +2418,9 @@ format_category_header() {
       else
         extra="${n_inst} extra rows / ${n_abs} curated recommendations"
       fi
+      ;;
+    media)
+      extra="${n_inst} managed present / ${n_abs} available · manual apps marked below"
       ;;
     homebrew/recommended)
       extra="${n_inst} already on your Mac / ${n_abs} curated recommendations"
@@ -2961,9 +2984,10 @@ cmd_docs() {
       tool="$resolved"
       ;;
     di:*)
-      url="$(detected_search_url "$tool")"
+      url="$(manual_media_record "$tool" | cut -f7)"
+      [ -n "$url" ] || url="$(detected_search_url "$tool")"
       if [ "$print_only" -eq 1 ]; then printf '%s\n' "$url"; return 0; fi
-      printf 'Opened Google search: %s\n' "$url" >/dev/tty
+      printf 'Opened guidance/search: %s\n' "$url" >/dev/tty
       open_url "$url"
       return 0
       ;;
@@ -4160,7 +4184,12 @@ preferred_method_of() {
     goose) printf 'brew-formula\n' ;;
     cursor) printf 'installer\n' ;;
     qwen) printf 'aiup-npm\n' ;;
-    *) printf 'unknown\n' ;;
+    *)
+      case "$(catalog_kind "$1")" in
+        brew-formula|brew-cask|aiup-npm|uv-tool) catalog_kind "$1" ;;
+        *) printf 'unknown\n' ;;
+      esac
+      ;;
   esac
 }
 
@@ -4219,11 +4248,92 @@ tool_is_present() {
   [ -n "$app" ] && [ -d "$app" ] && return 0
   return 1
 }
+# Recognized media apps remain detected-only: receipt presence guides the user,
+# not AIUP mutation authority, purchase entitlement, or update availability.
+manual_media_load() {
+  [ "$MANUAL_MEDIA_READY" -eq 0 ] || return 0
+  MANUAL_MEDIA_READY=1
+  capture_fixture_enabled && return 0
+  MANUAL_MEDIA_ROWS="$(python3 - "$HOME" <<'PYMEDIA'
+import plistlib, sys
+from pathlib import Path
+apps=[('Final Cut Pro','com.apple.FinalCut'),('Motion','com.apple.motionapp'),
+      ('Pixelmator Pro','com.pixelmatorteam.pixelmator.x'),('Darkroom','co.bergen.Darkroom'),
+      ('Luminar AI','com.skylum.luminarAI')]
+seen=set()
+for root in (Path('/Applications'),Path(sys.argv[1])/'Applications'):
+    for name,bundle in apps:
+        path=root/(name+'.app'); info=path/'Contents/Info.plist'
+        if bundle in seen or not info.is_file(): continue
+        try:
+            if info.stat().st_size>1048576: continue
+            data=plistlib.loads(info.read_bytes())
+            if not isinstance(data,dict): continue
+            if data.get('CFBundleIdentifier')!=bundle: continue
+        except (OSError,ValueError,plistlib.InvalidFileException): continue
+        seen.add(bundle)
+        receipt=(path/'Contents/_MASReceipt/receipt').is_file()
+        channel='App Store' if receipt else 'vendor/manual'
+        guidance='Use App Store > Updates for this installed copy; availability and entitlement are checked there.' if receipt else 'Review the installed app and its vendor support for this exact product; AIUP has no verified automated updater.'
+        docs='https://support.apple.com/guide/app-store/update-apps-fir9b01adda3/mac' if receipt else ('https://skylum.com/luminar-ai' if name=='Luminar AI' else 'https://support.apple.com/apps')
+        if name=='Luminar AI' and not receipt: guidance+=' Current vendor marketing is not proof of an upgrade path from Luminar AI.'
+        fields=['di:app:'+bundle,name,str(data.get('CFBundleShortVersionString') or 'unknown'),str(path),channel,guidance,docs]
+        print('\t'.join(''.join(c for c in v if ord(c)>=32 and ord(c)!=127) for v in fields))
+PYMEDIA
+)"
+}
+
+manual_media_record() {
+  manual_media_load
+  case "$MANUAL_MEDIA_ROWS" in *"$1"$'\t'*) ;; *) return 0 ;; esac
+  printf '%s\n' "$MANUAL_MEDIA_ROWS" | awk -F '\t' -v id="$1" '$1==id {print; exit}'
+}
+
+manual_media_preview() {
+  local row id name version path channel guidance docs
+  row="$(manual_media_record "$1")"
+  [ -n "$row" ] || return 1
+  IFS=$'\t' read -r id name version path channel guidance docs <<< "$row"
+  printf 'coverage manual update · media · %s\n' "$channel"
+  printf 'next     %s\ndocs     %s\n' "$guidance" "$docs"
+}
+
+manual_media_in_category() {
+  case "$LIST_VIEW_MODE" in managed|available|detected) return 1 ;; esac
+  category_visible media
+}
+
+visible_detected_count() {
+  local manual=''
+  if manual_media_in_category; then manual="$MANUAL_MEDIA_ROWS"; fi
+  awk -F '\t' -v manual="$manual" 'BEGIN {n=split(manual, rows, "\n"); for(i=1;i<=n;i++){split(rows[i],f,"\t"); seen[f[1]]=1}} $2=="detected" && !seen[$3] {count++} END {print count+0}' "$INVENTORY_INDEX"
+}
+
+emit_manual_media_rows() {
+  manual_media_in_category || return 0
+  manual_media_load
+  local id name version path channel guidance docs
+  while IFS=$'\t' read -r id name version path channel guidance docs; do
+    [ -n "$id" ] || continue
+    # Existing inventory identity is mandatory, preserving inspect-only dispatch.
+    awk -F '\t' -v id="$id" '$3==id {found=1} END {exit !found}' "$INVENTORY_INDEX" || continue
+    if [ "${1:-}" = plain ]; then
+      printf '%-26s %-14s %-12s %s\n' "$name" 'manual update' "$version" "$channel"
+    else
+      printf '%s\t%s\n' "$id" "$(format_inventory_display "$id" detected "$name" "$version" "$channel" "$path")"
+    fi
+  done <<< "$MANUAL_MEDIA_ROWS"
+}
+
 inventory_index_init() {
   [ "${INVENTORY_INDEX_READY:-0}" -eq 1 ] && return 0
   catalog_manifest_load || return 1
-  local tool binary app
+  local tool binary app pkg packages='' alias_path
+  ensure_system_npm_prefix
   for tool in "${TOOLS_CATALOG[@]}"; do
+    pkg=''
+    case "$(catalog_kind "$tool")" in aiup-npm|special) pkg="$(catalog_npm_pkg "$tool")" ;; esac
+    [ -z "$pkg" ] || packages="${packages}${pkg}"$'\n'
     binary="$(binary_of_tool "$tool")"
     [ -n "$binary" ] && INVENTORY_MANAGED_BINARIES="${INVENTORY_MANAGED_BINARIES}${binary}|"
     app="$(catalog_app_path "$tool")"
@@ -4233,6 +4343,36 @@ inventory_index_init() {
     app="$(app_path_for_cask "$tool" 2>/dev/null || true)"
     [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
   done
+  while IFS= read -r alias_path; do
+    [ -n "$alias_path" ] && INVENTORY_MANAGED_ALIAS_PATHS="${INVENTORY_MANAGED_ALIAS_PATHS}${alias_path}|"
+  done < <(python3 - "$AIUP_NPM_PREFIX" "$SYSTEM_NPM_PREFIX" "$LOCAL_BIN" "$packages" <<'PYALIASES'
+import json, os, sys
+from pathlib import Path
+prefixes=[Path(p) for p in dict.fromkeys(sys.argv[1:3]) if p]
+for prefix in prefixes:
+    for package in set(sys.argv[4].splitlines()):
+        if not package or package.startswith('/') or '..' in package.split('/'): continue
+        root=prefix/'lib/node_modules'/package; meta=root/'package.json'
+        if not meta.is_file(): continue
+        try:
+            if meta.stat().st_size>1048576: continue
+            data=json.loads(meta.read_text())
+            if not isinstance(data,dict): continue
+            bins=data.get('bin',{})
+            if isinstance(bins,str): bins={package.rsplit('/',1)[-1]:bins}
+            if not isinstance(bins,dict): continue
+            for name,relative in bins.items():
+                if not isinstance(relative,str) or not isinstance(name,str) or '/' in name or name in ('.','..'): continue
+                expected=(root/relative).resolve()
+                try: expected.relative_to(root.resolve())
+                except ValueError: continue
+                for directory in (prefix/'bin',Path(sys.argv[3])):
+                    candidate=directory/name
+                    if candidate.is_file() and os.access(candidate,os.X_OK) and candidate.resolve()==expected:
+                        print(str(candidate))
+        except (OSError,ValueError,TypeError): continue
+PYALIASES
+)
   INVENTORY_INDEX_READY=1
 }
 
@@ -4362,6 +4502,7 @@ inventory_scan_path_bins() {
       [ -f "$path" ] && [ -x "$path" ] || continue
       binary="$(basename "$path")"
       inventory_managed_binary "$binary" && continue
+      case "$INVENTORY_MANAGED_ALIAS_PATHS" in *"|$path|"*) continue ;; esac
       inventory_append detected "PATH executable" "di:path:$binary" "[path] $binary" unknown "$path"
     done
   done
@@ -4881,15 +5022,17 @@ scan_versions_index() {
 }
 
 tui_preview_static_render() {
+  manual_media_load
   local policies
   policies="$(preferences reasons)" || return 1
   local fixture_apps="${AIUP_CAPTURE_FIXTURE_DIR:-}/apps.tsv"
   [ -f "$fixture_apps" ] || fixture_apps=/dev/null
-  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$BREW_INDEX" "$INVENTORY_INDEX" "$VERSIONS_INDEX" "$1" "$2" "$3" "$fixture_apps" "$policies" <<'PY'
+  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$BREW_INDEX" "$INVENTORY_INDEX" "$VERSIONS_INDEX" "$1" "$2" "$3" "$fixture_apps" "$policies" "$MANUAL_MEDIA_ROWS" <<'PY'
 import csv, pathlib, sys
 from urllib.parse import quote_plus
 manifest_path, state_path, brew_path, inventory_path, versions_path, output_path, remote_path, docs_path, apps_path = map(pathlib.Path, sys.argv[1:10])
 policies=dict(line.split("\t",1) for line in sys.argv[10].splitlines() if "\t" in line)
+manual={r[0]:r for r in csv.reader(sys.argv[11].splitlines(),delimiter="\t") if len(r)==7}
 states = {}
 with state_path.open(encoding="utf-8") as handle:
     for row in csv.reader(handle, delimiter="\t"):
@@ -4987,7 +5130,10 @@ with inventory_path.open(encoding="utf-8") as handle:
             "action   inspect only · no verified aiup updater/remover contract", f"found via {source}", f"location {item_path}",
             "keys     ctrl-o search · ctrl-y copy URL · ctrl-/ hide")
         query = f"{name} {version or 'unknown'} {source} {item_path}"
-        docs_rows.append((item_id, "https://www.google.com/search?q=" + quote_plus(query)))
+        if item_id in manual:
+            m=manual[item_id]
+            preview[item_id] += ["coverage manual update · media · "+m[4], "next     "+m[5], "docs     "+m[6]]
+        docs_rows.append((item_id, manual[item_id][6] if item_id in manual else "https://www.google.com/search?q=" + quote_plus(query)))
 with output_path.open("w", encoding="utf-8", newline="") as handle:
     writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
     for item_id, lines in preview.items():
@@ -6629,7 +6775,7 @@ PYPROJECT
 
 cmd_coverage() {
   scan_catalog_index all || return 1
-  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$INVENTORY_INDEX" "$BREW_INDEX" "${1:-}" <<'PYCOVER'
+  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$INVENTORY_INDEX" "$BREW_INDEX" "${1:-}" "$MANUAL_MEDIA_ROWS" <<'PYCOVER'
 import csv, sys, os
 from collections import Counter
 from pathlib import Path
@@ -6643,6 +6789,7 @@ for category,n in counts.items():
     installed=sum(states.get(r[0]) in ('installed','on-disk') for r in catalog if len(r)>2 and r[1]==category)
     print(f'  {category:18} {installed:3} present / {n:3} supported')
 all_rows=sys.argv[5]=='--all'
+manual={r[0]:r for r in csv.reader(sys.argv[6].splitlines(),delimiter='\t') if len(r)==7}
 present=[r for r in catalog if len(r)>=6 and states.get(r[0]) in ('installed','on-disk')]
 adoption=sum(states[r[0]]=='on-disk' and r[2]=='brew-cask' for r in present)
 print('\n'+ink(f'{len(present)} catalog tools present · {adoption} require explicit adoption','81'))
@@ -6650,8 +6797,10 @@ for r in catalog:
     if not all_rows or len(r)<6 or states.get(r[0]) not in ('installed','on-disk'): continue
     scope='Explicit adoption required' if states[r[0]]=='on-disk' and r[2]=='brew-cask' else 'Managed update contract'
     print(f'  {r[0]:22} {scope} · {r[2]} · {r[3]}')
+print('\n'+ink('Recognized media apps · manual updates','220'))
+for r in manual.values(): print(f'  {r[1]} · {r[2]} · {r[4]} · {r[5]}')
 print('\n'+ink('Coverage gaps on this Mac · candidates for reviewed adapters','220'))
-gaps=[r for r in detected if len(r)>=7]
+gaps=[r for r in detected if len(r)>=7 and r[2] not in manual]
 for r in gaps if all_rows else gaps[:12]:
     if len(r)>=7: print(f'  {r[3]} · {r[5]} · detected only; updater not reviewed')
 if not all_rows and len(gaps)>12: print(f'  … {len(gaps)-12} more · aiup coverage --all or aiup inventory')
@@ -7255,7 +7404,7 @@ print_list() {
       n_inst="$(awk -F '\t' '$2=="installed" || $2=="on-disk" {n++} END {print n+0}' "$BREW_INDEX" 2>/dev/null)"
       [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$n_inst" -eq 0 ] && continue
     elif [ "$cat" = 'detected' ]; then
-      n_inst="$(awk -F '\t' '$2=="detected" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+      n_inst="$(visible_detected_count)"
       [ "$n_inst" -eq 0 ] && continue
     else
       n_inst="$(awk -F '\t' -v c="$cat" '$1==c && ($2=="installed" || $2=="on-disk") {n++} END {print n+0}' "$CATALOG_INDEX" 2>/dev/null)"
@@ -7310,20 +7459,30 @@ print_list() {
       printf '%-26s %-12s %-18s %s\n' 'item' 'version' 'found via' 'location'
       while IFS=$'\t' read -r _ state id label version source path; do
         [ -n "$id" ] || continue
+        if manual_media_in_category && [ -n "$(manual_media_record "$id")" ]; then continue; fi
         printf '%-26s %-12s %-18s %s\n' "$(inventory_item_name "$label")" "${version:-unknown}" "$source" "$path"
       done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
       continue
     fi
+    if [ "$cat" = media ]; then
+      state="$(awk -F '\t' '$3=="remotion" {print $2; exit}' "$CATALOG_INDEX")"
+      if [ -n "$state" ] && row_visible_state "$state"; then
+        printf '%-18s %-18s %s\n' remotion "$(catalog_action_for_state remotion "$state")" "$(catalog_label remotion)"
+      fi
+    fi
     while IFS=$'\t' read -r _ state tool; do
       [ -n "$tool" ] || continue
+      [ "$cat:$tool" != media:remotion ] || continue
       row_visible_state "$state" || continue
         printf '%-18s %-18s %s\n' "$tool" "$(catalog_action_for_state "$tool" "$state")" "$(catalog_label "$tool")"
     done < <(awk -F '\t' -v c="$cat" '$1==c && ($2=="installed" || $2=="on-disk") {print}' "$CATALOG_INDEX" | LC_ALL=C sort -t $'\t' -k3,3)
     while IFS= read -r tool; do
       [ -n "$tool" ] || continue
+      [ "$cat:$tool" != media:remotion ] || continue
       row_visible_state absent || continue
       printf '%-18s %-18s %s\n' "$tool" 'install' "$(catalog_label "$tool")"
     done < <(awk -F '\t' -v c="$cat" '$1==c && $2=="absent" {print $3}' "$CATALOG_INDEX" | LC_ALL=C sort)
+    [ "$cat" != media ] || emit_manual_media_rows plain
   done
 }
 
@@ -7338,10 +7497,12 @@ print_inventory_definition() {
     done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
     return 0
   fi
-  python3 - "$INVENTORY_INDEX" <<'PY'
-import json, sys
+  manual_media_load
+  python3 - "$INVENTORY_INDEX" "$MANUAL_MEDIA_ROWS" <<'PY'
+import json, sys, csv
 from urllib.parse import quote_plus
 items = []
+manual={r[0]:r for r in csv.reader(sys.argv[2].splitlines(),delimiter="\t") if len(r)==7}
 with open(sys.argv[1], encoding="utf-8") as handle:
     for line in handle:
         parts = line.rstrip("\n").split("\t")
@@ -7369,6 +7530,10 @@ with open(sys.argv[1], encoding="utf-8") as handle:
             "source": source,
             "path": path,
             "search": "https://www.google.com/search?q=" + quote_plus(query),
+            "management": "manual" if item_id in manual else "detected-only",
+            "category_hint": "media" if item_id in manual else None,
+            "update_guidance": manual[item_id][5] if item_id in manual else None,
+            "docs": manual[item_id][6] if item_id in manual else None,
         })
 json.dump({"name": "aiup", "items": items}, sys.stdout, indent=2, ensure_ascii=False)
 sys.stdout.write("\n")
@@ -7787,6 +7952,7 @@ run_tool_remove() {
 }
 
 scan_catalog_index() {
+  manual_media_load
   local filter="$1"
   local tool state cat
   local n="${#TOOLS_CATALOG[@]}"
@@ -7925,7 +8091,7 @@ emit_fzf_rows_from_index() {
       continue
     fi
     if [ "$cat" = 'detected' ]; then
-      n_inst="$(awk -F '\t' '$2=="detected" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+      n_inst="$(visible_detected_count)"
       n_abs=0
     else
       n_inst="$(awk -F '\t' -v c="$cat" '$1==c && ($2=="installed" || $2=="on-disk") {n++} END {print n+0}' "$CATALOG_INDEX" 2>/dev/null)"
@@ -7939,6 +8105,7 @@ emit_fzf_rows_from_index() {
       if [ "$cat" = 'detected' ]; then
         while IFS=$'\t' read -r _ state id label version source path; do
           [ -n "$id" ] || continue
+          if manual_media_in_category && [ -n "$(manual_media_record "$id")" ]; then continue; fi
           printf '%s\t%s\n' "$id" "$(format_inventory_display "$id" "$state" "$label" "$version" "$source" "$path")"
         done < <(LC_ALL=C sort -t $'\t' -k4,4 -k3,3 "$INVENTORY_INDEX" 2>/dev/null)
         continue
@@ -7962,6 +8129,7 @@ emit_fzf_rows_from_index() {
         row_visible_state absent || continue
         printf '%s\t%s\n' "$tool" "$(format_catalog_display "$tool" absent)"
       done < <(awk -F '\t' -v c="$cat" '$1==c && $2=="absent" {print $3}' "$CATALOG_INDEX" | LC_ALL=C sort)
+      [ "$cat" != media ] || emit_manual_media_rows
     fi
   done
 }
