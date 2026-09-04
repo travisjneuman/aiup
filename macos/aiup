@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-01"
+AIUP_VERSION="2026.09.04-02"
 AIUP_TUI_CACHE_SCHEMA="3"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -142,6 +142,15 @@ RESULT_DETECTED=()
 RESULT_FAILED=()
 RESULT_CANCELLED=()
 AIUP_LAST_UPDATE_STATUS=completed
+UPDATE_REPORT_ACTIVE=0
+UPDATE_REPORT_LOG=""
+UPDATE_REPORT_STARTED=0
+UPDATE_REPORT_NOTE=""
+UPDATE_REPORT_CURRENT_TOOL=""
+UPDATE_REPORT_TOOLS=()
+UPDATE_REPORT_BEFORE=()
+UPDATE_REPORT_ROWS=()
+AIUP_VERBOSE=0
 AIUP_TUI_ACTION_BASE_GENERATION=""
 AIUP_TUI_CACHED_ROWS=""
 PICK_UPDATE_ALL=0
@@ -159,11 +168,22 @@ _now() {
 log() {
   local level="$1"
   shift
+  if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
+    printf '[%s] [%s] %s\n' "$(_now)" "$level" "$*" >> "$UPDATE_REPORT_LOG"
+    if [ "$AIUP_VERBOSE" -eq 1 ]; then
+      printf '[%s] [%s] %s\n' "$(_now)" "$level" "$*"
+    elif [ "$level" = ERROR ]; then
+      local message="$*"
+      message="${message//==========/}"
+      printf '  ! %s\n' "$message" >&4
+    fi
+    return 0
+  fi
   printf '[%s] [%s] %s\n' "$(_now)" "$level" "$*"
 }
 
 info() { log INFO "$@"; }
-warn() { log WARN "$@"; }
+warn() { UPDATE_REPORT_NOTE="$*"; log WARN "$@"; }
 error() { log ERROR "$@" >&2; }
 
 command_exists() {
@@ -433,6 +453,9 @@ run_with_heartbeat() {
       sleep "$HEARTBEAT_SECONDS"
       if kill -0 "$pid" 2>/dev/null; then
         elapsed=$(( $(date +%s) - start_ts ))
+        if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -t 4 ]; then
+          printf '\r\033[2K  › %-18s working · %ss' "$UPDATE_REPORT_CURRENT_TOOL" "$elapsed" >&4
+        fi
         info "still working: $label (${elapsed}s elapsed)"
       fi
     done
@@ -6373,7 +6396,138 @@ remove_by_kind() {
   return 0
 }
 
+
+# Snapshot before any required-tool update: fzf may refresh Homebrew itself.
+update_report_begin() {
+  [ "$UPDATE_REPORT_ACTIVE" -eq 0 ] || return 0
+  local tool version
+  ensure_managed_paths
+  ensure_dir "$STATE_DIR/logs"
+  UPDATE_REPORT_LOG="$(mktemp "$STATE_DIR/logs/update-$(date +%Y%m%d-%H%M%S).XXXXXX")" || return 1
+  chmod 600 "$UPDATE_REPORT_LOG"
+  exec 4>&1
+  UPDATE_REPORT_ACTIVE=1
+  UPDATE_REPORT_STARTED="$(date +%s)"
+  if [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
+    printf '\n\033[1;38;5;141m  aiup\033[0m \033[38;5;81m· updating installed tools\033[0m\n\n' >&4
+  else
+    printf '\naiup · updating installed tools\n\n' >&4
+  fi
+  printf '  Reading installed versions…\n' >&4
+  for tool in "$@"; do
+    version='not installed'
+    if tool_is_present "$tool"; then version="$(version_of_tool "$tool")"; fi
+    UPDATE_REPORT_TOOLS+=("$tool")
+    UPDATE_REPORT_BEFORE+=("${version:-unknown}")
+  done
+}
+
+update_report_record() {
+  local tool="$1" status="$2" before='not installed' after candidate shade i=0
+  for candidate in "${UPDATE_REPORT_TOOLS[@]}"; do
+    if [ "$candidate" = "$tool" ]; then before="${UPDATE_REPORT_BEFORE[$i]}"; break; fi
+    i=$((i + 1))
+  done
+  after='not installed'
+  if tool_is_present "$tool"; then after="$(version_of_tool "$tool")"; fi
+  [ "$DRY_RUN" -eq 0 ] || status=planned
+  shade="$(catalog_ansi "$(catalog_category "$tool")")"
+  shade="${shade#$'\033['}"
+  shade="${shade%m}"
+  UPDATE_REPORT_ROWS+=("$(printf '%s\t%s\t%s\t%s\t%s\t%s' "$tool" "$status" "$before" "${after:-unknown}" "$shade" "$UPDATE_REPORT_NOTE")")
+}
+
 run_tool_update() {
+  local tool="$1" rc=0 log_line
+  if [ "$UPDATE_REPORT_ACTIVE" -eq 0 ]; then run_tool_update_impl "$tool"; return $?; fi
+  UPDATE_REPORT_NOTE=''
+  UPDATE_REPORT_CURRENT_TOOL="$tool"
+  log_line="$(wc -l < "$UPDATE_REPORT_LOG")"
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ]; then
+    printf '\r\033[2K  › %-18s checking…' "$tool" >&4
+  else
+    printf '  › %s\n' "$tool" >&4
+  fi
+  if [ "$AIUP_VERBOSE" -eq 1 ]; then
+    run_tool_update_impl "$tool" || rc=$?
+  else
+    run_tool_update_impl "$tool" >> "$UPDATE_REPORT_LOG" 2>&1 || rc=$?
+  fi
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ]; then printf '\r\033[2K' >&4; fi
+  if [ -z "$UPDATE_REPORT_NOTE" ] && [ "$AIUP_VERBOSE" -eq 0 ]; then
+    UPDATE_REPORT_NOTE="$(tail -n +"$((log_line + 1))" "$UPDATE_REPORT_LOG" | awk '$0 !~ /^\[/ && tolower($0) !~ /already installed|not upgrading/ && tolower($0) ~ /(^|[[:space:]])(warn(ing)?|error)(:|[[:space:]])/ {print substr($0,1,240); exit}')"
+  fi
+  brew_cache_invalidate
+  if [ "$rc" -eq 0 ]; then
+    update_report_record "$tool" "$AIUP_LAST_UPDATE_STATUS"
+  else
+    update_report_record "$tool" failed
+  fi
+  return "$rc"
+}
+
+print_update_report() {
+  local color=0 width=80
+  if [ -t 4 ]; then
+    [ -n "${NO_COLOR:-}" ] || color=1
+    width="$(stty size </dev/tty 2>/dev/null | awk '{print $2}')"
+  fi
+  printf '%s\n' ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"} | python3 -c '
+import sys, re, textwrap
+from collections import Counter
+color, width, seconds, logfile = sys.argv[1:]
+color = color == "1"
+width = max(30, min(int(width or 80), 140))
+def ink(text, code):
+    return "\033[" + code + "m" + text + "\033[0m" if color else text
+def clean(text):
+    return re.sub(r"[\x00-\x1f\x7f-\x9f]", "", re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text))
+def version(text):
+    text = clean(text)
+    match = re.search(r"\d+\.\d+[^\s]*", text)
+    return match.group(0) if match else text
+rows = {}
+for line in sys.stdin:
+    fields = line.rstrip("\n").split("\t", 5)
+    if len(fields) < 6: continue
+    tool, status, before, after, category, note = map(clean, fields)
+    before, after = version(before), version(after)
+    known = lambda v: bool(re.match(r"\d+\.\d+", v))
+    if status in ("completed", "current"):
+        if before == "not installed" and known(after): status = "installed"
+        elif known(before) and known(after): status = "unchanged" if before == after else "updated"
+        else: status = "unverified"
+    versions = before + " → " + after if before != after else after
+    if status == "planned": versions = before
+    rows[tool] = (status, versions, category, note)
+counts = Counter(row[0] for row in rows.values())
+print("\n" + ink("  aiup · results", "1;38;5;141"))
+for part in textwrap.wrap(" · ".join(str(n)+" "+state for state,n in counts.items()) + " · " + seconds + "s", width-4):
+    print(ink("  " + part, "38;5;245"))
+print(ink("  " + "─" * (width-4), "38;5;60"))
+if width >= 76:
+    print(ink("  " + "TOOL".ljust(19) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
+for tool, (status, versions, category, note) in rows.items():
+    code = "38;2;57;255;20" if status in ("updated", "installed") else "38;5;245"
+    if status in ("failed", "unverified"): code = "38;5;203"
+    elif status in ("skipped", "planned"): code = "38;5;220"
+    name = ink(tool.ljust(19) if width >= 76 else tool, category if re.fullmatch(r"[0-9;]+", category) else "38;5;250")
+    if width >= 76:
+        parts = textwrap.wrap(versions, max(12,width-36)) or ["unknown"]
+        print("  " + name + ink(status.ljust(13), code) + parts[0])
+        for part in parts[1:]: print(" "*34 + part)
+    else:
+        print("  " + name + "  " + ink(status,code))
+        for part in textwrap.wrap(versions, width-6): print("      " + part)
+    if note:
+        for part in textwrap.wrap(note, width-6): print(ink("      " + part, "38;5;220"))
+print(ink("  " + "─" * (width-4), "38;5;60"))
+for part in textwrap.wrap("Run log: " + logfile, width-4):
+    print(ink("  " + part, "38;5;245"))
+' "$color" "$width" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" "$UPDATE_REPORT_LOG"
+}
+
+run_tool_update_impl() {
   local tool="$1"
   local result_kind
   mutation_authoritative_preflight "$tool update" || return 1
@@ -7986,6 +8140,7 @@ aiup installs Homebrew first when fzf or another brew-managed item is missing.
 Homebrew's supported setup also requires current Xcode Command Line Tools.
 
 Options:
+  --verbose                Stream detailed updater output as well as the final report
   --dry-run                Print actions without executing them
   --no-install             Do not install missing tools; fails if required fzf is absent.
   --heartbeat-seconds N    Override heartbeat interval for this run
@@ -8066,14 +8221,15 @@ main_update() {
     esac
     if should_skip_install_for_missing "$tool"; then
       result_record skipped "$tool"
+      if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then update_report_record "$tool" skipped; fi
       continue
     fi
     run_tool_update "$tool" || true
   done
   brew_cache_invalidate
   if [ "${AIUP_KEEP_UI:-0}" != 1 ]; then
-    print_result_summary
-    print_summary_versions
+    if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then print_update_report
+    else print_result_summary; print_summary_versions; fi
   fi
   if [ "${#FAILED_TOOLS[@]}" -gt 0 ]; then
     printf '\nFailed tools: %s\n' "${FAILED_TOOLS[*]}" >&2
@@ -8087,6 +8243,10 @@ parse_args() {
   local args=()
   while [ "$#" -gt 0 ]; do
     case "$1" in
+      --verbose)
+        AIUP_VERBOSE=1
+        shift
+        ;;
       --dry-run)
         DRY_RUN=1
         shift
@@ -8146,6 +8306,7 @@ parse_args() {
   fi
 
   if [ "${#args[@]}" -eq 0 ]; then
+    update_report_begin "${TOOLS_CATALOG[@]}" || return 1
     ensure_required_tools_present || return 1
     local -a present=()
     local line
@@ -8163,6 +8324,7 @@ parse_args() {
 
   case "${args[0]}" in
     full|core)
+      update_report_begin "${TOOLS_CATALOG[@]}" || return 1
       ensure_required_tools_present || return 1
       local -a present=()
       local line
@@ -8191,6 +8353,7 @@ parse_args() {
       while IFS= read -r line; do
         [ -n "$line" ] && selected+=("$line")
       done <<< "$resolved"
+      update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${selected[@]}" || return 1
       main_update "${selected[@]}"
       ;;
     __fzf-rows)

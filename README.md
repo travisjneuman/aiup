@@ -60,6 +60,10 @@ aiup list
 | `aiup remove grok` | 🗑️ Confirm and remove one managed tool |
 | `aiup doctor` | 🩺 How each tool was detected |
 
+Each update run ends with one color-coded table: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
+
+Routine installer output is saved in a private run log under `~/.local/share/aiup/logs/`; the report prints its path. Use `aiup --verbose` to stream detailed updater output instead. Dry runs are labeled **planned**, never updated. Logs are local and retained for troubleshooting.
+
 ### 🔄 Always live
 
 The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, stages them as one pair, then serializes finalization and atomically switches a single `current-generation` pointer. `previous-generation` preserves the former complete validated pair as recovery evidence; older unreferenced aiup generations are pruned, so repeated successes retain at most those two complete pairs. An overlapping invocation's hidden staging directory is never pruned, and a live activation lock is never reclaimed. A failed, empty, invalid, partial, locked, or unactivatable refresh stops without executing the download or an older cache. Public use therefore needs network access at the start of every run.
@@ -168,7 +172,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-01** · **82** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-02** · **82** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
