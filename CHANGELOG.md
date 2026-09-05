@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.09.04-07
+
+- Hide ordinary unchanged report rows by default; retain warnings and full saved history, with `--show-unchanged` for expanded output. Accept date and revision versions as valid evidence.
+- Skip removed apps whose Homebrew receipts remain; preserve app data and receipts without implicit reinstall.
+- Give Updates informational children for unavailable checks and an empty state; reflect expansion in its arrow.
+- Use consistent category counts and plain-language names; correct the JavaScript-package subtotal.
+- Add static command ownership, descriptions, version evidence, and guidance to inventory and both preview paths. Never execute unfamiliar commands for identification.
+
 ## 2026.09.04-06
 
 - Fix default update/check scope to include installed Homebrew extras shown in the picker, with versions and outcomes in the combined report. Keep catalog aliases canonical and leave manual/detected-only software untouched.

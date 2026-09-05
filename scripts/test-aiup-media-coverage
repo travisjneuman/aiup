@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='.aiup-media-',dir=root) as folder:
     assert not run('LIST_VIEW_MODE=managed; emit_manual_media_rows')
     allrows=run('manual_media_load; category_visible() { case \"$1\" in media|detected) return 0 ;; *) return 1 ;; esac; }; category_expanded() { return 0; }; emit_fzf_rows_from_index')
     assert sum(l.startswith('di:app:com.apple.FinalCut\t') for l in allrows.splitlines())==1,allrows
-    assert 'inspect only' in run('print_catalog_preview di:app:com.apple.FinalCut')
+    assert 'View details' in run('print_catalog_preview di:app:com.apple.FinalCut')
     local,remote,docs=(d/n for n in ('local','remote','docs'))
     run(f'tui_preview_static_render "{local}" "{remote}" "{docs}"')
     assert 'coverage manual update' in local.read_text()
@@ -45,3 +45,20 @@ with tempfile.TemporaryDirectory(prefix='.aiup-media-',dir=root) as folder:
     r=subprocess.run(['python3','-c',code,str(prefix),'',str(localbin),'@remotion/cli'],capture_output=True,text=True,check=True)
     assert r.stdout.splitlines()==[str(bindir/'remotionb')],r.stdout
     print('PASS: registered sibling link grouped; unrelated same-name executable preserved')
+
+    # Static PATH metadata resolves package ownership without executing a tool.
+    pkg=d/'pkg';pkg.mkdir(); binary=pkg/'cli.js'
+    marker=d/'EXECUTED'
+    binary.write_text('#!/bin/sh\ntouch '+str(marker)+'\n');binary.chmod(0o700)
+    (pkg/'package.json').write_text(json.dumps({'name':'fixture-tool','version':'2.3.4','description':'Fixture command','bin':{'demo':'cli.js'},'homepage':'https://example.com/docs'}))
+    command=d/'demo';command.symlink_to(binary)
+    paths['inventory'].write_text('detected\tdetected\tdi:path:demo\t[path] demo\tunknown\tPATH executable\t'+str(command)+'\n')
+    details=run('path_insights "$INVENTORY_INDEX"')
+    assert '2.3.4' in details and 'fixture-tool' in details and 'https://example.com/docs' in details,details
+    assert not marker.exists()
+    run('path_insights "$INVENTORY_INDEX" enrich')
+    assert '2.3.4' in paths['inventory'].read_text() and 'Fixture command' in paths['inventory'].read_text()
+    (pkg/'package.json').write_text('[]')
+    assert 'Local command' in run('path_insights "$INVENTORY_INDEX"')
+    assert not marker.exists()
+    print('PASS: static command ownership/version/guidance; malformed metadata stays unidentified; no command execution')

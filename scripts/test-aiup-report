@@ -15,6 +15,8 @@ runtime = (root / 'macos/aiup').read_text().rsplit('\nprofile_begin\n', 1)[0]
 bootstrap = 'source "$REPORT_RUNTIME_PATH"\n'
 stubs = r'''
 ensure_managed_paths() { :; }
+brew_missing_apps_load() { :; }
+AIUP_SHOW_UNCHANGED=1
 mutation_authoritative_preflight() { :; }
 tui_cache_invalidate() { :; }
 brew_cache_invalidate() { :; }
@@ -26,6 +28,8 @@ version_of_tool() {
   case "$1" in
     changed) printf '%s\n' "$changed_version" ;;
     unknown) printf 'unknown\n' ;;
+    datestyle) printf '2026-08-13\n' ;;
+    revisionstyle) printf 'r3222\n' ;;
     *) printf '1.0.0\n' ;;
   esac
 }
@@ -40,8 +44,10 @@ update_by_kind() {
   printf 'routine provider chatter\n'
 }
 changed_version=1.0.0
-update_report_begin changed same skipped failed unknown warning bc:font-sketchybar-app-font
-for tool in changed same skipped failed unknown warning bc:font-sketchybar-app-font; do run_tool_update "$tool" || true; done
+update_report_begin changed same skipped failed unknown warning bc:font-sketchybar-app-font datestyle revisionstyle
+for tool in changed same skipped failed unknown warning bc:font-sketchybar-app-font datestyle revisionstyle; do run_tool_update "$tool" || true; done
+print_update_report
+AIUP_SHOW_UNCHANGED=0
 print_update_report
 DRY_RUN=1
 UPDATE_REPORT_ROWS=()
@@ -63,6 +69,8 @@ with tempfile.TemporaryDirectory(prefix='.aiup-report-', dir=root) as folder:
         assert text in out, (text, out)
     assert 'bc:font-sketchybar-app-font  ' in out, out
     assert 'font-sketchybar-app-fontunchanged' not in out
+    assert 'unchanged tools hidden' in out
+    assert 'revisionstyle' in out and 'r3222' in out
     assert 'Detected tool versions' not in out
     assert 'routine provider chatter' not in out
     assert '\x1b' not in out

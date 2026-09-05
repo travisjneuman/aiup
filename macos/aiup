@@ -2,8 +2,8 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-06"
-AIUP_TUI_CACHE_SCHEMA="3"
+AIUP_VERSION="2026.09.04-07"
+AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -788,6 +788,48 @@ brew_cache_load() {
     AIUP_BREW_CASKS=" "
   fi
   AIUP_BREW_CACHE_READY=1
+}
+
+# Read Homebrew's explicit app destinations once; receipts alone do not prove
+# an app still exists. No receipt removal or implicit reinstall is performed.
+brew_missing_apps_load() {
+  [ "${AIUP_MISSING_APPS_READY:-0}" -eq 0 ] || return 0
+  AIUP_MISSING_APPS_READY=1
+  AIUP_MISSING_APPS=''
+  capture_fixture_enabled && return 0
+  command_exists brew || return 0
+  local raw
+  ensure_dir "$STATE_DIR"
+  raw="$(mktemp "$STATE_DIR/.cask-apps.XXXXXX")" || return 1
+  if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --cask --json=v2 --installed; then
+    AIUP_MISSING_APPS="$(python3 - "$raw" <<'PYMISSING'
+import json,sys
+from pathlib import Path
+try:
+    data=json.loads(Path(sys.argv[1]).read_text())
+    for cask in data.get("casks",[]):
+        if not cask.get("installed"): continue
+        for artifact in cask.get("artifacts",[]):
+            target=artifact.get("target")
+            if "app" not in artifact or not isinstance(target,str): continue
+            path=Path(target)
+            if path.is_absolute() and path.suffix==".app" and not path.exists():
+                print(cask["token"],str(path),sep="\t");break
+except (ValueError,TypeError,KeyError,OSError): pass
+PYMISSING
+)"
+  fi
+  rm -f "$raw"
+}
+
+brew_missing_app_for_tool() {
+  [ -n "${AIUP_MISSING_APPS:-}" ] || return 1
+  local target
+  case "$1" in
+    bc:*) target="${1#bc:}" ;;
+    *) [ "$(catalog_kind "$1")" = brew-cask ] || return 1; target="$(catalog_brew_cask "$1")" ;;
+  esac
+  printf '%s\n' "${AIUP_MISSING_APPS:-}" | awk -F '\t' -v name="$target" '$1==name {print $2;found=1;exit} END {exit !found}'
 }
 
 # One authoritative post-refresh snapshot avoids a no-op upgrade per package.
@@ -1942,7 +1984,7 @@ catalog_preview_controls() {
       printf 'keys     enter/ctrl-e toggle · pgup/pgdn category · ctrl-g jump\n'
       ;;
     detected)
-      printf 'keys     ctrl-o search · ctrl-y copy URL · ctrl-/ hide\n'
+      printf 'keys     ctrl-o guidance · ctrl-y copy URL · ctrl-/ hide\n'
       ;;
     *)
       printf 'keys     enter act · ctrl-r update · ctrl-d remove · ctrl-o docs · ctrl-/ hide\n'
@@ -1979,12 +2021,15 @@ print_catalog_preview() {
       record="$(inventory_record "$tool" || true)"
       [ -n "$record" ] || { error "Detected inventory row is not available: $tool"; return 1; }
       IFS=$'\t' read -r inv_category inv_state inv_id inv_label inv_version inv_source inv_path <<< "$record"
-      printf '%s · detected-only · not managed by aiup\n' "$inv_id"
+      printf '%s · updates handled elsewhere\n' "$inv_id"
       printf 'item     %s · %s\n' "$(inventory_item_name "$inv_label")" "${inv_version:-unknown}"
-      printf 'action   inspect only · no verified aiup updater/remover contract\n'
+      printf 'action   View details; use the owning app or package manager to update\n'
       printf 'found via %s\n' "$inv_source"
       printf 'location %s\n' "$inv_path"
       manual_media_preview "$tool" || true
+      if [[ "$tool" == di:path:* ]]; then
+        path_insights "$INVENTORY_INDEX" | awk -F '\t' -v id="$tool" '$1==id {print "owner    " $3; print "about    " $4; print "next     " $5; print "docs     " $6; print "resolves " $7}'
+      fi
       catalog_preview_controls detected
       printf 'search   %s\n' "$(detected_search_url "$tool")"
       if [[ "$tool" == di:app:* ]]; then
@@ -2125,7 +2170,7 @@ format_catalog_display() {
   elif [ "$state" = 'on-disk' ]; then
     state_txt=$'\033[1;38;2;57;255;20m'"$(printf '%-10s' "on disk · $action")"${reset}
   else
-    state_txt=$'\033[38;5;245m'"$(printf '%-10s' "absent · $action")"${reset}
+    state_txt=$'\033[38;5;245m'"$(printf '%-10s' "available · $action")"${reset}
   fi
   id_txt="$(printf '%-18s' "$tool")"
   printf '%s %s %s %s %s%s' "$bar" "$cat_txt" "$state_txt" "$id_txt" "$tag" "$(catalog_label "$tool")"
@@ -2149,10 +2194,15 @@ format_inventory_display() {
   local reset bar state_txt name_txt version_txt source_txt path_txt
   reset=$'\033[0m'
   bar="$(catalog_ansi detected)▌${reset}"
-  state_txt=$'\033[38;5;250m'"$(printf '%-14s' 'detected-only')""${reset}"
+  state_txt=$'\033[38;5;250m'"$(printf '%-14s' 'details')""${reset}"
   if [ -n "$(manual_media_record "$id")" ]; then
     state_txt=$'\033[38;5;220m'"$(printf '%-14s' 'manual update')""${reset}"
     bar="$(catalog_ansi media)▌${reset}"
+  fi
+  if [[ "$id" == di:path:* ]]; then
+    source="${label#* — }"
+    label="${id#di:path:}"
+    path=''
   fi
   name_txt="$(printf '%-26s' "$(inventory_item_name "$label")")"
   version_txt="$(printf '%-12s' "${version:-unknown}")"
@@ -2397,7 +2447,16 @@ format_category_header() {
   fi
   bar="$(catalog_ansi "$cat")▌${reset}"
   shown="${cat##*/}"
-  [ "$cat" = 'detected' ] && shown='detected software'
+  case "$cat" in
+    infra) shown='Essentials' ;; coding-agents) shown='Coding assistants' ;;
+    workspaces) shown='Workspaces' ;; editors) shown='Code editors' ;; terminals) shown='Terminals' ;;
+    chat) shown='Chat assistants' ;; media) shown='Media' ;; local-ai) shown='On-device AI' ;;
+    automation) shown='Automation' ;; llm-utils) shown='AI utilities' ;; dev-utils) shown='Developer tools' ;;
+    adapters) shown='Integrations' ;; homebrew) shown='Other packages' ;;
+    homebrew/casks) shown='Apps' ;; homebrew/formulae) shown='Commands' ;; homebrew/libraries) shown='Support libraries' ;;
+    homebrew/fonts) shown='Fonts' ;; homebrew/recommended) shown='Suggestions' ;; homebrew/available) shown='More packages' ;;
+  esac
+  [ "$cat" = 'detected' ] && shown='Other software'
   if [ "$indent" -gt 0 ]; then
     pad="$(printf '%*s' $((indent * 4)) '')"
     name="$(catalog_ansi "$cat")${pad}$(printf '%-14s' "$shown")${reset}"
@@ -2410,13 +2469,13 @@ format_category_header() {
       ;;
     homebrew)
       if homebrew_available_loaded; then
-        extra="${n_inst} extra rows / ${n_abs} available Homebrew extras"
+        extra="${n_inst} listed / ${n_abs} available to install"
       else
-        extra="${n_inst} extra rows / ${n_abs} curated recommendations"
+        extra="${n_inst} listed / ${n_abs} suggestions"
       fi
       ;;
     media)
-      extra="${n_inst} managed present / ${n_abs} available · manual apps marked below"
+      extra="${n_inst} installed / ${n_abs} available to install"
       ;;
     homebrew/recommended)
       extra="${n_inst} already on your Mac / ${n_abs} curated recommendations"
@@ -2439,7 +2498,7 @@ format_category_header() {
       extra="${n_inst} already on your Mac via Homebrew"
       ;;
     *)
-      extra="${n_inst} installed / ${n_abs} absent"
+      extra="${n_inst} installed / ${n_abs} available to install"
       ;;
   esac
   printf '%s\t%s %s %s  %s' "__cat:${cat}" "$bar" "$arrow" "$name" "$extra"
@@ -2449,10 +2508,10 @@ detected_source_summary() {
   local total apps npm uv path
   total="$(awk -F '\t' '$2=="detected" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
   apps="$(awk -F '\t' '$2=="detected" && $6=="app bundle" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
-  npm="$(awk -F '\t' '$2=="detected" && $6 ~ /^npm / {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
+  npm="$(awk -F '\t' '$2=="detected" && $6 ~ /^npm( |$)/ {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
   uv="$(awk -F '\t' '$2=="detected" && $6=="uv tool" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
   path="$(awk -F '\t' '$2=="detected" && $6=="PATH executable" {n++} END {print n+0}' "$INVENTORY_INDEX" 2>/dev/null)"
-  printf '%s detected software · %s apps · %s npm · %s uv · %s PATH' "$total" "$apps" "$npm" "$uv" "$path"
+  printf '%s found · %s apps · %s JavaScript packages · %s Python tools · %s commands' "$total" "$apps" "$npm" "$uv" "$path"
 }
 
 brew_is_library() {
@@ -2701,7 +2760,7 @@ format_brew_extra_display() {
       *) label="${label} · already on your Mac, not via Homebrew" ;;
     esac
   else
-    state_txt=$'\033[38;5;245m'"$(printf '%-10s' "absent · $action")"${reset}
+    state_txt=$'\033[38;5;245m'"$(printf '%-10s' "available · $action")"${reset}
   fi
   id_txt="$(printf '%-18s' "${kind}:${name}")"
   printf '%s     %s %s %s %s' "$bar" "$cat_txt" "$state_txt" "$id_txt" "$label"
@@ -2735,10 +2794,12 @@ scan_brew_index() {
     return 0
   fi
   rm -f "$BREW_AVAILABLE_MARKER"
+  brew_missing_apps_load
   progress_tick "Listing Homebrew apps you already have"
   for name in $AIUP_BREW_CASKS; do
     [ -n "$name" ] || continue
     catalog_covers_brew "$name" && continue
+    brew_missing_app_for_tool "bc:$name" >/dev/null && continue
     child="$(brew_child_for cask "$name" 0)"
     printf '%s\tinstalled\tbc:%s\t%s\n' "$child" "$name" "$(brew_extra_label cask "$name")" >> "$BREW_INDEX"
   done
@@ -2788,7 +2849,7 @@ enter_action_for() {
     __cat:*)
       printf 'reload(%s toggle %s %s)\n' "$fast" "$(shell_quote "$id")" "$query_q"
       ;;
-    di:*)
+    di:*|__updates:status:*)
       printf 'refresh-preview\n'
       ;;
     *)
@@ -2970,7 +3031,7 @@ cmd_docs() {
   local resolved url
   case "$tool" in
     __cat:*) return 0 ;;
-    __updates:all) return 0 ;;
+    __updates:all|__updates:status:*) return 0 ;;
     __update:*)
       resolved="${tool#__update:}"
       [ -n "$resolved" ] && [ "$resolved" != "$tool" ] || return 1
@@ -2981,6 +3042,7 @@ cmd_docs() {
       ;;
     di:*)
       url="$(manual_media_record "$tool" | cut -f7)"
+      if [[ "$tool" == di:path:* ]]; then url="$(path_insights "$INVENTORY_INDEX" | awk -F '\t' -v id="$tool" '$1==id {print $6}')"; fi
       [ -n "$url" ] || url="$(detected_search_url "$tool")"
       if [ "$print_only" -eq 1 ]; then printf '%s\n' "$url"; return 0; fi
       printf 'Opened guidance/search: %s\n' "$url" >/dev/tty
@@ -3584,7 +3646,7 @@ elif checking:
     title = "Updates · checking…"
     if unavailable: title += f" · {unavailable} unavailable to verify"
 elif unavailable:
-    title = f"Updates · {unavailable} unavailable to verify"
+    title = f"Updates · {unavailable} need checking"
 else:
     title = "Updates · all verified items current"
 
@@ -3595,6 +3657,13 @@ if eligible:
 for canonical, installed, available, status, eligibility, lifecycle, action, label, cache_identity in newer:
     review = " · manual review" if eligibility != "eligible" else ""
     rendered.append(f"__update:{canonical}\t{green}▌{reset} {canonical:<18.18} {installed} → {available} · update{review} · {label}\n")
+for canonical, installed, available, status, eligibility, lifecycle, action, label, cache_identity in records:
+    if status not in {"unavailable", "checking"}: continue
+    text = "Could not check for updates" if status == "unavailable" else "Checking for updates…"
+    if status == "unavailable" and canonical in {"brew", "npm", "uv", "grok", "antigravity"}: text = "Checked during a normal update"
+    rendered.append(f"__updates:status:{canonical}\t{dim}▌{reset}     {canonical} · {text}\n")
+if not newer and not checking and not unavailable:
+    rendered.append(f"__updates:status:empty\t{dim}▌{reset}     No updates found in completed checks.\n")
 rendered.append(base_path.read_text(encoding="utf-8"))
 rows_path.write_text("".join(rendered), encoding="utf-8")
 
@@ -4481,6 +4550,111 @@ inventory_scan_uv() {
   done < <(uv tool list 2>/dev/null || true)
 }
 
+# Static metadata only: never execute an unfamiliar command to guess its version.
+path_insights() {
+  python3 - "$1" "${2:-}" "$AIUP_VERSION" "$HOME" <<'PYPATHINFO'
+import csv,json,os,plistlib,re,sys
+from pathlib import Path
+index=Path(sys.argv[1]); mode=sys.argv[2]; home=Path(sys.argv[4])
+def text(path,limit=1048576):
+    try:
+        if path.stat().st_size>limit:return ''
+        return path.read_text(errors='replace')
+    except OSError:return ''
+def plist(path):
+    try:
+        if path.stat().st_size>1048576:return {}
+        return plistlib.loads(path.read_bytes())
+    except (OSError,ValueError):return {}
+def clean(v):return re.sub(r'[\x00-\x1f\x7f-\x9f]',' ',str(v))[:600]
+def info(raw):
+    p=Path(raw)
+    try:r=p.resolve()
+    except (OSError,RuntimeError):r=p
+    n=p.name; rs=str(r)
+    v='not reported';owner='Local command';desc='Command available in your terminal';docs='';guide='Its owner has not been identified; inspect its location before changing it.'
+    # Package ancestry, not executable name, establishes npm ownership.
+    for parent in list(r.parents)[:6]:
+        try:d=json.loads(text(parent/'package.json'))
+        except ValueError:continue
+        if not isinstance(d,dict):continue
+        bins=d.get('bin',{});bins=[bins] if isinstance(bins,str) else list(bins.values()) if isinstance(bins,dict) else []
+        if not any(isinstance(b,str) and (parent/b).resolve()==r for b in bins):continue
+        owner=d.get('name','npm package');v=d.get('version',v);desc=d.get('description') or 'JavaScript package-manager helper'
+        docs=d.get('homepage','');docs=docs if isinstance(docs,str) and docs.startswith('https://') else ''
+        guide='Update through the package manager that owns '+str(parent)+'. This may be a different copy from the one AIUP manages.'
+        if owner=='nativefier':guide='Nativefier is archived. Review the project before replacing or reinstalling it.'
+        return v,owner,desc,guide,docs,str(r)
+    # Helpers inside an app share the app version, not an invented CLI version.
+    app=next((a for a in r.parents if a.suffix=='.app'),None)
+    if app:
+        d=plist(app/'Contents/Info.plist');owner=d.get('CFBundleName',app.stem)
+        v=str(d.get('CFBundleShortVersionString',d.get('CFBundleVersion',v)))+' (app)'
+        desc='Command supplied by '+str(owner);guide='Update the parent app; do not update this helper separately.'
+        if app.name=='Parallels Desktop.app':
+            desc={'prlctl':'Control virtual machines','prlsrvctl':'Manage Parallels settings','prl_disk_tool':'Manage virtual disks','prl_convert':'Convert virtual machines','prl_perf_ctl':'Inspect virtual-machine performance','prlcore2dmp':'Convert diagnostic dumps','prlexec':'Parallels execution helper'}.get(n,desc)
+            docs='https://docs.parallels.com/'
+        elif app.name=='GitHub Desktop.app':docs='https://docs.github.com/en/desktop'
+        return v,owner,desc,guide,docs,str(r)
+    if '/Python.framework/Versions/' in rs:
+        base=Path(rs.split('/bin/')[0]);d=plist(base/'Resources/Info.plist')
+        v=str(d.get('CFBundleVersion',v));owner='Python.org Python'
+        if not n.startswith('python'):v += ' (Python)'
+        desc=('Convert older Python 2 code' if n.startswith('2to3') else 'Python editor and shell' if n.startswith('idle') else 'Install Python packages' if n.startswith('pip') else 'Read Python documentation' if n.startswith('pydoc') else 'Python build settings' if 'config' in n else 'Python interpreter')
+        guide='Part of the Python.org installation. Update Python itself; these are companion commands.';docs='https://docs.python.org/3/using/mac.html'
+    elif '/uv/python/cpython-' in rs:
+        m=re.search(r'cpython-([0-9.]+)-',rs);v=m[1] if m else v;owner='uv-managed Python';desc='Python interpreter installed by uv';guide='Manage this interpreter through uv Python commands.';docs='https://docs.astral.sh/uv/guides/install-python/'
+    elif '/.grok/' in rs and 'grok-' in r.name:
+        m=re.search(r'grok-([0-9.]+)-',r.name);v=m[1] if m else v;owner='Grok';desc='Alternate command for the Grok assistant';guide='Updated with the Grok installation; no separate update needed.';docs='https://x.ai/'
+    elif '/vite-plus/' in rs:
+        m=re.search(r'/vite-plus/([0-9.]+)/',rs);v=m[1] if m else v;owner='Vite+';desc='Web development toolchain';guide='Use the Vite+ installation manager for this copy.';docs='https://viteplus.dev/'
+    elif '/microsoft/powershell/' in rs:
+        try:
+            d=json.loads(text(r.parent/'pwsh.deps.json',4194304));v=next(k.split('/',1)[1] for k in d.get('libraries',{}) if k.startswith('pwsh/'))
+        except (ValueError,StopIteration):pass
+        owner='Microsoft PowerShell';desc='Shell and scripting environment';guide='Update through its original Microsoft installer or package manager.';docs='https://learn.microsoft.com/en-us/powershell/scripting/install/install-powershell-on-macos'
+    else:
+        body=text(r,65536)
+        if n=='aiup' and 'AIUP_SOURCE_PATH' in body:
+            v=sys.argv[3];owner='AIUP';desc='This software updater';guide='The launcher loads AIUP from its configured source.';docs='https://github.com/travisjneuman/aiup'
+        elif n=='npm-update' and 'exec aiup only npm' in body:
+            v='helper';owner='AIUP';desc='Shortcut for updating Node/npm';guide='Runs aiup only npm; it has no independent version.';docs='https://github.com/travisjneuman/aiup'
+        elif n.startswith('codex.pre-') and '@openai/codex' in body:
+            v='saved copy';owner='Saved Codex wrapper';desc='Backup of an older launcher';guide='Not a separate installed product. Review the saved file before removing it.'
+        elif n=='t3code-pi-acp' and 'PI_ACP_PROXY' in body:
+            m=re.search(r'pi-acp ([0-9][^ ]+)',body);v=m[1] if m else 'local helper';owner='Local T3 / Pi integration';desc='Connects T3 Code to Pi';guide='Maintained with the local integration; do not install a similarly named package.'
+        elif n=='repo_sync.py' and 'Repo Sync/bin/repo_sync.py' in rs:
+            v='source managed';owner='Repository Sync';desc='Synchronizes development repositories';guide='Maintained in the local operating-layer repository.'
+        elif n in {'rz0','rz0-updater'}:
+            cargo=text(home/'.cargo/.crates.toml')
+            package='runtime-zero' if n=='rz0' else 'rz0-module-updater'
+            m=re.search(r'"'+package+r' ([^ ]+) \(path\+file://[^\n]+\)"\s*=\s*\["'+n+r'"\]',cargo)
+            if m:v=m[1]+' (registered)';owner='runtime.zero';desc='Local system-management '+('updater' if n.endswith('updater') else 'tool');guide='Source-built package; update through its owning repository.'
+        elif n.startswith('rz0.pre-'):
+            v='saved copy';owner='Possible runtime.zero backup';desc='Filename indicates a saved binary';guide='No independent update; review the backup before removing it.'
+        elif n=='node' and str(p)=='/usr/local/bin/node':
+            d=plist(Path('/var/db/receipts/org.nodejs.node.pkg.plist'));version=d.get('PackageVersion')
+            if version:v=str(version)+' (receipt)';owner='Node.js installer';desc='JavaScript runtime; separate from Homebrew Node';guide='Installer receipt version, not an executed binary check. Review this older installation alongside Homebrew Node.';docs='https://nodejs.org/'
+        elif n in {'yai','uvx'}:
+            try:
+                b=r.read_bytes() if r.stat().st_size<=33554432 else b''
+            except OSError:b=b''
+            if n=='yai' and b'github.com/ekkinox/yai' in b:
+                owner='Yai';desc='AI assistant for terminal commands';guide='Review the upstream release and installation instructions; AIUP has not verified an automatic updater.';docs='https://github.com/ekkinox/yai'
+            elif n=='uvx' and (b'uv tool' in b or b'uv_tool' in b or b'astral-sh/uv' in b or b'Could not determine the location of the `uvx` binary' in b):
+                v='helper';owner='Astral uv';desc='Runs Python tools in isolated environments';guide='Companion to uv; update uv rather than this command separately.';docs='https://docs.astral.sh/uv/guides/tools/'
+    return v,owner,desc,guide,docs,str(r)
+rows=list(csv.reader(index.read_text().splitlines(),delimiter='\t'))
+for row in rows:
+    if len(row)<7 or not row[2].startswith('di:path:'):continue
+    values=tuple(clean(v) for v in info(row[6]))
+    if mode=='enrich':row[4]=values[0];row[3]='[path] '+row[2][8:]+' — '+values[2]
+    else:print('\t'.join((row[2],)+values))
+if mode=='enrich':
+    with index.open('w') as handle:csv.writer(handle,delimiter='\t',lineterminator='\n').writerows(rows)
+PYPATHINFO
+}
+
 inventory_scan_path_bins() {
   local dir path binary seen_dirs='|'
   local -a path_dirs=()
@@ -4529,6 +4703,7 @@ scan_inventory_index() {
   inventory_scan_npm
   inventory_scan_uv
   inventory_scan_path_bins
+  path_insights "$INVENTORY_INDEX" enrich
   mv "$temp_index" "$final_index" || {
     rm -f "$temp_index"
     INVENTORY_INDEX="$final_index"
@@ -4574,7 +4749,7 @@ inventory_source_fingerprint() {
   ensure_system_npm_prefix
   uv_root="$(uv tool dir 2>/dev/null || true)"
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$PATH" \
+    "$AIUP_VERSION:$PATH" \
     "$(inventory_stat_mtime /Applications)" \
     "$(inventory_stat_mtime "$HOME/Applications")" \
     "$(npm_inventory_stamp)" \
@@ -5024,12 +5199,13 @@ tui_preview_static_render() {
   policies="$(preferences reasons)" || return 1
   local fixture_apps="${AIUP_CAPTURE_FIXTURE_DIR:-}/apps.tsv"
   [ -f "$fixture_apps" ] || fixture_apps=/dev/null
-  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$BREW_INDEX" "$INVENTORY_INDEX" "$VERSIONS_INDEX" "$1" "$2" "$3" "$fixture_apps" "$policies" "$MANUAL_MEDIA_ROWS" <<'PY'
+  python3 - "$CATALOG_MANIFEST" "$CATALOG_INDEX" "$BREW_INDEX" "$INVENTORY_INDEX" "$VERSIONS_INDEX" "$1" "$2" "$3" "$fixture_apps" "$policies" "$MANUAL_MEDIA_ROWS" "$(path_insights "$INVENTORY_INDEX")" <<'PY'
 import csv, pathlib, sys
 from urllib.parse import quote_plus
 manifest_path, state_path, brew_path, inventory_path, versions_path, output_path, remote_path, docs_path, apps_path = map(pathlib.Path, sys.argv[1:10])
 policies=dict(line.split("\t",1) for line in sys.argv[10].splitlines() if "\t" in line)
 manual={r[0]:r for r in csv.reader(sys.argv[11].splitlines(),delimiter="\t") if len(r)==7}
+path_info={r[0]:r for r in csv.reader(sys.argv[12].splitlines(),delimiter="\t") if len(r)==7}
 states = {}
 with state_path.open(encoding="utf-8") as handle:
     for row in csv.reader(handle, delimiter="\t"):
@@ -5123,14 +5299,17 @@ with inventory_path.open(encoding="utf-8") as handle:
         if len(row) < 7: continue
         category, state, item_id, label, version, source, item_path = row[:7]
         name = label.split("] ", 1)[-1] if "] " in label else label
-        add(item_id, f"{item_id} · detected-only · not managed by aiup", f"item     {name} · {version or 'unknown'}",
-            "action   inspect only · no verified aiup updater/remover contract", f"found via {source}", f"location {item_path}",
-            "keys     ctrl-o search · ctrl-y copy URL · ctrl-/ hide")
+        add(item_id, f"{item_id} · updates handled elsewhere", f"item     {name} · {version or 'unknown'}",
+            "action   View details; use the owning app or package manager to update", f"found via {source}", f"location {item_path}",
+            "keys     ctrl-o guidance · ctrl-y copy URL · ctrl-/ hide")
         query = f"{name} {version or 'unknown'} {source} {item_path}"
         if item_id in manual:
             m=manual[item_id]
             preview[item_id] += ["coverage manual update · media · "+m[4], "next     "+m[5], "docs     "+m[6]]
-        docs_rows.append((item_id, manual[item_id][6] if item_id in manual else "https://www.google.com/search?q=" + quote_plus(query)))
+        if item_id in path_info:
+            m=path_info[item_id]
+            preview[item_id] += ["owner    "+m[2], "about    "+m[3], "next     "+m[4], "docs     "+m[5], "resolves "+m[6]]
+        docs_rows.append((item_id, path_info[item_id][5] if item_id in path_info and path_info[item_id][5] else manual[item_id][6] if item_id in manual else "https://www.google.com/search?q=" + quote_plus(query)))
 with output_path.open("w", encoding="utf-8", newline="") as handle:
     writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
     for item_id, lines in preview.items():
@@ -5257,6 +5436,7 @@ def emit_rows(query=""):
                 show = bool(query) or category in opened
                 if (filt == "homebrew" or filt.startswith("homebrew/") or view == "available") and category.startswith("homebrew"):
                     show = True
+                line = line.replace("▸", "▾" if show else "▸", 1).replace("▾", "▾" if show else "▸", 1)
                 lines.append(line)
             elif show: lines.append(line)
     if query.strip():
@@ -5305,6 +5485,20 @@ def preview(item):
         print(f"state     {'expanded' if is_open else 'collapsed'}")
         print(f"action    {'collapse' if is_open else 'expand'} this category")
         print("keys     enter/ctrl-e toggle · pgup/pgdn category · ctrl-g jump")
+        return
+    if item.startswith("__updates:status:"):
+        canonical = item[len("__updates:status:"):]
+        row = next((r for r in UPDATE_ROWS if r[0] == canonical), None)
+        if row:
+            print(f"tool      {canonical}")
+            print("status    Could not verify an available update" if row[3] == "unavailable" else "status    Checking for updates")
+            print("meaning   This does not mean the tool is broken or up to date.")
+            if canonical in {"brew", "npm", "uv", "grok", "antigravity"}:
+                print("reason    A separate read-only update check is not implemented for this tool.")
+                print("next      Its normal updater runs when you run aiup.")
+            else: print(f"next      Retry with: aiup check --refresh {canonical}")
+        else: print("No updates found in completed checks.")
+        print("action    Information only; no update will start from this row.")
         return
     if item == "__updates:all":
         eligible = [row for row in UPDATE_ROWS if row[3] == "newer" and row[4] == "eligible"]
@@ -7001,6 +7195,7 @@ update_report_begin() {
     printf '\naiup · tool operations\n\n' >&4
   fi
   printf '  Reading installed versions…\n' >&4
+  brew_missing_apps_load
   brew_cache_load
   ensure_system_npm_prefix
   profile_mark "inventory providers"
@@ -7105,7 +7300,7 @@ print_update_report() {
 import sys, re, textwrap, json, os, time
 from pathlib import Path
 from collections import Counter
-color, width, seconds, logfile, mode, save_only = sys.argv[1:]
+color, width, seconds, logfile, mode, save_only, show_all = sys.argv[1:]
 color = color == "1"
 width = max(30, min(int(width or 80), 140))
 def ink(text, code):
@@ -7123,7 +7318,7 @@ for line in sys.stdin:
     tool, status, before, after, category, note = map(clean, fields[:6])
     start, end, warning = map(int, fields[6:9]) if len(fields) >= 9 else (0, 0, 0)
     before, after = version(before), version(after)
-    known = lambda v: bool(re.match(r"\d+\.\d+", v))
+    known = lambda v: bool(re.fullmatch(r"(?:v?\d[0-9A-Za-z._,+-]*|r\d+)", v))
     if mode == "update" and status in ("completed", "current"):
         if before == "not installed" and known(after): status = "installed"
         elif known(before) and known(after): status = "unchanged" if before == after else "updated"
@@ -7146,6 +7341,11 @@ if mode == "update":
         json.dump(data, handle, indent=2)
     os.replace(temp, target)
 if save_only: raise SystemExit(0)
+hidden = 0
+if mode == "update" and show_all != "1":
+    visible = {t:r for t,r in rows.items() if r[0] != "unchanged" or r[8] or r[3]}
+    hidden = len(rows) - len(visible)
+else: visible = rows
 if warning_count: counts["with warnings"] = warning_count
 print("\n" + ink("  aiup · " + ("update check" if mode == "check" else "results"), "1;38;5;141"))
 for part in textwrap.wrap(" · ".join(str(n)+" "+state for state,n in counts.items()) + " · " + seconds + "s", width-4):
@@ -7154,7 +7354,7 @@ print(ink("  " + "─" * (width-4), "38;5;60"))
 tool_width = min(32, max(19, max((len(t)+2 for t in rows), default=19)))
 if width >= 76:
     print(ink("  " + "TOOL".ljust(tool_width) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
-for tool, (status, versions, category, note, before, after, start, end, warning, duration) in rows.items():
+for tool, (status, versions, category, note, before, after, start, end, warning, duration) in visible.items():
     code = "38;2;57;255;20" if status in ("updated", "installed", "update") else "38;5;245"
     if status in ("failed", "unverified"): code = "38;5;203"
     elif status in ("skipped", "planned"): code = "38;5;220"
@@ -7176,11 +7376,12 @@ for tool, (status, versions, category, note, before, after, start, end, warning,
     if note:
         for part in textwrap.wrap(note, width-6): print(ink("      " + part, "38;5;220"))
 print(ink("  " + "─" * (width-4), "38;5;60"))
+if hidden: print(ink(f"  {hidden} unchanged tools hidden · use --show-unchanged for the full list", "38;5;245"))
 if mode == "update":
     print(ink("  Run log: " + logfile, "38;5;245"))
 else:
     print(ink("  Read-only check · no tools changed", "38;5;245"))
-' "$color" "$width" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" "$UPDATE_REPORT_LOG" "$UPDATE_REPORT_MODE" "${1:-}"
+' "$color" "$width" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" "$UPDATE_REPORT_LOG" "$UPDATE_REPORT_MODE" "${1:-}" "${AIUP_SHOW_UNCHANGED:-0}"
   [ -z "${1:-}" ] || return 0
   rm -f "${UPDATE_REPORT_LOG}.active"
   if [ "$UPDATE_REPORT_MODE" = check ]; then rm -f "$UPDATE_REPORT_LOG"; fi
@@ -7189,7 +7390,7 @@ else:
 
 run_tool_update_impl() {
   local tool="$1"
-  local result_kind policy
+  local result_kind policy missing_app
   policy="$(policy_reason "$tool")" || { append_failure "$tool"; return 1; }
   if [ -n "$policy" ]; then
     UPDATE_REPORT_NOTE="$policy"
@@ -7197,6 +7398,12 @@ run_tool_update_impl() {
     result_record skipped "$tool"
     info "$tool: $policy"
     tool_is_present "$tool" || { append_failure "$tool"; return 1; }
+    return 0
+  fi
+  if missing_app="$(brew_missing_app_for_tool "$tool")"; then
+    UPDATE_REPORT_NOTE="App removed: $missing_app. Homebrew still has an installation record; nothing was reinstalled."
+    update_status_set skipped
+    result_record skipped "$tool"
     return 0
   fi
   if update_tool_confirmed_current "$tool"; then
@@ -7535,11 +7742,12 @@ print_inventory_definition() {
     return 0
   fi
   manual_media_load
-  python3 - "$INVENTORY_INDEX" "$MANUAL_MEDIA_ROWS" <<'PY'
+  python3 - "$INVENTORY_INDEX" "$MANUAL_MEDIA_ROWS" "$(path_insights "$INVENTORY_INDEX")" <<'PY'
 import json, sys, csv
 from urllib.parse import quote_plus
 items = []
 manual={r[0]:r for r in csv.reader(sys.argv[2].splitlines(),delimiter="\t") if len(r)==7}
+path_info={r[0]:r for r in csv.reader(sys.argv[3].splitlines(),delimiter="\t") if len(r)==7}
 with open(sys.argv[1], encoding="utf-8") as handle:
     for line in handle:
         parts = line.rstrip("\n").split("\t")
@@ -7569,8 +7777,10 @@ with open(sys.argv[1], encoding="utf-8") as handle:
             "search": "https://www.google.com/search?q=" + quote_plus(query),
             "management": "manual" if item_id in manual else "detected-only",
             "category_hint": "media" if item_id in manual else None,
-            "update_guidance": manual[item_id][5] if item_id in manual else None,
-            "docs": manual[item_id][6] if item_id in manual else None,
+            "update_guidance": path_info[item_id][4] if item_id in path_info else manual[item_id][5] if item_id in manual else None,
+            "docs": path_info[item_id][5] if item_id in path_info else manual[item_id][6] if item_id in manual else None,
+            "owner": path_info[item_id][2] if item_id in path_info else None,
+            "description": path_info[item_id][3] if item_id in path_info else None,
         })
 json.dump({"name": "aiup", "items": items}, sys.stdout, indent=2, ensure_ascii=False)
 sys.stdout.write("\n")
@@ -8804,6 +9014,9 @@ check_tool_status() {
   CHECK_NOTE='No read-only provider contract; the normal updater remains available.'
   policy="$(policy_reason "$tool")" || { CHECK_NOTE='Preferences could not be read; resolve before updating.'; return 1; }
   if [ -n "$policy" ]; then CHECK_STATUS=skipped; CHECK_NOTE="$policy"; return 0; fi
+  if brew_missing_app_for_tool "$tool" >/dev/null; then
+    CHECK_STATUS=skipped; CHECK_NOTE='App removed; only its Homebrew installation record remains.'; return 0
+  fi
   kind="$(catalog_kind "$tool")"
   method="$(install_method_of "$tool")"
   if [ "$current" = 'not installed' ]; then
@@ -9045,6 +9258,7 @@ Options:
   --force                  Run npm/Homebrew updates even when versions are current
   --verbose                Stream detailed updater output as well as the final report
   --dry-run                Print actions without executing them
+  --show-unchanged         Include unchanged tools in the final report
   --no-install             Do not install missing tools; fails if required fzf is absent.
   --heartbeat-seconds N    Override heartbeat interval for this run
   --category CAT           Limit \`aiup list\` to one category
@@ -9222,6 +9436,10 @@ parse_args() {
         ;;
       --force)
         AIUP_FORCE=1
+        shift
+        ;;
+      --show-unchanged)
+        AIUP_SHOW_UNCHANGED=1
         shift
         ;;
       --verbose)

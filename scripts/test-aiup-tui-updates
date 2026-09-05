@@ -108,6 +108,9 @@ for scenario in failure timeout malformed; do
   run_available "$state" "$scenario" gemini 0.10.0
   refresh_updates >/dev/null
   grep -q $'^gemini\t0.10.0\t\tunavailable\t' "$session/updates-index.tsv"
+  grep -q $'^__updates:status:gemini\t' "$session/rows-expanded.tsv"
+  "${session_env[@]}" bash "$runtime" preview __updates:status:gemini > "$TEST_DIR/status-preview"
+  grep -q 'Information only' "$TEST_DIR/status-preview"
 done
 rm -f "$state/available-versions/gemini.tsv"
 refresh_updates >/dev/null

@@ -68,9 +68,15 @@ Normal `aiup`, `aiup full`, `aiup core`, and `aiup check` include installed Home
 
 Installed-version reads run concurrently (two workers by default; bounded to three). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Package mutations remain sequential. Downloads and app shutdown/replacement can still dominate a run; `--timings` exposes those phases.
 
-Each update run ends with one color-coded table: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
+Each update run ends with one color-coded table. Ordinary unchanged rows are hidden by default; warnings, changes, skips, and failures stay visible. Use `aiup --show-unchanged` for the full table; saved history always retains every result.
+
+The table shows: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
 
 Routine installer output is saved in a private run log under `~/.local/share/aiup/logs/`; `aiup --verbose` also streams it. A **!** marks tools with provider warnings even when their version is unchanged. Blocked setup scripts receive an explicit review message and a tool-log command. Dry runs are labeled **planned**, never updated.
+
+A removed app with a leftover Homebrew receipt is skipped with an explanation; AIUP does not silently reinstall it or erase the receipt. The Updates category includes informational rows for checks that could not finish, so an unsuccessful check is visible even when no updates were confirmed.
+
+Category headings use plain-language names and “installed / available to install” counts. Detected commands include owner, description, metadata-based version evidence, and update guidance where recognizable. See [command insights](docs/command-insights.md).
 
 New maintenance controls:
 
@@ -211,7 +217,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-06** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-07** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
