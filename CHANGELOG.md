@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.09.04-06
+
+- Fix default update/check scope to include installed Homebrew extras shown in the picker, with versions and outcomes in the combined report. Keep catalog aliases canonical and leave manual/detected-only software untouched.
+- Read installed versions concurrently, avoid a redundant catalog scan, and reuse the current-run Homebrew snapshot for no-op packages. Preserve sequential mutations and authoritative preflight for actual updates.
+- Support installed Homebrew identities in targeted checks/retries; resolve newer declarative catalog entries by their manifest IDs.
+- Remove an undefined-variable branch in extra dependency resolution; derive its Homebrew prerequisite from its kind.
+
 ## 2026.09.04-05
 
 - Expand to 101 managed tools with 15 reviewed media additions: Draw Things, Superwhisper, Buzz, OBS, Blender, LosslessCut, HandBrake, Shotcut, Kdenlive, Krita, Inkscape, ImageMagick, SoX, yt-dlp, and libvips.

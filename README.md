@@ -54,7 +54,7 @@ aiup list
 
 | You type | What happens |
 |---|---|
-| `aiup` | 🔍 Ensure fzf, scan your Mac → update **installed** tools |
+| `aiup` | 🔍 Ensure fzf → update installed catalog tools **and Homebrew extras** |
 | `aiup list` | 🎛️ Full-screen catalog |
 | `aiup check` | Read-only availability report; accepts optional tool names |
 | `aiup explain remotion` | Show detection, manager, location, and next action |
@@ -63,6 +63,10 @@ aiup list
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup remove grok` | 🗑️ Confirm and remove one managed tool |
 | `aiup doctor` | 🩺 Conflicts and setup warnings; `--details` retains full detection detail |
+
+Normal `aiup`, `aiup full`, `aiup core`, and `aiup check` include installed Homebrew formulae, libraries, fonts, and casks outside the curated catalog. Catalog aliases appear once, retaining their exclusions and holds. Detected-only software and manual-update apps still require their owning updater. `aiup only` and named groups remain scoped.
+
+Installed-version reads run concurrently (two workers by default; bounded to three). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Package mutations remain sequential. Downloads and app shutdown/replacement can still dominate a run; `--timings` exposes those phases.
 
 Each update run ends with one color-coded table: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
 
@@ -207,7 +211,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-05** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-06** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

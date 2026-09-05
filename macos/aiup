@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-05"
+AIUP_VERSION="2026.09.04-06"
 AIUP_TUI_CACHE_SCHEMA="3"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -1226,7 +1226,7 @@ catalog_category() {
       case "$1" in
         bc:*|bf:*)
           if [ -f "$BREW_INDEX" ]; then
-            awk -F '\t' -v id="$1" '$3==id {print $1; exit}' "$BREW_INDEX"
+            awk -F '\t' -v id="$1" '$3==id {print $1; found=1; exit} END {if (!found) print "homebrew"}' "$BREW_INDEX"
           else
             printf 'homebrew\n'
           fi
@@ -1355,6 +1355,7 @@ catalog_lifecycle_note() {
 }
 
 catalog_kind() {
+  case "$1" in bf:*) printf "brew-formula\n"; return ;; bc:*) printf "brew-cask\n"; return ;; esac
   local manifest_kind
   manifest_kind="$(catalog_manifest_field "$1" 3 2>/dev/null || true)"
   [ -n "$manifest_kind" ] && { printf '%s\n' "$manifest_kind"; return 0; }
@@ -1411,13 +1412,6 @@ ensure_catalog_deps() {
   for tool in "$@"; do
     policy="$(policy_reason "$tool")" || return 1
     [ -z "$policy" ] || continue
-    case "$tool" in
-      bc:*|bf:*)
-        case "$selected" in
-          *'|brew|'*) case "$seen" in *'|brew|'*) ;; *) seen="${seen}brew|"; ordered+=(brew) ;; esac ;;
-        esac
-        ;;
-    esac
     while IFS= read -r dep; do
       [ -n "$dep" ] || continue
       case "$seen" in
@@ -1509,6 +1503,7 @@ catalog_npm_pkg() {
 
 catalog_brew_formula() {
   case "$1" in
+    bf:*) printf "%s\n" "${1#bf:}" ;;
     n8n) printf 'n8n\n' ;;
     uv) printf 'uv\n' ;;
     goose) printf 'block-goose-cli\n' ;;
@@ -1519,6 +1514,7 @@ catalog_brew_formula() {
 
 catalog_brew_cask() {
   case "$1" in
+    bc:*) printf "%s\n" "${1#bc:}" ;;
     cursor) printf 'cursor-cli\n' ;;
     *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
@@ -4194,6 +4190,7 @@ preferred_method_of() {
 }
 
 tool_is_present() {
+  case "$1" in bf:*) brew_formula_installed "${1#bf:}"; return ;; bc:*) brew_cask_installed "${1#bc:}"; return ;; esac
   local tool="$1"
   local bin cmd expected
   bin="$(binary_of_tool "$tool")"
@@ -7007,11 +7004,29 @@ update_report_begin() {
   brew_cache_load
   ensure_system_npm_prefix
   profile_mark "inventory providers"
-  for tool in "$@"; do
-    version='not installed'
-    if tool_is_present "$tool"; then version="$(version_of_tool "$tool")"; fi
-    UPDATE_REPORT_TOOLS+=("$tool")
-    UPDATE_REPORT_BEFORE+=("${version:-unknown}")
+  # Read-only workers inherit one provider inventory; deterministic merge order.
+  local -a selected=("$@") workers=()
+  local offset i pid file saved_traps
+  saved_traps="$(trap -p INT TERM HUP)"
+  trap 'for pid in "${workers[@]}"; do kill "$pid" 2>/dev/null || true; done; wait 2>/dev/null || true; rm -f "${UPDATE_REPORT_LOG}".version.* "${UPDATE_REPORT_LOG}.active"; exit 130' INT TERM HUP
+  for ((offset=0; offset<TUI_PREFETCH_WORKERS; offset++)); do
+    (
+      for ((i=offset; i<${#selected[@]}; i+=TUI_PREFETCH_WORKERS)); do
+        tool="${selected[$i]}"; version='not installed'
+        if tool_is_present "$tool"; then version="$(version_of_tool "$tool")"; fi
+        printf '%s\n' "${version:-unknown}" > "${UPDATE_REPORT_LOG}.version.$i"
+      done
+    ) & workers+=("$!")
+  done
+  for pid in "${workers[@]}"; do wait "$pid" || true; done
+  trap - INT TERM HUP
+  [ -z "$saved_traps" ] || eval "$saved_traps"
+  for ((i=0; i<${#selected[@]}; i++)); do
+    file="${UPDATE_REPORT_LOG}.version.$i"
+    version=unknown
+    if [ -f "$file" ]; then version="$(cat "$file")"; rm -f "$file"; fi
+    UPDATE_REPORT_TOOLS+=("${selected[$i]}")
+    UPDATE_REPORT_BEFORE+=("$version")
   done
   profile_mark "installed versions"
 }
@@ -7068,8 +7083,10 @@ run_tool_update() {
   profile_mark "update $tool"
   update_report_warnings
   UPDATE_REPORT_WARNINGS=$((UPDATE_REPORT_WARNINGS + UPDATE_REPORT_WARNING))
-  brew_cache_invalidate
-  brew_cache_load
+  if [ "$rc" -ne 0 ] || [ "$AIUP_LAST_UPDATE_STATUS" != current ]; then
+    brew_cache_invalidate
+    brew_cache_load
+  fi
   if [ "$rc" -eq 0 ]; then
     update_report_record "$tool" "$AIUP_LAST_UPDATE_STATUS"
   else
@@ -7134,19 +7151,25 @@ print("\n" + ink("  aiup · " + ("update check" if mode == "check" else "results
 for part in textwrap.wrap(" · ".join(str(n)+" "+state for state,n in counts.items()) + " · " + seconds + "s", width-4):
     print(ink("  " + part, "38;5;245"))
 print(ink("  " + "─" * (width-4), "38;5;60"))
+tool_width = min(32, max(19, max((len(t)+2 for t in rows), default=19)))
 if width >= 76:
-    print(ink("  " + "TOOL".ljust(19) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
+    print(ink("  " + "TOOL".ljust(tool_width) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
 for tool, (status, versions, category, note, before, after, start, end, warning, duration) in rows.items():
     code = "38;2;57;255;20" if status in ("updated", "installed", "update") else "38;5;245"
     if status in ("failed", "unverified"): code = "38;5;203"
     elif status in ("skipped", "planned"): code = "38;5;220"
     if mode == "update": versions += " · " + str(duration) + "s"
     if warning: status += " !"
-    name = ink(tool.ljust(19) if width >= 76 else tool, category if re.fullmatch(r"[0-9;]+", category) else "38;5;250")
+    name_code = category if re.fullmatch(r"[0-9;]+", category) else "38;5;250"
+    display_tool = tool
+    if width >= 76 and len(tool) >= tool_width:
+        for part in textwrap.wrap(tool, width-4): print("  " + ink(part, name_code))
+        display_tool = ""
+    name = ink(display_tool.ljust(tool_width) if width >= 76 else tool, name_code)
     if width >= 76:
-        parts = textwrap.wrap(versions, max(12,width-36)) or ["unknown"]
+        parts = textwrap.wrap(versions, max(12,width-tool_width-17)) or ["unknown"]
         print("  " + name + ink(status.ljust(13), code) + parts[0])
-        for part in parts[1:]: print(" "*34 + part)
+        for part in parts[1:]: print(" "*(tool_width+15) + part)
     else:
         print("  " + name + "  " + ink(status,code))
         for part in textwrap.wrap(versions, width-6): print("      " + part)
@@ -7176,6 +7199,12 @@ run_tool_update_impl() {
     tool_is_present "$tool" || { append_failure "$tool"; return 1; }
     return 0
   fi
+  if update_tool_confirmed_current "$tool"; then
+    update_status_set current
+    result_record current "$tool"
+    info "$tool is current in this run's Homebrew snapshot"
+    return 0
+  fi
   mutation_authoritative_preflight "$tool update" || return 1
   brew_cache_load
   ensure_system_npm_prefix
@@ -7193,6 +7222,14 @@ run_tool_update_impl() {
     tui_cache_invalidate
     return 1
   fi
+  case "$tool" in
+    bf:*|bc:*)
+      if update_installed_brew_extra "$tool"; then
+        result_record "${AIUP_LAST_UPDATE_STATUS:-completed}" "$tool"
+        return 0
+      fi
+      append_failure "$tool"; return 1 ;;
+  esac
   if type "update_$tool" >/dev/null 2>&1; then
     if "update_$tool"; then
       result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
@@ -8853,7 +8890,7 @@ cmd_check() {
   else
     brew_cache_load
     ensure_system_npm_prefix
-    for tool in "${TOOLS_CATALOG[@]}"; do tool_is_present "$tool" && selected+=("$tool"); done
+    while IFS= read -r tool; do [ -z "$tool" ] || selected+=("$tool"); done < <(installed_update_tools)
   fi
   [ "${#selected[@]}" -gt 0 ] || { printf 'No installed catalog tools found.\n'; return 0; }
   UPDATE_REPORT_MODE=check
@@ -8946,7 +8983,7 @@ usage() {
 aiup $AIUP_VERSION
 
 Usage:
-  aiup                     Scan your Mac and update whatever is already installed
+  aiup                     Update installed catalog tools and Homebrew packages
   aiup coverage             Managed coverage and detected-only gaps
   aiup doctor [--details]   Installation conflicts; --details retains full inventory
   aiup retry                Retry failures in the latest inactive run
@@ -9039,7 +9076,16 @@ resolve_tools() {
       kiro-cli) out+=("kiro") ;;
       kimi-code) out+=("kimi") ;;
       shell-gpt) out+=("sgpt") ;;
-      *) error "Unknown tool: $arg"; return 1 ;;
+      bf:*|bc:*)
+        local name="${arg#*:}"
+        case "$name" in ''|-*|*[!A-Za-z0-9@+._/-]*) error "Invalid Homebrew identity: $arg"; return 1 ;; esac
+        [ "$arg" != bf:node ] || { out+=(npm); continue; }
+        catalog_covers_brew "$name" && { error "Use the catalog ID for $name"; return 1; }
+        tool_is_present "$arg" || { error "Homebrew package is not installed: $arg"; return 1; }
+        out+=("$arg") ;;
+      *)
+        if catalog_manifest_field "$arg" 1 >/dev/null 2>&1; then out+=("$arg")
+        else error "Unknown tool: $arg"; return 1; fi ;;
     esac
   done
   printf '%s\n' "${out[@]}"
@@ -9059,6 +9105,65 @@ should_skip_install_for_missing() {
     return 0
   fi
   return 1
+}
+
+# Only manager-owned installed extras enter the normal run. Keep catalog aliases
+# canonical so holds/exclusions cannot be bypassed by a second Homebrew identity.
+installed_update_tools() {
+  local tool name
+  for tool in "${TOOLS_CATALOG[@]}"; do tool_is_present "$tool" && printf '%s\n' "$tool"; done
+  catalog_brew_index_init
+  # node is owned by the npm updater, not a separate catalog formula.
+  for name in $(printf '%s\n' "$AIUP_BREW_FORMULA_VERSIONS" | awk 'NF {print $1}'); do
+    [ "$name" = node ] && continue
+    catalog_covers_brew "$name" || printf 'bf:%s\n' "$name"
+  done
+  for name in $(printf '%s\n' "$AIUP_BREW_CASK_VERSIONS" | awk 'NF {print $1}'); do
+    catalog_covers_brew "$name" || printf 'bc:%s\n' "$name"
+  done
+}
+
+cmd_update_installed() {
+  local tool
+  local -a selected=()
+  brew_cache_load
+  ensure_system_npm_prefix
+  while IFS= read -r tool; do [ -z "$tool" ] || selected+=("$tool"); done < <(installed_update_tools)
+  update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${selected[@]}" || return 1
+  main_update "${selected[@]}"
+}
+
+update_tool_confirmed_current() {
+  local tool="$1" kind target
+  [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ -n "${_AIUP_BREW_UPDATED:-}" ] || return 1
+  [ "${AIUP_BREW_OUTDATED_READY:-0}" -eq 1 ] || return 1
+  kind="$(catalog_kind "$tool")"
+  case "$tool:$kind" in
+    npm:*) kind=brew-formula; target=node ;;
+    *:brew-formula) target="$(catalog_brew_formula "$tool")" ;;
+    *:brew-cask) target="$(catalog_brew_cask "$tool")" ;;
+    *) return 1 ;;
+  esac
+  case "$kind" in
+    brew-formula) brew_formula_installed "$target" || return 1; brew_target_current formula "$target" ;;
+    brew-cask) brew_cask_installed "$target" || return 1; brew_target_current cask "$target" ;;
+  esac
+}
+
+update_installed_brew_extra() {
+  local tool="$1" name="${1#*:}"
+  tool_is_present "$tool" || { update_status_set skipped; UPDATE_REPORT_NOTE='No longer installed through Homebrew'; return 0; }
+  brew_update_once || return 1
+  case "$tool" in
+    bf:*)
+      if brew_target_current formula "$name"; then update_status_set current; return 0; fi
+      brew_ensure_target_tap "" "$name" formula || return 1
+      run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew upgrade --formula --yes "$name" ;;
+    bc:*)
+      if brew_target_current cask "$name"; then update_status_set current; return 0; fi
+      brew_ensure_target_tap "" "$name" cask || return 1
+      run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --greedy --yes "$name" ;;
+  esac
 }
 
 main_update() {
@@ -9182,37 +9287,13 @@ parse_args() {
   fi
 
   if [ "${#args[@]}" -eq 0 ]; then
-    update_report_begin "${TOOLS_CATALOG[@]}" || return 1
-    ensure_required_tools_present || return 1
-    local -a present=()
-    local line
-    while IFS= read -r line; do
-      [ -n "$line" ] && present+=("$line")
-    done < <(scan_installed_tools)
-    if [ "${#present[@]}" -eq 0 ]; then
-      error "No catalog tools are installed"
-      return 1
-    fi
-    info "Scan present: ${present[*]}"
-    main_update "${present[@]}"
+    cmd_update_installed
     return $?
   fi
 
   case "${args[0]}" in
     full|core)
-      update_report_begin "${TOOLS_CATALOG[@]}" || return 1
-      ensure_required_tools_present || return 1
-      local -a present=()
-      local line
-      while IFS= read -r line; do
-        [ -n "$line" ] && present+=("$line")
-      done < <(scan_installed_tools)
-      if [ "${#present[@]}" -eq 0 ]; then
-        error "No catalog tools are installed"
-        return 1
-      fi
-      info "Scan present: ${present[*]}"
-      main_update "${present[@]}"
+      cmd_update_installed
       ;;
     only)
       if [ "${#args[@]}" -lt 2 ]; then

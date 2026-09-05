@@ -29,6 +29,7 @@ version_of_tool() {
     *) printf '1.0.0\n' ;;
   esac
 }
+update_installed_brew_extra() { update_by_kind "$1"; }
 update_by_kind() {
   case "$1" in
     changed) changed_version=2.0.0 ;;
@@ -39,8 +40,8 @@ update_by_kind() {
   printf 'routine provider chatter\n'
 }
 changed_version=1.0.0
-update_report_begin changed same skipped failed unknown warning
-for tool in changed same skipped failed unknown warning; do run_tool_update "$tool" || true; done
+update_report_begin changed same skipped failed unknown warning bc:font-sketchybar-app-font
+for tool in changed same skipped failed unknown warning bc:font-sketchybar-app-font; do run_tool_update "$tool" || true; done
 print_update_report
 DRY_RUN=1
 UPDATE_REPORT_ROWS=()
@@ -60,6 +61,8 @@ with tempfile.TemporaryDirectory(prefix='.aiup-report-', dir=root) as folder:
                  'Not managed by this provider', 'failed', 'unverified',
                  'Setup scripts need review', 'planned'):
         assert text in out, (text, out)
+    assert 'bc:font-sketchybar-app-font  ' in out, out
+    assert 'font-sketchybar-app-fontunchanged' not in out
     assert 'Detected tool versions' not in out
     assert 'routine provider chatter' not in out
     assert '\x1b' not in out

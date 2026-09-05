@@ -134,3 +134,78 @@ brew_target_current formula gh && echo CURRENT || echo UPDATE
     assert 'DEMO DETAIL' in output and 'before\n' not in output and 'after\n' not in output, output
     assert '! warning' in run('run_history history demo\n')
     print('PASS: bounded completed history preserves active runs/symlinks; tool logs use exact byte ranges')
+
+    # Owner-reported scope mismatch: default updater must include the same
+    # installed Homebrew extras the picker can offer, without duplicate aliases.
+    scope = r'''
+AIUP_BREW_CACHE_READY=1
+AIUP_BREW_FORMULA_VERSIONS=$'fzf 0.74.3\nnode 24.0.0\natuin 18.20.1\npcre2 10.47\n'
+AIUP_BREW_CASK_VERSIONS=$'chatgpt 1.0.0\nfont-sketchybar-app-font 2.0.83\n'
+AIUP_BREW_FORMULAE=' fzf node atuin pcre2 '
+AIUP_BREW_CASKS=' chatgpt font-sketchybar-app-font '
+catalog_manifest_load || exit 1
+ensure_system_npm_prefix() { :; }
+command_exists() { [ "$1" = brew ]; }
+# Constrain only catalog detection; extra identity detection remains real below.
+TOOLS_CATALOG=(fzf npm chatgpt)
+installed_update_tools
+'''
+    values = run(scope, AIUP_CATALOG_MANIFEST=str(root/'macos/catalog/manifest.tsv'))
+    assert 'bf:atuin' in values and 'bf:pcre2' in values and 'bc:font-sketchybar-app-font' in values, values
+    assert 'bf:fzf' not in values and 'bc:chatgpt' not in values and 'bf:node' not in values, values
+    print('PASS: installed Homebrew extras join default scope without catalog/node duplicates')
+
+    # Exercise the normal dispatch + report with real generic identity/version
+    # functions, while all manager commands are replaced with local stubs.
+    integration = scope[:scope.index('installed_update_tools\n')] + r'''
+ensure_managed_paths() { :; }
+mutation_authoritative_preflight() { :; }
+tui_cache_invalidate() { :; }
+brew_cache_invalidate() { :; }
+policy_reason() { [ "$1" != bf:pcre2 ] || echo 'Held by fixture'; }
+brew_update_once() { _AIUP_BREW_UPDATED=1; }
+brew_ensure_target_tap() { :; }
+ensure_required_tools_present() { :; }
+run_with_heartbeat() {
+  printf '%s\n' "$*" >> "$CALLS"
+  case "$*" in
+    *--formula*) AIUP_BREW_FORMULA_VERSIONS=$'fzf 0.74.3\nnode 24.0.0\natuin 18.21.0\npcre2 10.47\n' ;;
+    *--cask*) return 42 ;;
+  esac
+}
+_AIUP_BREW_UPDATED=1
+AIUP_BREW_OUTDATED_READY=1
+AIUP_BREW_OUTDATED_TARGETS='|formula:atuin|formula:pcre2|cask:font-sketchybar-app-font|'
+AIUP_REQUIRED_UPDATED='|fzf|'
+update_report_begin bf:atuin bf:pcre2 bf:node bc:font-sketchybar-app-font
+main_update bf:atuin bf:pcre2 bf:node bc:font-sketchybar-app-font || :
+'''
+    (folder/'calls').write_text('')
+    output=run(integration, AIUP_CATALOG_MANIFEST=str(root/'macos/catalog/manifest.tsv'))
+    calls=(folder/'calls').read_text()
+    assert '18.20.1 → 18.21.0' in output and 'failed' in output and 'Held by fixture' in output, output
+    assert calls.count('brew upgrade') == 4 and 'pcre2' not in calls and 'node' not in calls, calls
+    assert 'install ' not in calls and '--greedy' in calls, calls
+    print('PASS: normal report includes extra transitions/failures; holds and current packages avoid mutations')
+
+    parallel = r'''
+UPDATE_REPORT_MODE=check
+brew_cache_load() { :; }
+ensure_system_npm_prefix() { :; }
+tool_is_present() { return 0; }
+version_of_tool() {
+  touch "$AIUP_STATE_DIR/$1.started"
+  local other=one
+  [ "$1" != one ] || other=two
+  local n=0
+  while [ ! -f "$AIUP_STATE_DIR/$other.started" ] && [ "$n" -lt 30 ]; do sleep 0.05; n=$((n+1)); done
+  [ -f "$AIUP_STATE_DIR/$other.started" ] || { echo serial; return; }
+  printf '1.0.0\n'
+}
+update_report_begin one two
+printf '%s\n' "${UPDATE_REPORT_BEFORE[@]}"
+'''
+    output=run(parallel)
+    assert output.count('1.0.0') == 2 and 'serial' not in output, output
+    assert not list(logs.glob('*.version.*'))
+    print('PASS: version reads overlap, merge in order, and remove their worker files')

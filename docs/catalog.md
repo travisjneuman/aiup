@@ -1,4 +1,4 @@
-# Catalog (2026.09.04-05)
+# Catalog (2026.09.04-06)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
