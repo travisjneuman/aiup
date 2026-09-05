@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-09"
+AIUP_VERSION="2026.09.04-10"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -796,32 +796,95 @@ brew_missing_apps_load() {
   [ "${AIUP_MISSING_APPS_READY:-0}" -eq 0 ] || return 0
   AIUP_MISSING_APPS_READY=1
   AIUP_MISSING_APPS=''
+  AIUP_MOVED_APPS=''
   capture_fixture_enabled && return 0
   command_exists brew || return 0
   local raw
   ensure_dir "$STATE_DIR"
   raw="$(mktemp "$STATE_DIR/.cask-apps.XXXXXX")" || return 1
   if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --cask --json=v2 --installed; then
-    AIUP_MISSING_APPS="$(python3 - "$raw" <<'PYMISSING'
-import json,sys
+    AIUP_MISSING_APPS="$(python3 - "$raw" "$STATE_DIR" <<'PYMISSING'
+import json,sys,os,plistlib,tempfile,subprocess
 from pathlib import Path
+root=Path(sys.argv[2]) if len(sys.argv)>2 else None
+ledger=root/'app-ownership.json' if root else None
+old={}
+if ledger and (root.is_symlink() or ledger.is_symlink()): raise SystemExit('Unsafe ownership path; cleanup unavailable')
 try:
-    data=json.loads(Path(sys.argv[1]).read_text())
+    if ledger and ledger.exists(): old=json.loads(ledger.read_text())
+    if not isinstance(old,dict): raise ValueError()
+except (ValueError,OSError): raise SystemExit('Ownership history unreadable; cleanup unavailable')
+def bundle(path):
+    try:
+        p=path/'Contents/Info.plist'
+        if p.stat().st_size>1048576:return ''
+        return plistlib.loads(p.read_bytes()).get('CFBundleIdentifier','')
+    except (OSError,ValueError,plistlib.InvalidFileException):return ''
+# Scan bounded common app locations once, never launch apps. Stop at app bundles.
+locations=[];scan_errors=[]
+for base in [Path('/Applications'),Path.home()/'Applications',Path.home()/'Desktop',Path.home()/'Downloads'] if root else []:
+    for current,dirs,files in os.walk(base,onerror=lambda e: scan_errors.append(str(e)) if e.errno!=2 else None):
+        depth=len(Path(current).relative_to(base).parts)
+        for name in list(dirs):
+            if name.endswith('.app'):
+                path=Path(current)/name;locations.append((path,bundle(path)));dirs.remove(name)
+        if depth>=2:dirs[:]=[]
+        if len(locations)>2000:scan_errors.append('App scan limit reached');break
+try:
+    data=json.loads(Path(sys.argv[1]).read_text()); moved=[]
     for cask in data.get("casks",[]):
         if not cask.get("installed"): continue
+        token=cask['token']; prior=old.get(token,{})
         apps=[a for a in cask.get("artifacts",[]) if "app" in a]
         targets=[Path(a["target"]) for a in apps if isinstance(a.get("target"),str)]
-        # A partially present multi-app cask is not an abandoned installation.
+        ids=set(prior.get('bundle_ids',[]))
+        ids.update(filter(None,(bundle(p) for p in targets if p.exists())))
+        old[token]={'manager':'Homebrew','version':cask['installed'],'paths':list(map(str,targets)),
+                    'bundle_ids':sorted(ids),'last_seen':__import__('time').time()}
         if apps and len(targets)==len(apps) and all(
-            p.is_absolute() and p.suffix==".app" and not p.exists() and not p.is_symlink()
-            for p in targets
+            p.is_absolute() and p.suffix==".app" and not p.exists() and not p.is_symlink() for p in targets
         ):
-            print(cask["token"],str(targets[0]),sep="\t")
+            names={p.name for p in targets}
+            matches=[str(p) for p,bid in locations if p.name in names or bid and bid in ids]
+            if scan_errors:matches.append('App location scan incomplete; review manually')
+            # Spotlight may locate a renamed/moved app outside the common roots.
+            if root and ids and not matches:
+                for bid in ids:
+                    if not __import__('re').fullmatch(r'[A-Za-z0-9._-]+',bid):continue
+                    try:
+                        out=subprocess.run(['/usr/bin/mdfind',"kMDItemCFBundleIdentifier == '"+bid+"'"],capture_output=True,text=True,timeout=2)
+                        if out.returncode:matches.append('Location check unavailable; review manually')
+                        matches.extend(p for p in out.stdout.splitlines()[:100] if Path(p).is_dir())
+                    except (OSError,subprocess.TimeoutExpired):
+                        matches.append('Location check unavailable; review manually')
+            if matches:moved.append({'tool':'bc:'+token,'locations':matches})
+            else:print(token,str(targets[0]),sep="\t")
+    if ledger:
+        for destination,content in [(ledger,old),(root/'moved-apps.json',moved)]:
+            if destination.is_symlink():raise ValueError('Unsafe metadata path')
+            fd,name=tempfile.mkstemp(prefix='.ownership-',dir=root)
+            with os.fdopen(fd,'w') as f:json.dump(content,f)
+            os.replace(name,destination)
 except (ValueError,TypeError,KeyError,OSError): pass
+
 PYMISSING
 )"
   fi
   rm -f "$raw"
+  if [ -f "$STATE_DIR/moved-apps.json" ] && [ ! -L "$STATE_DIR/moved-apps.json" ]; then
+    AIUP_MOVED_APPS="$(python3 - "$STATE_DIR/moved-apps.json" <<'PYMOVED'
+import json,sys
+for row in json.load(open(sys.argv[1])): print(row['tool'], '; '.join(row['locations']),sep='\t')
+PYMOVED
+)"
+  fi
+}
+
+brew_moved_app_for_tool() {
+  [ -n "${AIUP_MOVED_APPS:-}" ] || return 1
+  local moved_id="$1"
+  case "$moved_id" in bc:*) ;; *) moved_id="bc:$(catalog_brew_cask "$1")" ;; esac
+  printf '%s\n' "${AIUP_MOVED_APPS:-}" | awk -F '\t' -v id="$moved_id" '$1==id {print $2;found=1;exit} END {exit !found}'
 }
 
 brew_missing_app_for_tool() {
@@ -1977,7 +2040,7 @@ catalog_header_text() {
   if [ "$columns" -lt 96 ]; then
     printf 'search · enter act · ctrl-/ preview · esc close\n'
   else
-    printf 'search names/aliases · enter act · ctrl-g categories · no match? aiup coverage · esc close\n'
+    printf 'search names/aliases · enter act · ctrl-g categories · issues? aiup attention · esc close\n'
   fi
 }
 
@@ -4375,7 +4438,7 @@ manual_media_in_category() {
 visible_detected_count() {
   local manual=''
   if manual_media_in_category; then manual="$MANUAL_MEDIA_ROWS"; fi
-  awk -F '\t' -v manual="$manual" 'BEGIN {n=split(manual, rows, "\n"); for(i=1;i<=n;i++){split(rows[i],f,"\t"); seen[f[1]]=1}} $2=="detected" && !seen[$3] {count++} END {print count+0}' "$INVENTORY_INDEX"
+  AIUP_MANUAL_ROWS="$manual" awk -F '\t' 'BEGIN {n=split(ENVIRON["AIUP_MANUAL_ROWS"], rows, "\n"); for(i=1;i<=n;i++){split(rows[i],f,"\t"); seen[f[1]]=1}} $2=="detected" && !seen[$3] {count++} END {print count+0}' "$INVENTORY_INDEX"
 }
 
 emit_manual_media_rows() {
@@ -5544,7 +5607,7 @@ def header():
     except ValueError: columns = 100
     if (root/"query").read_text().strip() and not (root/"list.tsv").read_text().strip():
         print("No matches · try a name or alias · aiup coverage shows detection gaps"); return
-    print("search · enter act · ctrl-/ preview · esc close" if columns < 96 else "search names/aliases · enter act · ctrl-g categories · no match? aiup coverage · esc close")
+    print("search · enter act · ctrl-/ preview · esc close" if columns < 96 else "search names/aliases · enter act · ctrl-g categories · issues? aiup attention · esc close")
 def nav(direction, current):
     rows = (root / "list.tsv").read_text(encoding="utf-8").splitlines()
     ids = [line.split("\t", 1)[0] for line in rows]
@@ -6874,7 +6937,7 @@ remove_by_kind() {
 # Preferences are data, never shell code. Atomic writes are serialized separately
 # from package-manager operations; malformed preferences fail closed.
 preferences() {
-  case "$1" in show|reason|reasons|group-read) ;; *)
+  case "$1" in show|reason|reasons|group-read|setting) ;; *)
     if [ "$DRY_RUN" -eq 1 ]; then printf 'DRY-RUN: preferences %s\n' "$*"; return 0; fi ;;
   esac
   python3 - "$STATE_DIR" "$CATALOG_MANIFEST" "$@" <<'PYPREF'
@@ -6884,16 +6947,21 @@ root, manifest, action, *args = sys.argv[1:]
 root=Path(root); path=root/'preferences.json'
 if root.is_symlink() or path.is_symlink(): raise SystemExit('Refusing symbolic-link preferences')
 if action in ('reason','reasons') and not path.exists(): raise SystemExit(0)
-ids={l.split('\t')[0] for l in Path(manifest).read_text().splitlines() if l and not l.startswith('#')}
+manifest_rows=[l.split('\t') for l in Path(manifest).read_text().splitlines() if l and not l.startswith('#')]
+ids={r[0] for r in manifest_rows}
+aliases={('bc:' if r[2]=='brew-cask' else 'bf:')+r[6]:r[0] for r in manifest_rows if len(r)>6 and r[6] and r[2] in ('brew-cask','brew-formula')}
+args=[aliases.get(a,a) for a in args]
+def valid_id(tool): return tool in ids or bool(re.fullmatch(r'b[cf]:[a-z0-9][a-z0-9@+._/-]*',tool))
 def read():
     data=json.loads(path.read_text()) if path.exists() else {'excluded':[], 'holds':{}, 'groups':{}}
     if not isinstance(data,dict) or not isinstance(data.get('excluded'),list) or not isinstance(data.get('holds'),dict) or not isinstance(data.get('groups'),dict): raise ValueError('Invalid preferences')
-    if any(x not in ids for x in data['excluded']): raise ValueError('Unknown excluded tool')
+    if any(not valid_id(x) for x in data['excluded']): raise ValueError('Unknown excluded tool')
     for tool,until in data['holds'].items():
-        if tool not in ids: raise ValueError('Unknown held tool')
+        if not valid_id(tool): raise ValueError('Unknown held tool')
         datetime.date.fromisoformat(until)
     for name,tools in data['groups'].items():
         if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,39}',name) or not isinstance(tools,list) or any(t not in ids for t in tools): raise ValueError('Invalid group')
+    if data.get('cleanup','auto') not in ('auto','review'): raise ValueError('Invalid cleanup setting')
     return data
 def reason(data,tool):
     if tool in data['excluded']: return 'Excluded by preference; aiup include '+tool+' to restore'
@@ -6901,12 +6969,13 @@ def reason(data,tool):
     if until and until>=datetime.date.today().isoformat(): return 'Held through '+until+'; aiup unhold '+tool+' to restore'
     return ''
 try:
-    if action in ('show','reason','reasons','group-read'):
+    if action in ('show','reason','reasons','group-read','setting'):
         data=read()
-        if action=='show': print(json.dumps(data,indent=2))
+        if action=='show': print(json.dumps(dict(data,cleanup=data.get('cleanup','auto')),indent=2))
+        elif action=='setting': print(data.get(args[0], 'auto' if args[0]=='cleanup' else ''))
         elif action=='reason': print(reason(data,args[0]))
         elif action=='reasons':
-            for tool in sorted(ids):
+            for tool in sorted(ids | set(data['excluded']) | set(data['holds'])):
                 if reason(data,tool): print(tool+'\t'+reason(data,tool))
         else:
             if args[0] not in data['groups']: raise ValueError('Unknown group: '+args[0])
@@ -6920,7 +6989,7 @@ try:
         data=read()
         if action in ('exclude','include','hold','unhold'):
             tool=args[0]
-            if tool not in ids: raise ValueError('Use a managed catalog tool ID')
+            if not valid_id(tool): raise ValueError('Use a catalog ID or bf:/bc: Homebrew ID')
             if action=='exclude': data['excluded']=sorted(set(data['excluded']+[tool]))
             elif action=='include': data['excluded']=[t for t in data['excluded'] if t!=tool]
             elif action=='unhold': data['holds'].pop(tool,None)
@@ -6928,6 +6997,10 @@ try:
                 until=datetime.date.fromisoformat(args[1])
                 if until<datetime.date.today(): raise ValueError('Hold date must be today or later')
                 data['holds'][tool]=until.isoformat()
+        elif action=='welcome': data['welcomed']=True
+        elif action=='cleanup':
+            if args[0] not in ('auto','review'): raise ValueError('Choose auto or review')
+            data['cleanup']=args[0]
         elif action=='group-set':
             name=args[0]
             if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,39}',name) or not args[1:] or any(t not in ids for t in args[1:]): raise ValueError('Use a simple group name and managed tool IDs')
@@ -6999,8 +7072,160 @@ for r in gaps if all_rows else gaps[:12]:
     if len(r)>=7: print(f'  {r[3]} · {r[5]} · detected only; updater not reviewed')
 if not all_rows and len(gaps)>12: print(f'  … {len(gaps)-12} more · aiup coverage --all or aiup inventory')
 print(f'\n  {sum(len(r)>2 and r[1]=="installed" for r in brew)} installed Homebrew extras have explicit picker actions.')
-print('  Default updates cover installed catalog tools; detection alone never authorizes updates.')
+print('  Default updates cover installed catalog tools and Homebrew packages; detected-only software remains inspect-only.')
 PYCOVER
+}
+
+# Shared, width-aware presentation for guidance and review commands.
+ui_cards() {
+  python3 -c '
+import os,sys,re,textwrap,shutil
+width=max(32,min(shutil.get_terminal_size((88,24)).columns,110))
+color=sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+def clean(t):return re.sub(r"[\x00-\x1f\x7f-\x9f]","",re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]","",t))
+def ink(t,c):return "\033[38;5;"+c+"m"+t+"\033[0m" if color else t
+print("\n"+ink("  aiup · "+{"attention":"needs attention","owners":"installation ownership","duplicates":"duplicate review"}.get(sys.argv[1],sys.argv[1]),"141"))
+print(ink("  "+"─"*(width-4),"60"))
+for line in sys.stdin:
+    fields=line.rstrip("\n").split("\t",1)
+    title=clean(fields[0]); body=clean(fields[1]) if len(fields)>1 else ""
+    for part in textwrap.wrap(title,width-4):print("  "+ink(part,"81"))
+    for part in textwrap.wrap(body,width-6):print("    "+part)
+    print()
+' "$1"
+}
+
+cmd_welcome() {
+  {
+    printf 'Welcome · maintain your Mac with confidence\tAIUP updates supported installed tools and Homebrew packages. It does not install the entire catalog.\n'
+    printf '1 · Look before changing anything\taiup plan shows intended actions; aiup attention brings problems and next steps together.\n'
+    printf '2 · Choose your cleanup preference\tAutomatic: aiup settings cleanup auto. Review first: aiup settings cleanup review. Cleanup finishes Homebrew uninstall for confirmed missing apps; it does not purge personal preferences.\n'
+    printf '3 · Run maintenance\taiup updates installed tools. Downloads may be needed and app updaters may ask running apps to close. Save your work first.\n'
+    printf '4 · Browse and recover\taiup list browses tools. aiup resume retries unfinished work after interruption. aiup history and aiup cleanup history show saved results.\n'
+    printf 'Make it comfortable\tUse --plain to turn off colors, --show-unchanged for complete results, and aiup settings to review preferences. Status words remain readable without color.\n'
+    printf 'Coverage is explicit\tDetected software is not automatically manageable. aiup owners shows evidence; aiup coverage explains support. No software is removed just because two copies exist.\n'
+  } | ui_cards 'getting started'
+}
+
+cmd_plan() {
+  brew_cache_load; ensure_system_npm_prefix; brew_missing_apps_load
+  local tool policy path mode
+  mode="$(preferences setting cleanup)" || return 1
+  {
+    printf 'Preview only · no packages will change\tThis is an action plan, not a promise that every tool needs an update. Exact download sizes and app restarts depend on each updater. Use aiup check for available-version checks.\n'
+    while IFS= read -r tool; do
+      [ -n "$tool" ] || continue
+      policy="$(policy_reason "$tool")" || return 1
+      if [ -n "$policy" ]; then printf '%s · leave unchanged\t%s\n' "$tool" "$policy"
+      elif path="$(brew_moved_app_for_tool "$tool")"; then printf '%s · review location\t%s; no cleanup or reinstall.\n' "$tool" "$path"
+      elif path="$(brew_missing_app_for_tool "$tool")"; then
+        printf '%s · %s cleanup\tApp already removed: %s. Homebrew uninstall hooks run only in auto mode during aiup; no preference purge.\n' "$tool" "$mode" "$path"
+      else printf '%s · check and update if needed\t%s. Downloads may be required; save work in desktop apps before updating.\n' "$tool" "$(install_method_of "$tool" | sed -e 's/^brew-formula$/Homebrew command-line tools/' -e 's/^brew-cask$/Homebrew apps/' -e 's/^homebrew-node$/Node and npm through Homebrew/' -e 's/^aiup-npm$/AIUP-managed JavaScript tools/' -e 's/^installer$/Official installer or updater/' -e 's/^manual$/Original installation method/')"
+      fi
+    done < <(installed_update_tools)
+  } | python3 -c '
+import sys,collections
+mode=sys.argv[1]; groups=collections.defaultdict(list)
+for line in sys.stdin:
+    title,_,body=line.rstrip("\n").partition("\t")
+    if " · check and update if needed" in title and mode!="--all":groups[body].append(title.split(" · ")[0])
+    else:print(title+"\t"+body)
+for body,names in groups.items():print(str(len(names))+(" tool" if len(names)==1 else " tools")+" · check and update if needed\t"+body+" Examples: "+", ".join(names[:5])+".")
+if groups:print("See each tool\taiup plan --all lists the complete selection.")
+' "${1:-}" | ui_cards 'maintenance plan'
+}
+
+cmd_overview() {
+  local view="$1"
+  scan_catalog_index all || return 1
+  brew_missing_apps_load
+  # Reuse scanned inventory and metadata; never execute discovered commands.
+  python3 - "$view" "$STATE_DIR" "$INVENTORY_INDEX" "$CATALOG_INDEX" "$CATALOG_MANIFEST" "${AIUP_MISSING_APPS:-}" "$(path_insights "$INVENTORY_INDEX")" <<'PYOVERVIEW' | ui_cards "$view"
+import csv,json,os,sys,re,tempfile,time
+from pathlib import Path
+view,root,inventory,catalog,manifest,missing,insights=sys.argv[1:];root=Path(root)
+def read(path,default):
+    path=Path(path)
+    if path.is_symlink():return default
+    try:
+        if path.stat().st_size>4194304:return default
+        return json.loads(path.read_text())
+    except (OSError,ValueError):return default
+def rows(path):
+    return [r for r in csv.reader(Path(path).read_text().splitlines(),delimiter='\t') if r and not r[0].startswith('#')]
+def card(title,body):print(str(title).replace('\t',' ').replace('\n',' '),str(body).replace('\t',' ').replace('\n',' '),sep='\t')
+info={r[0]:r for r in csv.reader(insights.splitlines(),delimiter='\t') if len(r)>=7}
+items=[]
+for r in rows(inventory):
+    if len(r)<7:continue
+    _,state,ident,label,version,source,path=r[:7]
+    detail=info.get(ident)
+    owner=detail[2] if detail else source
+    guidance=detail[4] if detail else 'Maintain through the original installer or app updater; AIUP has no reviewed generic updater.'
+    items.append(dict(id=ident,name=label,version=version,owner=owner,path=path,guidance=guidance,evidence='local metadata',seen=time.time()))
+# Persist observations separately from policy; ownership is evidence, not authority.
+ledger=root/'software-ownership.json'
+if not root.is_symlink() and not ledger.is_symlink():
+    old=read(ledger,{})
+    if not isinstance(old,dict):old={}
+    for item in items:old[item['id']]=item
+    fd,name=tempfile.mkstemp(prefix='.software-ownership-',dir=root)
+    with os.fdopen(fd,'w') as f:json.dump(old,f)
+    os.replace(name,ledger)
+if view=='owners':
+    card('Installation ownership · local evidence','These observations describe current files; they do not authorize changing managers. App receipts can outlive apps.')
+    for item in items:card(item['name']+' · '+item['owner'],item['path']+' · '+item['guidance'])
+    for token,item in read(root/'app-ownership.json',{}).items():card(token+' · Homebrew', '; '.join(item.get('paths',[]))+' · registered version '+str(item.get('version','')))
+    raise SystemExit(0)
+# Group PATH entries by name, with canonical targets deduplicated.
+names={r['id'][len('di:path:'):] for r in items if r['id'].startswith('di:path:')}
+names.update(('node','npm','npx','python3','uv','codex','nativefier'))
+duplicates=[]
+for name in sorted(names):
+    if '/' in name or not name:continue
+    paths=[];seen=set()
+    for directory in os.environ.get('PATH','').split(os.pathsep):
+        if not directory:continue
+        p=Path(directory)/name
+        if p.is_file() and os.access(p,os.X_OK):
+            target=str(p.resolve())
+            if target not in seen:paths.append((str(p),target));seen.add(target)
+    if len(paths)>1:duplicates.append((name,paths))
+if view=='duplicates':
+    card('Review copies · no automatic removal','The first executable in PATH is used by this shell. Direct paths and other apps can still use another copy; a duplicate is not proof it is unused.')
+    launchers=[]
+    for item in items:
+        candidate=Path(item['path'])
+        try:
+            if not candidate.is_file() or candidate.stat().st_size>65536:continue
+            raw=candidate.read_bytes()
+            if b'\x00' in raw:continue
+            launchers.append((item['id'],raw.decode('utf-8')))
+        except (OSError,UnicodeError):continue
+    for name,paths in duplicates:
+        card(name+' · active: '+paths[0][0],'Other copies: '+'; '.join(p[0]+' → '+p[1] for p in paths[1:]))
+        consumers=[ident for ident,text in launchers if any(p[0] in text or p[1] in text for p in paths[1:])]
+        card('Next step','Review aiup owners before removing a copy. Direct path references in '+str(len(launchers))+' small text launchers: '+(', '.join(consumers[:8]) or 'none found')+'. Other apps and project dependencies are not proven unused.')
+    if not duplicates:card('No distinct executable copies found','Aliases pointing at the same file count as one installation.')
+    raise SystemExit(0)
+count=0
+for r in csv.reader(missing.splitlines(),delimiter='\t'):
+    if len(r)>=2:card(r[0]+' · app already removed','Homebrew still has a record. Preview: aiup cleanup bc:'+r[0]+'. Cleanup mode: '+read(root/'preferences.json',{}).get('cleanup','auto'));count+=1
+for r in read(root/'moved-apps.json',[]):
+    card(r['tool']+' · location needs review','; '.join(r['locations'])+'. AIUP will not clean or reinstall it.');count+=1
+logs=root/'logs';latest=None
+if logs.is_dir() and not logs.is_symlink():
+    candidates=sorted((p for p in logs.glob('update-*.json') if re.fullmatch(r'update-\d{8}-\d{6}\.[A-Za-z0-9]+\.json',p.name) and not p.is_symlink()),key=lambda p:p.stat().st_mtime,reverse=True)
+    if candidates:latest=read(candidates[0],{})
+if latest:
+    for r in latest.get('tools',[]):
+        if r.get('result') in ('failed','unverified','pending') or r.get('warning'):
+            card(r['tool']+' · '+r.get('result','needs review'),r.get('note','')+' · aiup logs '+r['tool']+'; use aiup resume when the run is no longer active.');count+=1
+if duplicates:card(str(len(duplicates))+' commands have multiple installations','Review active paths and other copies: aiup duplicates. Nothing is removed automatically.');count+=1
+unsupported=[r for r in items if r['id'].startswith('di:path:') and (r['owner'] in ('PATH executable','unknown','Unknown') or 'no reviewed' in r['guidance'])]
+if unsupported:card(str(len(unsupported))+' commands need an ownership review','aiup owners explains known evidence; aiup coverage --all shows support gaps.');count+=1
+if not count:card('No recorded issues need attention','This is based on local inventory and the latest saved run. aiup check can verify available updates.')
+PYOVERVIEW
 }
 
 cmd_diagnostics() {
@@ -7064,7 +7289,7 @@ if root.is_symlink(): raise SystemExit("Refusing a symbolic-link log directory")
 def ink(value, code="38;5;141"):
     return "\033["+code+"m"+value+"\033[0m" if sys.stdout.isatty() and not os.environ.get("NO_COLOR") else value
 if not root.is_dir():
-    if action not in ("prune", "retry"): print("No saved runs yet.")
+    if action not in ("prune", "retry", "resume"): print("No saved runs yet.")
     raise SystemExit(0)
 def plain(value):
     return re.sub(r"[\x00-\x1f\x7f-\x9f]", "", re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(value)))
@@ -7109,13 +7334,22 @@ if action == "warnings":
     for r in warnings: print('  ! '+plain(r['tool'])+': '+plain(r.get('note',''))+' · aiup logs '+plain(r['tool']))
     if not warnings: print('  No recorded setup warnings in the latest run.')
     raise SystemExit(0)
-if action == "retry":
+if action in ("retry", "resume"):
     if not selected: raise SystemExit(0)
     log,data,alive=selected[0]
     if alive: raise SystemExit("Latest run is still active; wait for it to finish")
     if not data: raise SystemExit("Latest run has no structured results; inspect aiup logs")
     for row in data['tools']:
-        if row.get('result')=='failed': print(row['tool'])
+        if row.get('result') in (('failed','pending') if action=='resume' else ('failed',)): print(row['tool'])
+    raise SystemExit(0)
+if action == "cleanup":
+    print(ink("\naiup · cleanup history"))
+    count=0
+    for log,data,alive in selected[:limit]:
+        for row in data.get('tools',[]) if data else []:
+            if row.get('result')=='cleaned':
+                print('  '+plain(log.name)+' · '+plain(row['tool'])+' · Homebrew record cleaned'); count+=1
+    if not count: print('  No recorded cleanups in retained run history.')
     raise SystemExit(0)
 if action == "logs":
     if not selected: print("No saved log for " + (tool or "an update run") + "."); raise SystemExit(1)
@@ -7226,6 +7460,12 @@ update_report_begin() {
     UPDATE_REPORT_TOOLS+=("${selected[$i]}")
     UPDATE_REPORT_BEFORE+=("$version")
   done
+  if [ "$UPDATE_REPORT_MODE" = update ]; then
+    for ((i=0; i<${#UPDATE_REPORT_TOOLS[@]}; i++)); do
+      UPDATE_REPORT_ROWS+=("$(printf '%s\tpending\t%s\t%s\t38;5;245\tNot started\t0\t0\t0\t0' "${UPDATE_REPORT_TOOLS[$i]}" "${UPDATE_REPORT_BEFORE[$i]}" "${UPDATE_REPORT_BEFORE[$i]}")")
+    done
+    print_update_report --save-only
+  fi
   profile_mark "installed versions"
 }
 
@@ -7256,10 +7496,10 @@ run_tool_update() {
   UPDATE_REPORT_WARNING=0
   UPDATE_REPORT_CURRENT_TOOL="$tool"
   UPDATE_REPORT_LOG_START="$(wc -c < "$UPDATE_REPORT_LOG")"
-  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ]; then
-    printf '\r\033[2K  › %.20s · %s done · checking…' "$tool" "$UPDATE_REPORT_COMPLETED" >&4
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then
+    printf '\r\033[2K  [%s/%s] %s · %ss elapsed' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$tool" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
   else
-    printf '  › %s\n' "$tool" >&4
+    printf '  [%s/%s] %s\n' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$tool" >&4
   fi
   if [ "$AIUP_VERBOSE" -eq 1 ] || { [ "$tool" = brew ] && ! command_exists brew; }; then live=1; fi
   if [ "$live" -eq 1 ]; then
@@ -7274,7 +7514,7 @@ run_tool_update() {
   else
     run_tool_update_impl "$tool" >> "$UPDATE_REPORT_LOG" 2>&1 || rc=$?
   fi
-  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ]; then printf '\r\033[2K' >&4; fi
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then printf '\r\033[2K' >&4; fi
   UPDATE_REPORT_LOG_END="$(wc -c < "$UPDATE_REPORT_LOG")"
   UPDATE_REPORT_TOOL_SECONDS=$(( $(date +%s) - tool_started ))
   UPDATE_REPORT_COMPLETED=$((UPDATE_REPORT_COMPLETED + 1))
@@ -7381,6 +7621,7 @@ for tool, (status, versions, category, note, before, after, start, end, warning,
 print(ink("  " + "─" * (width-4), "38;5;60"))
 if hidden: print(ink(f"  {hidden} unchanged tools hidden · use --show-unchanged for the full list", "38;5;245"))
 if mode == "update":
+    for part in textwrap.wrap("Next: aiup attention · aiup history · aiup resume",width-4): print(ink("  "+part, "38;5;81"))
     print(ink("  Run log: " + logfile, "38;5;245"))
 else:
     print(ink("  Read-only check · no tools changed", "38;5;245"))
@@ -7403,7 +7644,17 @@ run_tool_update_impl() {
     tool_is_present "$tool" || { append_failure "$tool"; return 1; }
     return 0
   fi
+  if missing_app="$(brew_moved_app_for_tool "$tool")"; then
+    UPDATE_REPORT_NOTE="App may have moved: $missing_app. Review with aiup attention; no cleanup or reinstall."
+    update_status_set skipped; result_record skipped "$tool"; return 0
+  fi
   if missing_app="$(brew_missing_app_for_tool "$tool")"; then
+    local cleanup_mode
+    cleanup_mode="$(preferences setting cleanup)" || return 1
+    if [ "$cleanup_mode" != auto ]; then
+      UPDATE_REPORT_NOTE="App already removed. Review Homebrew record: aiup cleanup homebrew"
+      update_status_set skipped; result_record skipped "$tool"; return 0
+    fi
     local cleanup_id="$tool"
     case "$tool" in bc:*) ;; *) cleanup_id="bc:$(catalog_brew_cask "$tool")" ;; esac
     if cleanup_missing_homebrew_app "$cleanup_id"; then
@@ -7412,7 +7663,7 @@ run_tool_update_impl() {
         UPDATE_REPORT_NOTE="Would clean Homebrew record for removed app: $missing_app"
       else
         update_status_set cleaned
-        UPDATE_REPORT_NOTE="App removed: $missing_app. Finished Homebrew uninstall; no reinstall or preference purge."
+        UPDATE_REPORT_NOTE="App removed: $missing_app · Homebrew record cleaned."
       fi
       result_record "$AIUP_LAST_UPDATE_STATUS" "$tool"
       return 0
@@ -8033,8 +8284,19 @@ cmd_cleanup_homebrew() {
   printf 'Uses Homebrew uninstall hooks; preferences are not deliberately purged (--zap is never used).\n'
   [ "$apply" -eq 1 ] || { printf 'Preview only. Nothing changed.\n'; return 0; }
   [ "$id" != homebrew ] || { error 'Choose one bc:<name> from the preview to apply cleanup'; return 1; }
-  cleanup_missing_homebrew_app "$id"
-
+  if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then cleanup_missing_homebrew_app "$id"; return $?; fi
+  update_report_begin "$id" || return 1
+  UPDATE_REPORT_NOTE='App already removed · Homebrew record cleaned.'
+  UPDATE_REPORT_LOG_START="$(wc -c < "$UPDATE_REPORT_LOG")"
+  local cleanup_started cleanup_rc=0
+  cleanup_started="$(date +%s)"
+  cleanup_missing_homebrew_app "$id" >> "$UPDATE_REPORT_LOG" 2>&1 || cleanup_rc=$?
+  UPDATE_REPORT_LOG_END="$(wc -c < "$UPDATE_REPORT_LOG")"
+  UPDATE_REPORT_TOOL_SECONDS=$(( $(date +%s) - cleanup_started ))
+  if [ "$cleanup_rc" -eq 0 ]; then update_report_record "$id" cleaned
+  else UPDATE_REPORT_NOTE='Cleanup did not complete; inspect aiup logs.'; update_report_record "$id" failed; fi
+  print_update_report
+  return "$cleanup_rc"
 }
 
 cmd_cleanup() {
@@ -9252,6 +9514,14 @@ aiup $AIUP_VERSION
 
 Usage:
   aiup                     Update installed catalog tools and Homebrew packages
+  aiup welcome              Friendly guide and cleanup choices
+  aiup attention            Problems and next steps in one place
+  aiup plan                 Preview maintenance actions without changing packages
+  aiup owners               Installation ownership and update guidance
+  aiup duplicates           Active commands and other copies (review only)
+  aiup resume               Retry pending/failed tools from the last inactive run
+  aiup settings cleanup auto|review  Choose automatic cleanup or review first
+  aiup cleanup history      Show cleaned records from retained run history
   aiup coverage             Managed coverage and detected-only gaps
   aiup doctor [--details]   Installation conflicts; --details retains full inventory
   aiup retry                Retry failures in the latest inactive run
@@ -9315,6 +9585,7 @@ Options:
   --force                  Run npm/Homebrew updates even when versions are current
   --verbose                Stream detailed updater output as well as the final report
   --dry-run                Print actions without executing them
+  --plain                  Disable colors; preserve readable status words
   --show-unchanged         Include unchanged tools in the final report
   --no-install             Do not install missing tools; fails if required fzf is absent.
   --heartbeat-seconds N    Override heartbeat interval for this run
@@ -9395,6 +9666,10 @@ installed_update_tools() {
 }
 
 cmd_update_installed() {
+  if [ -t 1 ] && [ "$(preferences setting welcomed)" != True ]; then
+    cmd_welcome
+    [ "$DRY_RUN" -eq 1 ] || preferences welcome >/dev/null || return 1
+  fi
   local tool
   local -a selected=()
   brew_cache_load
@@ -9493,6 +9768,12 @@ parse_args() {
         ;;
       --force)
         AIUP_FORCE=1
+        shift
+        ;;
+      --plain)
+        export NO_COLOR=1
+        AIUP_PLAIN=1
+        if [ "${args[0]:-}" = inventory ]; then args+=(--plain); fi
         shift
         ;;
       --show-unchanged)
@@ -9663,12 +9944,22 @@ parse_args() {
       }
       available_version_of_tool "${args[1]:-}" "${args[2]:-}"
       ;;
+    welcome) cmd_welcome ;;
+    plan) cmd_plan "${args[1]:-}" ;;
+    attention|owners|duplicates) cmd_overview "${args[0]}" ;;
     coverage)
       cmd_coverage "${args[1]:-}"
       ;;
     project)
       [ "${#args[@]}" -eq 2 ] || { error 'Usage: aiup project <directory>'; return 1; }
       cmd_project "${args[1]}"
+      ;;
+    settings)
+      case "${args[1]:-}" in
+        cleanup) [ "${#args[@]}" -eq 3 ] || { error 'Usage: aiup settings cleanup auto|review'; return 1; }; preferences cleanup "${args[2]}" ;;
+        '') { printf 'Cleanup mode · %s\tChange with: aiup settings cleanup auto|review\n' "$(preferences setting cleanup)"; printf 'Tool exclusions, holds and groups\tView all values: aiup preferences. Exclude Homebrew apps with their bc:<name> ID.\n'; } | ui_cards settings ;;
+        *) error 'Usage: aiup settings [cleanup auto|review]'; return 1 ;;
+      esac
       ;;
     preferences)
       preferences show
@@ -9697,14 +9988,15 @@ parse_args() {
         *) error 'Usage: aiup group set NAME TOOLS… | run NAME | check NAME | remove NAME'; return 1 ;;
       esac
       ;;
-    retry)
+    retry|resume)
       local retry_tools retry_tool
       local -a retry_selected=()
-      retry_tools="$(run_history retry)" || return 1
+      retry_tools="$(run_history "${args[0]}")" || return 1
       while IFS= read -r retry_tool; do [ -z "$retry_tool" ] || retry_selected+=("$retry_tool"); done <<< "$retry_tools"
-      [ "${#retry_selected[@]}" -gt 0 ] || { printf 'No failed tools in the latest saved run.\n'; return 0; }
+      [ "${#retry_selected[@]}" -gt 0 ] || { printf 'No unfinished or failed tools in the latest saved run.\n'; return 0; }
       resolve_tools "${retry_selected[@]}" >/dev/null || return 1
-      [ "$NO_INSTALL_EXPLICIT" -eq 1 ] || NO_INSTALL=0
+      if [ "${args[0]}" = resume ]; then NO_INSTALL=1
+      else [ "$NO_INSTALL_EXPLICIT" -eq 1 ] || NO_INSTALL=0; fi
       update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${retry_selected[@]}" && main_update "${retry_selected[@]}"
       ;;
     check)
@@ -9732,13 +10024,14 @@ parse_args() {
       print_inventory_definition "${args[1]:---json}"
       ;;
     cleanup)
+      if [ "${args[1]:-}" = history ]; then run_history cleanup; return $?; fi
       [ "${#args[@]}" -le 3 ] && { [ "${#args[@]}" -lt 3 ] || [ "${args[2]}" = --apply ]; } || { error "Usage: aiup cleanup homebrew|bc:<name>|<detected-app-id> [--apply]"; return 1; }
       local cleanup_apply=0
       [ "${args[2]:-}" = '--apply' ] && cleanup_apply=1
       cmd_cleanup "${args[1]:-}" "$cleanup_apply"
       ;;
     list)
-      if [ "${args[1]:-}" = '--plain' ] || [ "${args[1]:-}" = '--detected' ] || ! tty_usable; then
+      if [ "${AIUP_PLAIN:-0}" = 1 ] || [ "${args[1]:-}" = '--plain' ] || [ "${args[1]:-}" = '--detected' ] || ! tty_usable; then
         if [ "${args[1]:-}" = '--detected' ]; then
           print_inventory_definition --plain
         else

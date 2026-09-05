@@ -217,7 +217,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-09** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-10** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -263,12 +263,30 @@ The current macOS tool, public repository, minimal site, and six-state media are
 | 🐧 Linux | Not implemented |
 | 🪟 Windows | Not implemented |
 
+## A clearer everyday workflow
+
+| Command | What it does |
+|---|---|
+| `aiup welcome` | First-run guide with cleanup choices and readable command examples |
+| `aiup attention` | Missing/moved apps, last-run problems, duplicate commands and ownership gaps with next steps |
+| `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes, download sizes and restart requirements remain updater-dependent |
+| `aiup owners` | Local installation ownership, paths and maintenance guidance; observations persist locally |
+| `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
+| `aiup resume` | Retries pending and failed tools from the latest inactive saved run, rechecking current state |
+| `aiup settings cleanup auto` / `review` | Automatic cleanup or review-first mode; exclusions also accept `bc:`/`bf:` IDs |
+| `aiup cleanup history` | Cleanup results from retained structured run history |
+| `aiup --plain welcome` | Colorless guidance; statuses remain readable without color |
+
+Normal terminal runs show the guide once, numbered progress and elapsed time. Interrupted runs retain completed results and pending selections; resume reruns unfinished actions, rather than resuming a download at a byte offset. Existing provider updaters determine download/restart behavior. Guidance wraps to the terminal width, using the picker palette when colors are enabled.
+
+## Apps removed with AppCleaner
+
+In the default automatic cleanup mode, a normal `aiup` run finishes Homebrew uninstall for confirmed missing apps and reports **cleaned**. Holds and exclusions still apply; `--dry-run` only plans the action. `aiup list` and `aiup check` do not remove anything.
+
+`aiup cleanup homebrew` previews Homebrew apps whose explicitly recorded app destinations are all missing. To finish one uninstall, use `aiup cleanup bc:alt-tab --apply` (substitute the displayed name). AIUP checks again immediately before invoking Homebrew's forced cask uninstall. This runs normal uninstall hooks, never `--zap`; it does not delete Homebrew metadata directly. Apps with incomplete destination metadata, partially present multi-app installations, and broken symlinks are not cleanup candidates. Preview is the default; bulk apply is not supported. `brew cleanup` remains a separate cache/old-version operation.
+
+AIUP remembers bundle identities observed at their installed locations, scans common app folders, and checks Spotlight for known identities before considering a missing app removed. A matching moved/renamed app is left for review, not cleaned or reinstalled. Unindexed locations, inaccessible folders and apps removed before their identity was ever observed limit what can be established; use review mode when automatic cleanup is unsuitable. These checks do not establish that every copy anywhere on disk has been found.
+
 ## 📜 License
 
 [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)
-
-### Apps removed with AppCleaner
-
-A normal `aiup` run automatically finishes Homebrew uninstall for confirmed missing apps and reports **cleaned**. Holds and exclusions still apply; `--dry-run` only plans the action. `aiup list` and `aiup check` do not remove anything.
-
-`aiup cleanup homebrew` previews Homebrew apps whose explicitly recorded app destinations are all missing. To finish one uninstall, use `aiup cleanup bc:alt-tab --apply` (substitute the displayed name). AIUP checks again immediately before invoking Homebrew's forced cask uninstall. This runs normal uninstall hooks, never `--zap`; it does not delete Homebrew metadata directly. Apps with incomplete destination metadata, partially present multi-app installations, and broken symlinks are not cleanup candidates. Preview is the default; bulk apply is not supported. `brew cleanup` remains a separate cache/old-version operation.

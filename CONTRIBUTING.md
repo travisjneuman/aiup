@@ -33,3 +33,9 @@ Run `scripts/sync-public-docs` twice when generated catalog facts change and con
 Keep the diff scoped and explain behavior, safety boundaries, validation, and any known limitations. Do not include personal paths, machine names, credentials, private logs, local inventory, or unrelated formatting changes.
 
 For a bug, use the [bug report form](https://github.com/travisjneuman/aiup/issues/new?template=bug.yml). For a catalog candidate, use the [catalog/tool request form](https://github.com/travisjneuman/aiup/issues/new?template=catalog-tool.yml). Security vulnerabilities follow [`SECURITY.md`](SECURITY.md), not public issues.
+
+## Catalog admission and coverage quality
+
+Before adding a managed tool, supply its official source, plain-language purpose, most appropriate category, supported OS/architecture, and installation owner. Review detection, version evidence, update, removal, app-close behavior and dependencies together. Detection alone is not an updater contract. Mark unsupported operations as manual or unavailable; never imply full lifecycle support from a name match. Avoid duplicate aliases for the same installation and distinguish project packages from global tools. Keep runtime/manifest versions paired and regenerate public catalog files with `scripts/sync-public-docs`. Add a focused check only when a concrete adapter issue warrants one.
+
+Application cleanup must preserve ambiguous metadata, moved app identities and partially present multi-app installations. Keep destructive app-data purge separate from finishing an already-removed app's Homebrew uninstall. Ownership observations are local evidence, not permission to migrate or remove installations.

@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""Focused checks for approved planning, preferences, interruption and moved-app behavior."""
+import json,os,plistlib,subprocess,tempfile
+from pathlib import Path
+root=Path(__file__).resolve().parents[1]
+code=(root/'macos/aiup').read_text().rsplit('\nprofile_begin\n',1)[0]
+with tempfile.TemporaryDirectory(prefix='.experience-check-',dir=root) as folder:
+    d=Path(folder);source=d/'functions';source.write_text(code);state=d/'state';state.mkdir()
+    env=dict(os.environ,SOURCE=str(source),AIUP_STATE_DIR=str(state),AIUP_CATALOG_MANIFEST=str(root/'macos/catalog/manifest.tsv'),NO_COLOR='1',COLUMNS='42')
+    def run(body,ok=True):
+        r=subprocess.run(['/bin/bash'],input='source "$SOURCE"\n'+body,text=True,capture_output=True,env=env,timeout=15)
+        assert (r.returncode==0)==ok,(r.stdout,r.stderr)
+        return r.stdout
+    assert not run('run_history resume').strip()
+    run('preferences exclude bc:chatgpt')
+    assert 'Excluded' in run('policy_reason chatgpt')
+    run('preferences include chatgpt')
+    run('preferences cleanup review; preferences exclude bc:demo')
+    assert 'review' in run('preferences setting cleanup')
+    assert 'Excluded' in run('policy_reason bc:demo')
+    run('preferences cleanup wrong',False)
+    run('preferences include bc:demo')
+    plan='''
+brew_cache_load() { :; }
+ensure_system_npm_prefix() { :; }
+brew_missing_apps_load() { AIUP_MISSING_APPS=$'demo\\t/Applications/Gone.app'; }
+installed_update_tools() { printf 'bc:demo\\nnode\\n'; }
+install_method_of() { printf 'Homebrew'; }
+run_with_heartbeat() { echo MUTATION; return 99; }
+cmd_plan
+'''
+    out=run(plan);assert 'review cleanup' in out and '1 tool' in out and 'MUTATION' not in out
+    assert '\x1b' not in run('cmd_welcome')
+    logs=state/'logs';logs.mkdir();log=logs/'update-20260904-120000.abcdef';log.write_text('')
+    data={'schema':'aiup-run-v1','log':log.name,'status':'running','tools':[{'tool':'remotion','result':'updated'},{'tool':'uv','result':'pending'},{'tool':'codex','result':'failed'}]}
+    Path(str(log)+'.json').write_text(json.dumps(data))
+    assert run('run_history resume').splitlines()==['uv','codex']
+    Path(str(log)+'.active').write_text(str(os.getpid()))
+    run('run_history resume',False)
+    Path(str(log)+'.active').unlink()
+    progress='''
+ensure_managed_paths() { :; }
+brew_missing_apps_load() { :; }
+brew_cache_load() { :; }
+ensure_system_npm_prefix() { :; }
+tool_is_present() { return 0; }
+version_of_tool() { echo 1.0.0; }
+UPDATE_REPORT_MODE=update
+update_report_begin remotion uv
+printf '%s' "$UPDATE_REPORT_LOG"
+'''
+    output=run(progress);newlog=Path(output.splitlines()[-1])
+    saved=json.loads(Path(str(newlog)+'.json').read_text())
+    assert saved['status']=='running' and [r['result'] for r in saved['tools']]==['pending','pending']
+    # The subprocess ended, so the retained marker is inactive and resumable.
+    assert run('run_history resume').splitlines()==['remotion','uv']
+    explicit='''
+command_exists() { return 0; }
+brew_missing_apps_load() { AIUP_MISSING_APPS=$'demo\t/Applications/Gone.app'; }
+ensure_managed_paths() { :; }
+brew_cache_load() { :; }
+ensure_system_npm_prefix() { :; }
+tool_is_present() { return 1; }
+cleanup_missing_homebrew_app() { printf 'simulated uninstall\n'; }
+cmd_cleanup_homebrew bc:demo 1
+run_history cleanup
+'''
+    output=run(explicit)
+    assert 'bc:demo' in output and 'Homebrew record cleaned' in output
+    # Observe an installed identity, then rename its app within a fixture root.
+    apps=d/'apps';apps.mkdir();app=apps/'Demo.app';(app/'Contents').mkdir(parents=True)
+    (app/'Contents/Info.plist').write_bytes(plistlib.dumps({'CFBundleIdentifier':'org.example.Demo'}))
+    fixture=d/'casks.json';fixture.write_text(json.dumps({'casks':[{'token':'demo','installed':'1','artifacts':[{'app':['Demo.app'],'target':str(app)}]}]}))
+    parser=code.split("<<'PYMISSING'\n",1)[1].split('\nPYMISSING',1)[0]
+    parser=parser.replace("[Path('/Applications'),Path.home()/'Applications',Path.home()/'Desktop',Path.home()/'Downloads']",'[Path('+repr(str(apps))+')]')
+    def scan():
+        r=subprocess.run(['python3','-',str(fixture),str(state)],input=parser,text=True,capture_output=True,timeout=10)
+        assert r.returncode==0,(r.stdout,r.stderr);return r.stdout
+    assert not scan();app.rename(apps/'Renamed.app');assert not scan()
+    moved=json.loads((state/'moved-apps.json').read_text());assert moved[0]['tool']=='bc:demo' and 'Renamed.app' in moved[0]['locations'][0]
+    out=run("AIUP_MOVED_APPS=$'bc:demo\\t/Applications/Renamed.app'; policy_reason() { :; }; cleanup_missing_homebrew_app() { echo MUTATION; }; run_tool_update_impl bc:demo; printf '%s' \"$UPDATE_REPORT_NOTE\"")
+    assert 'may have moved' in out and 'MUTATION' not in out
+print('Experience checks passed: review preference, Homebrew exclusion, compact read-only plan, plain guidance, resume selection/active guard, moved app identity and update skip')

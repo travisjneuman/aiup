@@ -8,6 +8,7 @@ with tempfile.TemporaryDirectory(prefix='.cleanup-check-',dir=root) as folder:
     source=Path(folder)/'functions'; source.write_text(code)
     def run(body):
         stubs='''
+UPDATE_REPORT_ACTIVE=1
 command_exists() { return 0; }
 brew_missing_apps_load() { AIUP_MISSING_APPS=$'demo\\t/nonexistent-aiup-cleanup-fixture.app'; }
 mutation_authoritative_preflight() { :; }
@@ -15,7 +16,7 @@ brew_cache_invalidate() { :; }
 tui_cache_invalidate() { :; }
 run_with_heartbeat() { shift; printf 'MUTATION %s\\n' "$*"; return "${FAKE_RC:-0}"; }
 '''
-        return subprocess.run(['/bin/bash'],input='source "$SOURCE"\n'+stubs+body,text=True,capture_output=True,env=dict(os.environ,SOURCE=str(source)),timeout=10)
+        return subprocess.run(['/bin/bash'],input='source "$SOURCE"\n'+stubs+body,text=True,capture_output=True,env=dict(os.environ,SOURCE=str(source),AIUP_CATALOG_MANIFEST=str(root/"macos/catalog/manifest.tsv"),AIUP_STATE_DIR=str(Path(folder)/"state")),timeout=10)
     r=run('cmd_cleanup homebrew 0'); assert r.returncode==0 and 'MUTATION' not in r.stdout and 'bc:demo' in r.stdout
     r=run('cmd_cleanup homebrew 1'); assert r.returncode!=0 and 'MUTATION' not in r.stdout
     r=run('cmd_cleanup bc:other 1'); assert r.returncode==0 and 'MUTATION' not in r.stdout
@@ -31,6 +32,8 @@ run_tool_update_impl bc:demo
 printf '%s\n' "$AIUP_LAST_UPDATE_STATUS" "$UPDATE_REPORT_NOTE"
 '''
     r=run(automatic); assert r.returncode==0 and 'cleaned' in r.stdout and 'brew uninstall --cask --force demo' in r.stdout
+    r=run('preferences cleanup review >/dev/null; '+automatic); assert 'skipped' in r.stdout and 'MUTATION' not in r.stdout
+    run('preferences cleanup auto >/dev/null')
     r=run('DRY_RUN=1; cleanup_missing_homebrew_app() { :; }; '+automatic); assert r.returncode==0 and 'planned' in r.stdout and 'MUTATION' not in r.stdout
     r=run('FAKE_RC=7; '+automatic); assert 'Could not finish Homebrew cleanup' in r.stdout
     parser=code.split("<<'PYMISSING'\n",1)[1].split('\nPYMISSING',1)[0]

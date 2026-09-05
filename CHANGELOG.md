@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.09.04-10
+
+- Add needs-attention, compact/full planning, ownership, duplicate review and first-run guidance commands with a shared responsive terminal presentation.
+- Add automatic/review cleanup preference, Homebrew-ID exclusions and cleanup history for normal and explicit cleanups.
+- Remember app bundle identities and protect moved/renamed matches from cleanup or reinstall.
+- Persist pending work before updates; resume unfinished/failed tools from the latest inactive run.
+- Show numbered progress and elapsed time; preserve plain output and existing picker behavior.
+- Fix multiline manual-media counting on macOS awk and document catalog admission requirements.
+
 ## 2026.09.04-09
 
 - Normal updates automatically finish Homebrew uninstall for confirmed externally removed apps and report `cleaned`, using the same rechecked cleanup contract as explicit cleanup.
