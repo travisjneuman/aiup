@@ -213,10 +213,10 @@ printf '%s\n' "${UPDATE_REPORT_BEFORE[@]}"
     missing = r'''
 AIUP_MISSING_APPS=$'gone\t/Applications/Gone.app'
 policy_reason() { :; }
-mutation_authoritative_preflight() { echo MUTATION; return 99; }
+cleanup_missing_homebrew_app() { echo CLEANUP; return 0; }
 run_tool_update_impl bc:gone
 printf '%s\n' "$AIUP_LAST_UPDATE_STATUS" "$UPDATE_REPORT_NOTE"
 '''
     output=run(missing)
-    assert 'skipped' in output and 'App removed' in output and 'MUTATION' not in output, output
-    print('PASS: removed app with a leftover receipt skips before mutation')
+    assert 'cleaned' in output and 'App removed' in output and 'CLEANUP' in output, output
+    print('PASS: removed app with a leftover receipt uses the cleanup contract')

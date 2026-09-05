@@ -22,6 +22,17 @@ run_with_heartbeat() { shift; printf 'MUTATION %s\\n' "$*"; return "${FAKE_RC:-0
     r=run('cmd_cleanup bc:demo 1'); assert r.returncode==0 and 'brew uninstall --cask --force demo' in r.stdout and '--zap' not in r.stdout.split('MUTATION')[-1]
     r=run('FAKE_RC=7; cmd_cleanup bc:demo 1'); assert r.returncode==7
     r=run('mutation_authoritative_preflight() { brew_missing_apps_load() { AIUP_MISSING_APPS=""; }; }; cmd_cleanup bc:demo 1'); assert r.returncode!=0 and 'MUTATION' not in r.stdout
+    r=run('CATALOG_MANIFEST="'+str(root/'macos/catalog/manifest.tsv')+'"; id=bc:demo; CATALOG_MANIFEST_LOADED=0; catalog_manifest_load; [ "$id" = bc:demo ]')
+    assert r.returncode==0,(r.stdout,r.stderr)
+    automatic='''
+policy_reason() { :; }
+brew_missing_apps_load
+run_tool_update_impl bc:demo
+printf '%s\n' "$AIUP_LAST_UPDATE_STATUS" "$UPDATE_REPORT_NOTE"
+'''
+    r=run(automatic); assert r.returncode==0 and 'cleaned' in r.stdout and 'brew uninstall --cask --force demo' in r.stdout
+    r=run('DRY_RUN=1; cleanup_missing_homebrew_app() { :; }; '+automatic); assert r.returncode==0 and 'planned' in r.stdout and 'MUTATION' not in r.stdout
+    r=run('FAKE_RC=7; '+automatic); assert 'Could not finish Homebrew cleanup' in r.stdout
     parser=code.split("<<'PYMISSING'\n",1)[1].split('\nPYMISSING',1)[0]
     present=Path(folder)/'Present.app'; present.mkdir()
     missing=Path(folder)/'Missing.app'

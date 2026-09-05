@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.09.04-09
+
+- Normal updates automatically finish Homebrew uninstall for confirmed externally removed apps and report `cleaned`, using the same rechecked cleanup contract as explicit cleanup.
+- Preserve holds, exclusions, read-only commands, and dry-run behavior.
+
 ## 2026.09.04-08
 
 - Add preview-first Homebrew reconciliation for app bundles removed externally: `aiup cleanup homebrew`, then `aiup cleanup bc:<name> --apply`.

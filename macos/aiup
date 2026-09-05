@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-08"
+AIUP_VERSION="2026.09.04-09"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -1192,6 +1192,7 @@ binary_of_tool() {
 # but ids, categories, lifecycle, labels, and official docs live in the TSV so
 # catalog presentation does not require editing a large switch statement.
 catalog_manifest_load() {
+  local id category kind lifecycle label docs target endpoint
   [ "${CATALOG_MANIFEST_LOADED:-0}" -eq 1 ] && return 0
   [ -f "$CATALOG_MANIFEST" ] || {
     error "Catalog manifest not found: $CATALOG_MANIFEST"
@@ -7357,7 +7358,7 @@ tool_width = min(32, max(19, max((len(t)+2 for t in rows), default=19)))
 if width >= 76:
     print(ink("  " + "TOOL".ljust(tool_width) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
 for tool, (status, versions, category, note, before, after, start, end, warning, duration) in visible.items():
-    code = "38;2;57;255;20" if status in ("updated", "installed", "update") else "38;5;245"
+    code = "38;2;57;255;20" if status in ("updated", "installed", "update", "cleaned") else "38;5;245"
     if status in ("failed", "unverified"): code = "38;5;203"
     elif status in ("skipped", "planned"): code = "38;5;220"
     if mode == "update": versions += " · " + str(duration) + "s"
@@ -7403,10 +7404,22 @@ run_tool_update_impl() {
     return 0
   fi
   if missing_app="$(brew_missing_app_for_tool "$tool")"; then
-    UPDATE_REPORT_NOTE="App removed: $missing_app. Homebrew still has an installation record. Preview cleanup: aiup cleanup homebrew."
-    update_status_set skipped
-    result_record skipped "$tool"
-    return 0
+    local cleanup_id="$tool"
+    case "$tool" in bc:*) ;; *) cleanup_id="bc:$(catalog_brew_cask "$tool")" ;; esac
+    if cleanup_missing_homebrew_app "$cleanup_id"; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        update_status_set planned
+        UPDATE_REPORT_NOTE="Would clean Homebrew record for removed app: $missing_app"
+      else
+        update_status_set cleaned
+        UPDATE_REPORT_NOTE="App removed: $missing_app. Finished Homebrew uninstall; no reinstall or preference purge."
+      fi
+      result_record "$AIUP_LAST_UPDATE_STATUS" "$tool"
+      return 0
+    fi
+    UPDATE_REPORT_NOTE="Could not finish Homebrew cleanup for $missing_app; inspect the run log."
+    append_failure "$tool"
+    return 1
   fi
   if update_tool_confirmed_current "$tool"; then
     update_status_set current
@@ -7987,6 +8000,22 @@ detected_cleanup_paths() {
 
 # Reconcile missing app bundles through Homebrew's own uninstall contract.
 # Never delete Caskroom metadata directly or infer candidates from a name alone.
+cleanup_missing_homebrew_app() {
+  local id="$1" path token
+  mutation_authoritative_preflight "$id cleanup" || return 1
+  AIUP_MISSING_APPS_READY=0
+  brew_missing_apps_load
+  path="$(brew_missing_app_for_tool "$id")" || { error 'App state changed or could not be verified; cleanup stopped'; return 1; }
+  [ ! -e "$path" ] || { error 'App is present; cleanup stopped'; return 1; }
+  token="${id#bc:}"
+  run_with_heartbeat "Finish Homebrew uninstall: $token" env HOMEBREW_NO_AUTO_UPDATE=1 brew uninstall --cask --force "$token"
+  local rc=$?
+  brew_cache_invalidate
+  AIUP_MISSING_APPS_READY=0
+  tui_cache_invalidate
+  return "$rc"
+}
+
 cmd_cleanup_homebrew() {
   local id="$1" apply="${2:-0}" token path found=0
   command_exists brew || { error 'Homebrew is not installed'; return 1; }
@@ -8004,18 +8033,8 @@ cmd_cleanup_homebrew() {
   printf 'Uses Homebrew uninstall hooks; preferences are not deliberately purged (--zap is never used).\n'
   [ "$apply" -eq 1 ] || { printf 'Preview only. Nothing changed.\n'; return 0; }
   [ "$id" != homebrew ] || { error 'Choose one bc:<name> from the preview to apply cleanup'; return 1; }
-  mutation_authoritative_preflight "$id cleanup" || return 1
-  AIUP_MISSING_APPS_READY=0
-  brew_missing_apps_load
-  path="$(brew_missing_app_for_tool "$id")" || { error 'App state changed or could not be verified; cleanup stopped'; return 1; }
-  [ ! -e "$path" ] || { error 'App is present; cleanup stopped'; return 1; }
-  token="${id#bc:}"
-  run_with_heartbeat "Finish Homebrew uninstall: $token" env HOMEBREW_NO_AUTO_UPDATE=1 brew uninstall --cask --force "$token"
-  local rc=$?
-  brew_cache_invalidate
-  AIUP_MISSING_APPS_READY=0
-  tui_cache_invalidate
-  return "$rc"
+  cleanup_missing_homebrew_app "$id"
+
 }
 
 cmd_cleanup() {
