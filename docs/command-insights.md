@@ -27,3 +27,9 @@ AIUP reads local package metadata, app bundles, installer receipts, resolved exe
 “Not reported” means a trustworthy version was not available. “Helper,” “saved copy,” “receipt,” “registered,” and “app” distinguish evidence that is not a standalone executable version. Unknown identities remain inspect-only. Custom installations may differ from the reviewed examples.
 
 Official public sources were read through web/HTTP; local identity evidence came from files and metadata. No authenticated browser or account access was needed. The initial Parallels and Microsoft deep links failed to load; Parallels identity rests on the local app evidence, and the current Microsoft installation page was located successfully.
+
+## Legacy JavaScript installation review — September 4, 2026
+
+Read-only checks confirmed a separate `/usr/local/bin/node` v18.2.0 alongside Homebrew Node v26.8.1. Homebrew Node, npm, and npx occur first in the inspected shell PATH. The legacy `/usr/local/lib/node_modules` contains npm 8.9.0, Corepack 0.10.0, and Nativefier 47.2.0; `/usr/local/bin/nativefier` resolves into that directory. These are root-owned files. The Corepack pnpm/yarn entrypoint links were not present in `/usr/local/bin`.
+
+No hard-coded `/usr/local/bin/node` or `/usr/local/lib/node_modules` references were found in the bounded shell/local-wrapper search. This does not prove that other projects or applications never use them. Nativefier remains the only detected Nativefier command, so deleting it would remove functionality. Recommendation: retain the active Homebrew installation; retire the legacy installation only after deciding Nativefier and direct Node 18 consumers are no longer needed. No packages or files were removed in this review. Nativefier's upstream archive status was rechecked through official GitHub over public HTTP; no authenticated account access or external mutation occurred.

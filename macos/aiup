@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-07"
+AIUP_VERSION="2026.09.04-08"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -809,12 +809,14 @@ try:
     data=json.loads(Path(sys.argv[1]).read_text())
     for cask in data.get("casks",[]):
         if not cask.get("installed"): continue
-        for artifact in cask.get("artifacts",[]):
-            target=artifact.get("target")
-            if "app" not in artifact or not isinstance(target,str): continue
-            path=Path(target)
-            if path.is_absolute() and path.suffix==".app" and not path.exists():
-                print(cask["token"],str(path),sep="\t");break
+        apps=[a for a in cask.get("artifacts",[]) if "app" in a]
+        targets=[Path(a["target"]) for a in apps if isinstance(a.get("target"),str)]
+        # A partially present multi-app cask is not an abandoned installation.
+        if apps and len(targets)==len(apps) and all(
+            p.is_absolute() and p.suffix==".app" and not p.exists() and not p.is_symlink()
+            for p in targets
+        ):
+            print(cask["token"],str(targets[0]),sep="\t")
 except (ValueError,TypeError,KeyError,OSError): pass
 PYMISSING
 )"
@@ -7401,7 +7403,7 @@ run_tool_update_impl() {
     return 0
   fi
   if missing_app="$(brew_missing_app_for_tool "$tool")"; then
-    UPDATE_REPORT_NOTE="App removed: $missing_app. Homebrew still has an installation record; nothing was reinstalled."
+    UPDATE_REPORT_NOTE="App removed: $missing_app. Homebrew still has an installation record. Preview cleanup: aiup cleanup homebrew."
     update_status_set skipped
     result_record skipped "$tool"
     return 0
@@ -7983,6 +7985,39 @@ detected_cleanup_paths() {
   detected_cleanup_add "$HOME/Library/Containers/$bundle_id"
 }
 
+# Reconcile missing app bundles through Homebrew's own uninstall contract.
+# Never delete Caskroom metadata directly or infer candidates from a name alone.
+cmd_cleanup_homebrew() {
+  local id="$1" apply="${2:-0}" token path found=0
+  command_exists brew || { error 'Homebrew is not installed'; return 1; }
+  AIUP_MISSING_APPS_READY=0
+  brew_missing_apps_load
+  printf '\nHomebrew cleanup · apps removed outside Homebrew\n'
+  while IFS=$'\t' read -r token path; do
+    [ -n "$token" ] || continue
+    [ "$id" = homebrew ] || [ "$id" = "bc:$token" ] || continue
+    found=1
+    printf '  %s · app missing: %s\n' "$token" "$path"
+    printf '  Finish uninstall: aiup cleanup bc:%s --apply\n' "$token"
+  done <<< "${AIUP_MISSING_APPS:-}"
+  [ "$found" -eq 1 ] || { printf 'No confirmed missing apps found for this selection. Nothing changed.\n'; return 0; }
+  printf 'Uses Homebrew uninstall hooks; preferences are not deliberately purged (--zap is never used).\n'
+  [ "$apply" -eq 1 ] || { printf 'Preview only. Nothing changed.\n'; return 0; }
+  [ "$id" != homebrew ] || { error 'Choose one bc:<name> from the preview to apply cleanup'; return 1; }
+  mutation_authoritative_preflight "$id cleanup" || return 1
+  AIUP_MISSING_APPS_READY=0
+  brew_missing_apps_load
+  path="$(brew_missing_app_for_tool "$id")" || { error 'App state changed or could not be verified; cleanup stopped'; return 1; }
+  [ ! -e "$path" ] || { error 'App is present; cleanup stopped'; return 1; }
+  token="${id#bc:}"
+  run_with_heartbeat "Finish Homebrew uninstall: $token" env HOMEBREW_NO_AUTO_UPDATE=1 brew uninstall --cask --force "$token"
+  local rc=$?
+  brew_cache_invalidate
+  AIUP_MISSING_APPS_READY=0
+  tui_cache_invalidate
+  return "$rc"
+}
+
 cmd_cleanup() {
   local id="${1:-}" apply="${2:-0}" record label version source app name path leaf target
   local -a paths=()
@@ -7991,6 +8026,7 @@ cmd_cleanup() {
     return 1
   fi
   case "$id" in
+    homebrew|bc:*) cmd_cleanup_homebrew "$id" "$apply"; return $? ;;
     di:app:*) ;;
     di:*)
       scan_inventory_index >/dev/null 2>&1 || true
@@ -9219,6 +9255,8 @@ Usage:
   aiup install             Interactive checkbox list — pick catalog tools to install
   aiup remove              Interactive checkbox list — pick installed tools to uninstall
   aiup remove <tools...>   Uninstall named catalog tools
+  aiup cleanup homebrew         Find app files removed outside Homebrew (preview)
+  aiup cleanup bc:<name> --apply  Finish uninstalling one confirmed missing app
   aiup cleanup <detected-app-id>  Preview app-bundle leftovers (no changes)
   aiup cleanup <detected-app-id> --apply  Move exact candidates to Trash after confirmation
   aiup docs <tool>         Open the official GitHub repo (or website) in a browser
@@ -9675,6 +9713,7 @@ parse_args() {
       print_inventory_definition "${args[1]:---json}"
       ;;
     cleanup)
+      [ "${#args[@]}" -le 3 ] && { [ "${#args[@]}" -lt 3 ] || [ "${args[2]}" = --apply ]; } || { error "Usage: aiup cleanup homebrew|bc:<name>|<detected-app-id> [--apply]"; return 1; }
       local cleanup_apply=0
       [ "${args[2]:-}" = '--apply' ] && cleanup_apply=1
       cmd_cleanup "${args[1]:-}" "$cleanup_apply"

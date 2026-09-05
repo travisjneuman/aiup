@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+"""Verify removed-app cleanup without invoking a real package manager."""
+from pathlib import Path
+import json, os, subprocess, tempfile
+root=Path(__file__).resolve().parents[1]
+code=(root/'macos/aiup').read_text().rsplit('\nprofile_begin\n',1)[0]
+with tempfile.TemporaryDirectory(prefix='.cleanup-check-',dir=root) as folder:
+    source=Path(folder)/'functions'; source.write_text(code)
+    def run(body):
+        stubs='''
+command_exists() { return 0; }
+brew_missing_apps_load() { AIUP_MISSING_APPS=$'demo\\t/nonexistent-aiup-cleanup-fixture.app'; }
+mutation_authoritative_preflight() { :; }
+brew_cache_invalidate() { :; }
+tui_cache_invalidate() { :; }
+run_with_heartbeat() { shift; printf 'MUTATION %s\\n' "$*"; return "${FAKE_RC:-0}"; }
+'''
+        return subprocess.run(['/bin/bash'],input='source "$SOURCE"\n'+stubs+body,text=True,capture_output=True,env=dict(os.environ,SOURCE=str(source)),timeout=10)
+    r=run('cmd_cleanup homebrew 0'); assert r.returncode==0 and 'MUTATION' not in r.stdout and 'bc:demo' in r.stdout
+    r=run('cmd_cleanup homebrew 1'); assert r.returncode!=0 and 'MUTATION' not in r.stdout
+    r=run('cmd_cleanup bc:other 1'); assert r.returncode==0 and 'MUTATION' not in r.stdout
+    r=run('cmd_cleanup bc:demo 1'); assert r.returncode==0 and 'brew uninstall --cask --force demo' in r.stdout and '--zap' not in r.stdout.split('MUTATION')[-1]
+    r=run('FAKE_RC=7; cmd_cleanup bc:demo 1'); assert r.returncode==7
+    r=run('mutation_authoritative_preflight() { brew_missing_apps_load() { AIUP_MISSING_APPS=""; }; }; cmd_cleanup bc:demo 1'); assert r.returncode!=0 and 'MUTATION' not in r.stdout
+    parser=code.split("<<'PYMISSING'\n",1)[1].split('\nPYMISSING',1)[0]
+    present=Path(folder)/'Present.app'; present.mkdir()
+    missing=Path(folder)/'Missing.app'
+    broken=Path(folder)/'Broken.app'; broken.symlink_to(Path(folder)/'absent')
+    def cask(token, artifacts): return dict(token=token,installed='1',artifacts=artifacts)
+    def app(path): return dict(app=['Demo.app'],target=str(path))
+    data={'casks':[cask('missing',[app(missing)]),cask('present',[app(present)]),
+        cask('partial',[app(missing),app(present)]),cask('ambiguous',[{'app':['Demo.app']}]),
+        cask('broken',[app(broken)])]}
+    fixture=Path(folder)/'metadata.json';fixture.write_text(json.dumps(data))
+    r=subprocess.run(['python3','-',str(fixture)],input=parser,text=True,capture_output=True,timeout=5)
+    assert r.returncode==0 and r.stdout==f'missing\t{missing}\n',r
+print('Homebrew cleanup: preview, exact selection, apply, provider failure, and changed-state checks passed')

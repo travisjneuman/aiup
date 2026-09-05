@@ -217,7 +217,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.04-07** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.04-08** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -266,3 +266,7 @@ The current macOS tool, public repository, minimal site, and six-state media are
 ## 📜 License
 
 [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)
+
+### Apps removed with AppCleaner
+
+`aiup cleanup homebrew` previews Homebrew apps whose explicitly recorded app destinations are all missing. To finish one uninstall, use `aiup cleanup bc:alt-tab --apply` (substitute the displayed name). AIUP checks again immediately before invoking Homebrew's forced cask uninstall. This runs normal uninstall hooks, never `--zap`; it does not delete Homebrew metadata directly. Apps with incomplete destination metadata, partially present multi-app installations, and broken symlinks are not cleanup candidates. Preview is the default; bulk apply is not supported. `brew cleanup` remains a separate cache/old-version operation.

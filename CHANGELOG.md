@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.09.04-08
+
+- Add preview-first Homebrew reconciliation for app bundles removed externally: `aiup cleanup homebrew`, then `aiup cleanup bc:<name> --apply`.
+- Recheck missing app destinations before normal Homebrew uninstall hooks; preserve ambiguous and partially present installations.
+- Review legacy Node/npm/Corepack and archived Nativefier ownership; retain working installations pending an explicit removal decision.
+
+
 ## 2026.09.04-07
 
 - Hide ordinary unchanged report rows by default; retain warnings and full saved history, with `--show-unchanged` for expanded output. Accept date and revision versions as valid evidence.
