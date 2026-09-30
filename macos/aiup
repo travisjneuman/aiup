@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.29-01"
+AIUP_VERSION="2026.09.29-02"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -1088,6 +1088,12 @@ cask_update_gate() {
     IFS=$'\t' read -r _ eligible record latest bundle app rel_latest _ _ <<< "$row"
     [ "$latest" != - ] || latest=''
     target="${latest%%,*}"
+    if [ "$eligible" = 1 ] && [ "$rel_latest" = same ] && [ "$AIUP_FORCE" -eq 0 ] && [ "$record" = "$latest" ]; then
+      # Homebrew's record, its latest and the app agree: plainly current.
+      update_status_set current
+      info "$tool is current; no Homebrew upgrade needed"
+      return 0
+    fi
     if [ "$eligible" = 1 ] && { [ "$rel_latest" = newer ] || { [ "$rel_latest" = same ] && [ "$AIUP_FORCE" -eq 0 ]; }; }; then
       update_status_set self-updated
       if [ "$rel_latest" = newer ]; then

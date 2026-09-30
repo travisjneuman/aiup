@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.09.29-02
+
+- An app cask whose app, Homebrew record and latest version all match is reported as `current`, not `current (self-updated)` (seen in dry runs for cmux, MacWhisper and Itsycal).
+
 ## 2026.09.29-01
 
 - Self-updating Homebrew apps: for `auto_updates` casks and catalog app casks, aiup compares the installed app bundle (`CFBundleShortVersionString`, falling back to `CFBundleVersion`) with the cask version. When the app is already at or past Homebrew's version, aiup reports `current (self-updated)`, shows the real app version, and skips the Homebrew download, so an older build is never installed over a newer one. An older bundle still gets the Homebrew upgrade as the backstop.
