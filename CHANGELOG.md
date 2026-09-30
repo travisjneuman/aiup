@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.09.29-06
+
+- Faster start of every run and `aiup plan`: Homebrew's formula and cask lists are read in parallel with its installed-app metadata instead of one after another, and npm's global prefix is remembered until npm, its config files or its prefix variables change (saves starting npm, about 0.2 s).
+- `aiup check` and the installed-version read at the start of a run use half the Mac's cores (2 to 6 workers; `AIUP_CHECK_WORKERS` overrides) instead of two.
+- During a run, Homebrew's installed lists are reread only when a tool's update actually changed Homebrew's install directories, and tools that stayed current, were deferred or were cancelled reuse the version read at the start instead of being probed again.
+- The interactive list reads versions from Homebrew only for Homebrew rows it has no version for yet.
+- Picker: moving the cursor shows a cached "available" version straight from the cache without starting the Bash runtime. A background version check reloads the rows only when they changed, so a scrolled list keeps its position.
+- Picker rows show a fixed-width `installed`, `on disk` or `not installed` state instead of a truncated state and action; the action is in the preview and on enter.
+- Press `?` in the picker for every key; the header now points to it. If the picker's session has ended, the preview says so and how to reopen it, instead of staying blank.
+- `aiup help` is grouped (Everyday, After a run, Understand a tool, Preferences, Cleanup, Lists and data, Options) and describes the release-pinned launcher correctly.
+- `aiup explain` names a tool's package in its own manager's terms (Formula, Cask, uv package or npm package); Homebrew and uv targets are no longer shown as npm packages.
+- After an npm install, a note names the packages whose install scripts npm 11.19+ held back by default, instead of a generic "setup scripts need review" warning.
+- `aiup list --plain` prints the Homebrew and detected legends only with `--verbose`.
+- Internal: removed fallback label, docs, kind and install-method tables that duplicated the manifest; the manifest is the single source for every entry.
+
 ## 2026.09.29-05
 
 - Catalog review: the catalog now carries only maintained software. Removed as archived, unmaintained or inactive: mods, Continue CLI, OpenHands CLI, Open Interpreter, aichat, GPT4All, DiffusionBee, Upscayl and SoX (replaced by the maintained SoX NG). aiup does not remove installed copies. `docs/catalog-research.md` lists the reasons.

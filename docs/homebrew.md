@@ -30,7 +30,7 @@ casks / fonts / formulae / libraries are **inventory of your Mac**. They are not
 
 **recommended** is the list that can show things you don't have yet.
 
-## installed · on disk · absent
+## installed · on disk · not installed
 
 The same product can exist as a Homebrew cask *and* as a drag-installed / App Store / vendor `.app`. Those are one app.
 
@@ -38,7 +38,7 @@ The same product can exist as a Homebrew cask *and* as a drag-installed / App St
 |---|---|
 | **installed** | Homebrew owns this formula or cask |
 | **on disk** | The app or command is on your Mac some other way |
-| **absent** | Not found via Homebrew *or* the app/PATH check (recommended only) |
+| **not installed** | Not found via Homebrew *or* the app/PATH check (recommended and available only) |
 
 ## Switch to Homebrew without requesting a data zap
 

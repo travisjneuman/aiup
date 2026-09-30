@@ -47,6 +47,7 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | `~/.local/share/aiup/available-versions/` | Short-lived cache of each installed tool's newest release; hidden temporaries older than an hour are swept |
 | `~/.local/share/aiup/activation.lock` | Short-lived process-owned serialization record for finalization, pointer replacement, and exact retention cleanup |
 | `~/.local/share/aiup/npm/` | Isolated npm prefix for Node CLIs |
+| `~/.local/share/aiup/npm-prefix` | npm's global prefix, reused until npm, its config files or prefix variables change |
 | `~/.local/share/aiup/fzf-expanded` | Which catalog categories are expanded |
 | `~/.local/share/aiup/catalog-index.tsv` | Last scan of the main catalog |
 | `~/.local/share/aiup/brew-index.tsv` | Last scan of Homebrew extras |
