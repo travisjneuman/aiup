@@ -27,7 +27,7 @@ The interactive catalog also builds a local-only inventory of app bundle identif
 The network lanes are separate:
 
 1. **Launcher refresh:** a public installation requests the small release pointer from `raw.githubusercontent.com` before every invocation, and downloads the runtime and catalog manifest only when a new release is published. Those requests do not contain the local inventory. If a request fails or a download fails validation, aiup runs the last validated release. An explicit `AIUP_SOURCE_PATH` development run skips this refresh.
-2. **Homebrew and vendor maintenance:** actions that inspect remote versions, install, or update software may contact Homebrew, npm registries, GitHub releases, or the selected vendor's documented metadata/download endpoints. These requests are made only by the relevant action; their remote services have their own logging and privacy policies.
+2. **Homebrew and vendor maintenance:** actions that inspect remote versions, install, or update software may contact Homebrew, npm registries, PyPI, GitHub releases, or the selected vendor's documented metadata/download endpoints. `aiup check` and the picker's update preview ask each installed tool's own release source for its newest version (one request per tool, naming only that tool's package or channel), and refresh Homebrew's package metadata when it is older than 15 minutes. These requests are made only by the relevant action; their remote services have their own logging and privacy policies.
 3. **User-opened links:** `aiup docs` or the picker docs key opens a catalog URL. A detected-only item opens a Google search only after the user deliberately chooses that action. Merely scanning local inventory does not open those links.
 
 The aiup CLI itself does not require an aiup account or upload local inventory to an aiup server. Individual catalog tools may require their own accounts.
@@ -43,6 +43,8 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | `~/.local/share/aiup/current-generation` | Atomically replaced pointer selecting the active pair after refresh |
 | `~/.local/share/aiup/previous-generation` | Pointer to the release that was active before the current one |
 | `~/.local/share/aiup/launcher-notice.stamp` | Limits the reinstall notice for pre-release launchers to once a day |
+| `~/.local/share/aiup/brew-metadata.stamp` | When aiup last refreshed Homebrew's package metadata for a check |
+| `~/.local/share/aiup/available-versions/` | Short-lived cache of each installed tool's newest release; hidden temporaries older than an hour are swept |
 | `~/.local/share/aiup/activation.lock` | Short-lived process-owned serialization record for finalization, pointer replacement, and exact retention cleanup |
 | `~/.local/share/aiup/npm/` | Isolated npm prefix for Node CLIs |
 | `~/.local/share/aiup/fzf-expanded` | Which catalog categories are expanded |

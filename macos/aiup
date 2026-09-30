@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.29-03"
+AIUP_VERSION="2026.09.29-04"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -56,10 +56,14 @@ AVAILABLE_VERSION_CACHE_TTL="${AIUP_AVAILABLE_VERSION_CACHE_TTL:-900}"
 AVAILABLE_VERSION_FAILURE_TTL="${AIUP_AVAILABLE_VERSION_FAILURE_TTL:-60}"
 AVAILABLE_VERSION_DEBOUNCE_SECONDS="${AIUP_AVAILABLE_VERSION_DEBOUNCE_SECONDS:-0.20}"
 AVAILABLE_VERSION_PROVIDER_TIMEOUT="${AIUP_AVAILABLE_VERSION_PROVIDER_TIMEOUT:-5}"
-AVAILABLE_VERSION_CACHE_LIMIT="${AIUP_AVAILABLE_VERSION_CACHE_LIMIT:-128}"
+AVAILABLE_VERSION_CACHE_LIMIT="${AIUP_AVAILABLE_VERSION_CACHE_LIMIT:-512}"
+# Update runs wait longer for Homebrew metadata than interactive previews: a
+# timed-out safety check must never turn into a blind upgrade.
+AIUP_RUN_PROVIDER_TIMEOUT="${AIUP_RUN_PROVIDER_TIMEOUT:-60}"
+case "$AIUP_RUN_PROVIDER_TIMEOUT" in ''|*[!0-9]*) AIUP_RUN_PROVIDER_TIMEOUT=60 ;; esac
 TUI_PREFETCH_WORKERS="${AIUP_TUI_PREFETCH_WORKERS:-2}"
 case "$AVAILABLE_VERSION_CACHE_TTL:$AVAILABLE_VERSION_FAILURE_TTL:$AVAILABLE_VERSION_PROVIDER_TIMEOUT:$AVAILABLE_VERSION_CACHE_LIMIT:$TUI_PREFETCH_WORKERS" in
-  *[!0-9:]*) AVAILABLE_VERSION_CACHE_TTL=900; AVAILABLE_VERSION_FAILURE_TTL=60; AVAILABLE_VERSION_PROVIDER_TIMEOUT=5; AVAILABLE_VERSION_CACHE_LIMIT=128; TUI_PREFETCH_WORKERS=2 ;;
+  *[!0-9:]*) AVAILABLE_VERSION_CACHE_TTL=900; AVAILABLE_VERSION_FAILURE_TTL=60; AVAILABLE_VERSION_PROVIDER_TIMEOUT=5; AVAILABLE_VERSION_CACHE_LIMIT=512; TUI_PREFETCH_WORKERS=2 ;;
 esac
 [ "$TUI_PREFETCH_WORKERS" -ge 2 ] 2>/dev/null || TUI_PREFETCH_WORKERS=2
 [ "$TUI_PREFETCH_WORKERS" -le 3 ] 2>/dev/null || TUI_PREFETCH_WORKERS=3
@@ -155,6 +159,7 @@ UPDATE_REPORT_BEFORE=()
 UPDATE_REPORT_ROWS=()
 AIUP_VERBOSE=0
 AIUP_FORCE=0
+AIUP_RESUME_SWITCH=""
 AIUP_PATHS_READY=0
 UPDATE_REPORT_MODE=update
 UPDATE_REPORT_CAPTURING=0
@@ -196,6 +201,11 @@ def _version_key(value):
     tail = [int(revision.group(1))] if revision else []
     build = [int(part) for part in suffix.split(".")] if re.fullmatch(r"\d+(?:\.\d+)*", suffix) else None
     return main, pre, tail, build
+_TAG_RANK = {"dev": 0, "a": 1, "alpha": 1, "b": 2, "beta": 2, "c": 3, "rc": 3, "pre": 3, "preview": 3, "post": 5, "rev": 5}
+def _tag_rank(pre):
+    # dev < alpha < beta < rc (and unknown tags such as nightly) < release < post
+    if pre is None: return 4
+    return _TAG_RANK.get(pre[0], 3) if pre and isinstance(pre[0], str) else 3
 def _pad_cmp(left, right):
     width = max(len(left), len(right))
     left, right = left + [0] * (width - len(left)), right + [0] * (width - len(right))
@@ -207,9 +217,9 @@ def version_cmp(a, b):
     result = _pad_cmp(ka[0], kb[0])
     if result: return result
     pa, pb = ka[1], kb[1]
-    if pa is None and pb is not None: return 1
-    if pa is not None and pb is None: return -1
-    if pa is not None:
+    ra, rb = _tag_rank(pa), _tag_rank(pb)
+    if ra != rb: return (ra > rb) - (ra < rb)
+    if pa is not None and pb is not None:
         for x, y in zip(pa, pb):
             if x == y: continue
             if isinstance(x, int) and isinstance(y, int): return (x > y) - (x < y)
@@ -231,6 +241,104 @@ def bundle_relation(short, build, cask):
     if not result and suffix and build and build != bundle and re.fullmatch(r"\d+(?:\.\d+)*", suffix) and re.fullmatch(r"\d+(?:\.\d+)*", build):
         result = version_cmp(build, suffix)
     return "newer" if result > 0 else "older" if result < 0 else "same"
+'
+
+AIUP_LIVE_PY='
+import concurrent.futures, json, os, re, subprocess, sys, tempfile, time
+cache_dir, timeout, mode = sys.argv[1], float(sys.argv[2]), sys.argv[3]
+CAP = 4194304
+def curl(url, redirect=False):
+    if not url.startswith("https://"): raise ValueError("https only")
+    cmd = ["curl", "-fsS", "--proto", "=https", "--proto-redir", "=https", "--connect-timeout", "4",
+           "--max-time", str(int(timeout)), "--max-filesize", str(CAP), "-A", "aiup"]
+    cmd += ["-o", "/dev/null", "-w", "%{redirect_url}"] if redirect else ["-L", "--compressed"]
+    done = subprocess.run(cmd + [url], capture_output=True, timeout=timeout + 2)
+    if done.returncode != 0 or len(done.stdout) > CAP: raise ValueError("fetch failed")
+    return done.stdout.decode("utf-8", "replace")
+def first_line(text):
+    return next((line.strip() for line in text.splitlines() if line.strip()), "")
+def read_json(path):
+    try:
+        with open(path, encoding="utf-8") as handle: data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError): return {}
+def channel(value, default, allowed=None):
+    value = str(value or "").strip().lower()
+    ok = re.fullmatch(r"[a-z0-9_-]{1,32}", value) and (allowed is None or value in allowed)
+    return value if ok else default
+def match(pattern, text):
+    found = re.search(pattern, text)
+    return found.group(1) if found else ""
+def latest(kind, a, b):
+    if kind == "npm": return json.loads(curl("https://registry.npmjs.org/" + a + "/latest")).get("version", "")
+    if kind == "pypi": return (json.loads(curl("https://pypi.org/pypi/" + a + "/json")).get("info") or {}).get("version", "")
+    if kind == "text": return first_line(curl(a))
+    if kind == "json": return str(json.loads(curl(a)).get(b, ""))
+    if kind == "redirect": return match(b, curl(a, redirect=True))
+    if kind == "regex": return match(b, curl(a))
+    if kind == "claude":
+        name = channel(read_json(a).get("autoUpdatesChannel"), "latest", ("latest", "stable"))
+        return first_line(curl("https://downloads.claude.ai/claude-code-releases/" + name))
+    if kind == "grok":
+        name = channel(os.environ.get("GROK_CHANNEL") or read_json(a).get("release_channel"), "stable")
+        try: return first_line(curl("https://x.ai/cli/" + name))
+        except (ValueError, subprocess.SubprocessError):
+            return first_line(curl("https://storage.googleapis.com/grok-build-public-artifacts/cli/" + name))
+    if kind == "nodenpm":
+        # npm ships inside Homebrew node: the newest npm aiup can install is
+        # the one bundled with the current Homebrew node release.
+        env = dict(os.environ, HOMEBREW_NO_AUTO_UPDATE="1", HOMEBREW_NO_ENV_HINTS="1")
+        done = subprocess.run(["brew", "info", "--json=v2", "--formula", "node"], capture_output=True, timeout=timeout + 2, env=env)
+        if done.returncode != 0: raise ValueError("brew info failed")
+        stable = ((json.loads(done.stdout).get("formulae") or [{}])[0].get("versions") or {}).get("stable") or ""
+        for item in json.loads(curl("https://nodejs.org/dist/index.json")):
+            if isinstance(item, dict) and item.get("version") == "v" + stable: return item.get("npm") or ""
+        return ""
+    if kind == "git":
+        # A checkout that tracks main: compare commits, not version strings.
+        env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+        head = subprocess.run(["git", "-C", a, "rev-parse", "HEAD"], capture_output=True, text=True, timeout=timeout, env=env)
+        remote = subprocess.run(["git", "ls-remote", b, "refs/heads/main"], capture_output=True, text=True, timeout=timeout + 2, env=env)
+        local_sha, remote_sha = head.stdout.strip(), (remote.stdout.split() or [""])[0]
+        if head.returncode or remote.returncode or not re.fullmatch(r"[0-9a-f]{40}", local_sha) or not re.fullmatch(r"[0-9a-f]{40}", remote_sha):
+            raise ValueError("git lookup failed")
+        return "=" if local_sha == remote_sha else "main@" + remote_sha[:7]
+    raise ValueError("unknown source")
+def check(line):
+    fields = (line.split("\t") + [""] * 6)[:6]
+    tool, current, kind, a, b, flags = fields
+    try:
+        value = str(latest(kind, a, b) or "").strip()
+        if kind == "git":
+            if value == "=": return tool, current, "current", ""
+            if not re.fullmatch(r"main@[0-9a-f]{7}", value): raise ValueError("bad commit")
+            return tool, current, "newer", value
+        if value[:1] == "v" and value[1:2].isdigit(): value = value[1:]
+        if not re.fullmatch(r"[A-Za-z0-9._+-]+", value) or not re.search(r"[0-9]", value): raise ValueError("bad version")
+        if flags == "main":
+            # Builds tagged with commit hashes: only the numeric part orders them.
+            left, right = _version_key(value), _version_key(current)
+            if left is None or right is None: raise ValueError("unparsable version")
+            newer = _pad_cmp(left[0], right[0]) > 0
+        else:
+            newer = version_cmp(value, current) > 0
+        return tool, current, "newer" if newer else "current", value if newer else ""
+    except (ValueError, KeyError, TypeError, AttributeError, IndexError, OSError, subprocess.SubprocessError):
+        return tool, current, "failure", ""
+def remember(tool, current, status, value):
+    key = tool.replace("/", "%2F")
+    handle, temp = tempfile.mkstemp(prefix="." + key + ".", dir=cache_dir)
+    with os.fdopen(handle, "w", encoding="utf-8") as out:
+        out.write("%d\t%s\t%s\t%s\n" % (int(time.time()), current, status, value))
+    os.replace(temp, os.path.join(cache_dir, key + ".tsv"))
+lines = [line for line in sys.stdin.read().splitlines() if line.strip()]
+with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    results = list(pool.map(check, lines))
+for tool, current, status, value in results:
+    if mode == "cache":
+        try: remember(tool, current, status, value)
+        except OSError: pass
+    print(tool, status, value, sep="\t")
 '
 
 _now() {
@@ -861,7 +969,9 @@ brew_missing_apps_load() {
   local raw
   ensure_dir "$STATE_DIR"
   raw="$(mktemp "$STATE_DIR/.cask-apps.XXXXXX")" || return 1
-  if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --cask --json=v2 --installed; then
+  local timeout="$AVAILABLE_VERSION_PROVIDER_TIMEOUT"
+  [ "$UPDATE_REPORT_MODE" != update ] || timeout="$AIUP_RUN_PROVIDER_TIMEOUT"
+  if AIUP_PROVIDER_MAX_BYTES=8388608 bounded_provider_capture "$raw" "$timeout" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --cask --json=v2 --installed; then
     AIUP_MISSING_APPS="$(python3 - "$raw" "$STATE_DIR" <<'PYMISSING'
 import json,sys,os,plistlib,tempfile,subprocess
 from pathlib import Path
@@ -1078,8 +1188,19 @@ cask_update_gate() {
     row=''
     ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || true
     if raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.cask-gate.XXXXXX" 2>/dev/null)"; then
-      if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --cask "$cask"; then
+      if bounded_provider_capture "$raw" "$AIUP_RUN_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --cask "$cask"; then
         row="$(cask_bundle_rows "$raw" | awk -F '\t' -v name="${cask##*/}" '$1==name {print; exit}')"
+      else
+        # Without fresh metadata, use the installed-cask table; with no row at
+        # all, defer instead of letting a named (greedy) upgrade run unchecked.
+        row="$(cask_bundle_row "$cask" || true)"
+        if [ -z "$row" ]; then
+          rm -f "$raw"
+          update_status_set deferred
+          UPDATE_REPORT_NOTE="Deferred: Homebrew metadata for $cask was unavailable, so aiup could not confirm the upgrade is safe. Run aiup resume later."
+          info "$tool: $UPDATE_REPORT_NOTE"
+          return 0
+        fi
       fi
       rm -f "$raw"
     fi
@@ -1118,7 +1239,9 @@ cask_update_gate() {
 }
 
 # One authoritative post-refresh snapshot avoids a no-op upgrade per package.
-# Greedy includes auto-updating/latest casks; unsupported metadata never skips work.
+# It includes auto-updating casks (the cask gate then compares the app bundle)
+# but not unversioned :latest casks, which have nothing to compare and would
+# otherwise reinstall on every run. Unsupported metadata never skips work.
 brew_target_current() {
   local kind="$1" target="${2##*/}" raw
   [ "$AIUP_FORCE" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ] || return 1
@@ -1127,7 +1250,7 @@ brew_target_current() {
     AIUP_BREW_OUTDATED_TARGETS='unknown'
     ensure_dir "$AVAILABLE_VERSION_CACHE_DIR"
     raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.brew-outdated.XXXXXX")" || return 1
-    if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew outdated --greedy --json=v2; then
+    if AIUP_PROVIDER_MAX_BYTES=8388608 bounded_provider_capture "$raw" "$AIUP_RUN_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew outdated --greedy-auto-updates --json=v2; then
       AIUP_BREW_OUTDATED_TARGETS="$(python3 - "$raw" <<'PYOUTDATED'
 import json, sys
 try:
@@ -3165,6 +3288,8 @@ brew_cask_adopt() {
   fi
   if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
     if ! confirm_tty "Switch $name to Homebrew without requesting a data zap? [y/N] "; then
+      update_status_set cancelled
+      UPDATE_REPORT_NOTE="Cancelled: $name is unchanged and still not Homebrew-managed. aiup resume asks again."
       info "Left $name as-is (still not Homebrew-managed)"
       return 0
     fi
@@ -3183,6 +3308,8 @@ brew_cask_adopt() {
   warn "Next step asks Homebrew to replace the app bundle without --zap; vendor-specific installer behavior may vary."
   if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
     if ! confirm_tty "Replace the $name app bundle via Homebrew without --zap? [y/N] "; then
+      update_status_set cancelled
+      UPDATE_REPORT_NOTE="Cancelled: $name is unchanged. aiup resume asks again."
       info "Cancelled. $name is unchanged."
       return 0
     fi
@@ -3502,18 +3629,22 @@ PY
   printf 'not installed\n'
 }
 
+# Run one read-only provider with a wall-clock limit. Output over the byte cap
+# (AIUP_PROVIDER_MAX_BYTES, default 1 MiB) is rejected afterwards; no file-size
+# ulimit is used, because npm and brew write large cache files of their own.
 bounded_provider_capture() {
-  local output="$1" timeout="$2"
+  local output="$1" timeout="$2" max_bytes="${AIUP_PROVIDER_MAX_BYTES:-1048576}"
   shift 2
-  local provider_pid watchdog_pid rc bytes
+  local provider_pid watchdog_pid rc bytes saved_traps
   : > "$output" || return 1
-  (ulimit -f 1024; "$@") > "$output" 2>/dev/null &
+  "$@" > "$output" 2>/dev/null &
   provider_pid=$!
   AIUP_PROVIDER_PID="$provider_pid"
   (sleep "$timeout"; kill -TERM "$provider_pid" 2>/dev/null || true; sleep 0.2; kill -KILL "$provider_pid" 2>/dev/null || true) &
   watchdog_pid=$!
   AIUP_PROVIDER_WATCHDOG_PID="$watchdog_pid"
-  trap 'kill "$provider_pid" "$watchdog_pid" 2>/dev/null || true; if [ -n "${AIUP_ACTIVE_AVAILABLE_LOCK:-}" ]; then rm -f "$AIUP_ACTIVE_AVAILABLE_LOCK/meta"; rmdir "$AIUP_ACTIVE_AVAILABLE_LOCK" 2>/dev/null || true; fi; exit 130' HUP INT TERM
+  saved_traps="$(trap -p HUP INT TERM)"
+  trap 'kill "$provider_pid" "$watchdog_pid" 2>/dev/null || true; if [ -n "${AIUP_ACTIVE_AVAILABLE_LOCK:-}" ]; then rm -f "$AIUP_ACTIVE_AVAILABLE_LOCK/meta"; rmdir "$AIUP_ACTIVE_AVAILABLE_LOCK" 2>/dev/null || true; fi; rm -f "$output"; exit 130' HUP INT TERM
   wait "$provider_pid" || rc=$?
   AIUP_PROVIDER_PID=""
   rc="${rc:-0}"
@@ -3521,9 +3652,10 @@ bounded_provider_capture() {
   wait "$watchdog_pid" 2>/dev/null || true
   AIUP_PROVIDER_WATCHDOG_PID=""
   trap - HUP INT TERM
+  [ -z "$saved_traps" ] || eval "$saved_traps"
   if [ "$rc" -eq 0 ]; then
     bytes="$(wc -c < "$output" | tr -d ' ')"
-    case "$bytes" in ''|*[!0-9]*) rc=1 ;; *) [ "$bytes" -le 1048576 ] || rc=1 ;; esac
+    case "$bytes" in ''|*[!0-9]*) rc=1 ;; *) [ "$bytes" -le "$max_bytes" ] || rc=1 ;; esac
   fi
   [ "$rc" -eq 0 ]
 }
@@ -3532,6 +3664,10 @@ available_candidate_result() {
   local current="$1" candidate="$2"
   candidate="$(printf '%s\n' "$candidate" | sed -n '1p')"
   [ -n "$candidate" ] || return 0
+  # A checkout that tracks main reports the newer commit instead of a version.
+  case "$candidate" in
+    main@*) printf '%s' "$candidate" | grep -Eq '^main@[0-9a-f]{7}$' || return 1; printf '%s\n' "$candidate"; return 0 ;;
+  esac
   printf '%s' "$candidate" | grep -Eq '^[A-Za-z0-9._+-]+$' || return 1
   printf '%s' "$candidate" | grep -Eq '[0-9]' || return 1
   if [ "$(version_is_greater "$candidate" "$current")" = 'yes' ]; then
@@ -3544,7 +3680,7 @@ available_candidate_result() {
 # strictly newer supported version.
 available_version_uncached() {
   local tool="$1" current="$2"
-  local kind pkg formula cask endpoint latest target arch raw parsed rc provider_key
+  local kind pkg formula cask endpoint latest target arch raw parsed rc provider_key spec status
   ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 1
   provider_key="$(available_cache_key "$tool")"
   raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.provider-${provider_key}.XXXXXX")" || return 1
@@ -3567,18 +3703,24 @@ available_version_uncached() {
   case "$tool" in
     bf:*) kind='brew-formula'; formula="${tool#bf:}" ;;
     bc:*) kind='brew-cask'; cask="${tool#bc:}" ;;
+    # Goose always updates through the Homebrew formula when Homebrew exists.
+    goose) kind='brew-formula' ;;
     *) kind="$(catalog_kind "$tool")" ;;
   esac
-  # Homebrew and uv package targets share the manifest column; never ask npm.
-  case "$kind" in brew-formula|brew-cask|uv-tool) pkg='' ;; *) pkg="$(catalog_npm_pkg "$tool")" ;; esac
-  if [ -n "$pkg" ] && command_exists npm; then
-    bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env npm view "$pkg" version --fetch-retries=0 --fetch-timeout=3000 || { rm -f "$raw"; return 1; }
-    latest="$(cat "$raw")"; rm -f "$raw"
-    printf '%s' "$latest" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' || return 1
-    [[ "$latest" != *$'\n'* ]] || return 1
-    available_candidate_result "$current" "$latest"
-    return $?
-  fi
+  case "$kind" in
+    brew-formula|brew-cask) ;;
+    *)
+      if spec="$(live_source_spec "$tool")"; then
+        rm -f "$raw"
+        IFS=$'\t' read -r _ status latest <<< "$(printf '%s\t%s\t%s\n' "$tool" "$current" "$spec" | live_source_run print 2>/dev/null)"
+        case "$status" in
+          newer) available_candidate_result "$current" "$latest"; return $? ;;
+          current) return 0 ;;
+          *) return 1 ;;
+        esac
+      fi
+      ;;
+  esac
   if [ "$kind" = 'brew-formula' ] && command_exists brew; then
     [ -n "${formula:-}" ] || formula="$(catalog_brew_formula "$tool")"
     bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --formula "$formula" || { rm -f "$raw"; return 1; }
@@ -3590,7 +3732,8 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 if not isinstance(items, list) or len(items) != 1: raise ValueError("invalid formula metadata")
 item = items[0]
 if not isinstance(item.get("outdated"), bool): raise ValueError("missing outdated status")
-if item.get("outdated"):
+# A copy installed outside Homebrew is compared with the formula's version.
+if item.get("outdated") or not item.get("installed"):
     print((item.get("versions") or {}).get("stable", ""))
 PY
     rc=$?; latest="$(sed -n '1p' "$parsed" 2>/dev/null)"; rm -f "$raw" "$parsed"
@@ -3621,22 +3764,6 @@ PY
     available_candidate_result "$current" "$latest"
     return $?
   fi
-  if [ "$kind" = 'uv-tool' ] && command_exists curl; then
-    pkg="$(catalog_uv_pkg "$tool")"
-    bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" curl -fsSL --retry 1 --connect-timeout 3 --max-time "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" "https://pypi.org/pypi/${pkg}/json" || { rm -f "$raw"; return 1; }
-    parsed="${raw}.parsed"
-    python3 - "$raw" > "$parsed" 2>/dev/null <<'PY'
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as handle:
-    version = (json.load(handle).get("info") or {}).get("version", "")
-    if not version: raise ValueError("missing package version")
-    print(version)
-PY
-    rc=$?; latest="$(sed -n '1p' "$parsed" 2>/dev/null)"; rm -f "$raw" "$parsed"
-    [ "$rc" -eq 0 ] || return 1
-    available_candidate_result "$current" "$latest"
-    return $?
-  fi
   rm -f "$raw"
   if [ "$tool" = 'screenpipe' ] && [ -n "$current" ]; then
     case "$(uname -m)" in
@@ -3658,6 +3785,101 @@ PY
   # A missing provider contract is unavailable to verify, never proof that the
   # installed item is current.
   return 1
+}
+
+# Where each tool outside Homebrew publishes its newest installable release,
+# as one tab-separated line: source kind, arguments, and an optional "main" flag
+# (compare only the numeric part, for builds tagged with commit hashes). The
+# kinds are implemented by AIUP_LIVE_PY. Homebrew packages use Homebrew's own
+# metadata instead, because that is what aiup installs.
+live_source_spec() {
+  local tool="$1" kind pkg arch
+  case "$tool" in
+    brew) printf 'redirect\thttps://github.com/Homebrew/brew/releases/latest\t/tag/v?([0-9][0-9A-Za-z._-]*)$\n' ;;
+    npm) printf 'nodenpm\n' ;;
+    uv) printf 'pypi\tuv\n' ;;
+    claude) printf 'claude\t%s\n' "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" ;;
+    grok) printf 'grok\t%s\n' "$HOME/.grok/settings_cache.json" ;;
+    antigravity)
+      case "$(uname -m)" in arm64) arch=arm64 ;; *) arch=x64 ;; esac
+      printf 'json\thttps://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/darwin_%s.json\tversion\n' "$arch" ;;
+    warp)
+      case "$(uname -m)" in arm64) arch=aarch64 ;; *) arch=x86_64 ;; esac
+      printf 'redirect\thttps://app.warp.dev/download/agent-cli/artifact?os=macos&arch=%s\t/v?([0-9][^/]*)/tui/\tmain\n' "$arch" ;;
+    cursor) printf 'regex\t%s\tdownloads\\.cursor\\.com/lab/([^/]+)/\tmain\n' "$CURSOR_INSTALL_URL" ;;
+    amp) printf 'text\thttps://static.ampcode.com/cli/cli-version.txt\t\tmain\n' ;;
+    droid) printf 'text\thttps://downloads.factory.ai/factory-cli/LATEST\n' ;;
+    hermes) printf 'git\t%s\thttps://github.com/NousResearch/hermes-agent.git\n' "$HERMES_HOME" ;;
+    opencode) printf 'npm\topencode-ai\n' ;;
+    aider) printf 'pypi\taider-chat\n' ;;
+    bf:*|bc:*|goose|screenpipe) return 1 ;;
+    *)
+      kind="$(catalog_kind "$tool")"
+      case "$kind" in
+        uv-tool) pkg="$(catalog_uv_pkg "$tool")" ;;
+        aiup-npm|special) pkg="$(catalog_npm_pkg "$tool")" ;;
+        *) return 1 ;;
+      esac
+      [ -n "$pkg" ] || return 1
+      if [ "$kind" = uv-tool ]; then printf 'pypi\t%s\n' "$pkg"; else printf 'npm\t%s\n' "$pkg"; fi
+      ;;
+  esac
+}
+
+# stdin: tool<TAB>current<TAB>spec lines. "print" only reports; "cache" also
+# records each result in the available-version cache. Output: tool, status
+# (newer, current or failure) and the newer version.
+live_source_run() {
+  ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 1
+  python3 -c "$AIUP_VERSION_PY$AIUP_LIVE_PY" "$AVAILABLE_VERSION_CACHE_DIR" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" "$1"
+}
+
+# Fetch the live releases of many tools concurrently and cache them, so the
+# per-tool checks that follow are cache reads. Arguments: force (1 ignores
+# cached answers), then tool/current pairs. Adds each refreshed tool to
+# CHECK_BREW_REFRESHED so a --refresh check does not ask twice.
+live_source_refresh() {
+  local force="$1" tool current spec input='' status
+  shift
+  capture_fixture_enabled && return 0
+  [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] || return 0
+  while [ "$#" -ge 2 ]; do
+    tool="$1"; current="$2"; shift 2
+    case "$current" in ''|'not installed'|unknown) continue ;; esac
+    spec="$(live_source_spec "$tool")" || continue
+    if [ "$force" -ne 1 ] && available_cache_read "$tool" "$current" >/dev/null; then continue; fi
+    input="${input}${tool}"$'\t'"${current}"$'\t'"${spec}"$'\n'
+  done
+  [ -n "$input" ] || return 0
+  while IFS=$'\t' read -r tool status _; do
+    [ -n "$tool" ] && [ -n "$status" ] || continue
+    CHECK_BREW_REFRESHED="${CHECK_BREW_REFRESHED:-|}${tool}|"
+  done < <(printf '%s' "$input" | live_source_run cache 2>/dev/null)
+  available_cache_prune || true
+}
+
+# Read-only paths run Homebrew with auto-update off, so its package data can be
+# days old. When it is older than the version-cache TTL, refresh it once with
+# Homebrew's own --auto-update fast path, so "current" means current now. A
+# user who sets HOMEBREW_NO_AUTO_UPDATE keeps that choice.
+brew_metadata_refresh_if_stale() {
+  local api="${HOMEBREW_CACHE:-$HOME/Library/Caches/Homebrew}/api" stamp="$STATE_DIR/brew-metadata.stamp" minutes out
+  AIUP_BREW_METADATA_REFRESHED=0
+  capture_fixture_enabled && return 0
+  [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] || return 0
+  [ -z "${HOMEBREW_NO_AUTO_UPDATE:-}" ] || return 0
+  command_exists brew || return 0
+  minutes=$(( (AVAILABLE_VERSION_CACHE_TTL + 59) / 60 ))
+  if [ -n "$(find "$api" "$stamp" -maxdepth 2 \( -name '*.jws.json' -o -name brew-metadata.stamp \) -mmin "-$minutes" 2>/dev/null | head -n 1)" ]; then
+    return 0
+  fi
+  ensure_dir "$STATE_DIR" || return 0
+  out="$(mktemp "$STATE_DIR/.brew-refresh.XXXXXX")" || return 0
+  if bounded_provider_capture "$out" 60 env HOMEBREW_NO_ENV_HINTS=1 brew update --auto-update --quiet; then
+    AIUP_BREW_METADATA_REFRESHED=1
+  fi
+  rm -f "$out"
+  : > "$stamp" 2>/dev/null || true
 }
 
 available_cache_file() {
@@ -3730,7 +3952,7 @@ available_lock_recover() {
 }
 
 available_version_of_tool() {
-  local tool="$1" current="$2" lock_dir available rc tries=0 kind brew_lock cache_key
+  local tool="$1" current="$2" lock_dir available rc tries=0 kind brew_lock cache_key saved_traps
   ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || return 0
   if available_cache_read "$tool" "$current"; then return 0; fi
   profile_note "available-cache miss tool=$tool current=$current"
@@ -3757,11 +3979,13 @@ available_version_of_tool() {
   done
   printf '%s\t%s\n' "$(current_shell_pid)" "$(date +%s)" > "$lock_dir/meta"
   AIUP_ACTIVE_AVAILABLE_LOCK="$lock_dir"
+  saved_traps="$(trap -p HUP INT TERM)"
   trap '[ -z "${AIUP_PROVIDER_PID:-}" ] || kill "$AIUP_PROVIDER_PID" 2>/dev/null || true; [ -z "${AIUP_PROVIDER_WATCHDOG_PID:-}" ] || kill "$AIUP_PROVIDER_WATCHDOG_PID" 2>/dev/null || true; rm -f "$lock_dir/meta"; rmdir "$lock_dir" 2>/dev/null || true; exit 130' HUP INT TERM
   if available_cache_read "$tool" "$current"; then
     rm -f "$lock_dir/meta"; rmdir "$lock_dir" 2>/dev/null || true
     AIUP_ACTIVE_AVAILABLE_LOCK=""
     trap - HUP INT TERM
+    [ -z "$saved_traps" ] || eval "$saved_traps"
     return 0
   fi
   if available="$(available_version_uncached "$tool" "$current")"; then
@@ -3779,6 +4003,7 @@ available_version_of_tool() {
   rm -f "$lock_dir/meta"; rmdir "$lock_dir" 2>/dev/null || true
   AIUP_ACTIVE_AVAILABLE_LOCK=""
   trap - HUP INT TERM
+  [ -z "$saved_traps" ] || eval "$saved_traps"
   return "$rc"
 }
 
@@ -4026,12 +4251,15 @@ tui_prefetch_brew_consolidated() {
     case "$(catalog_kind "$tool")" in brew-formula|brew-cask) has_brew=1; break ;; esac
   done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
   [ "$has_brew" -eq 1 ] || return 0
+  brew_metadata_refresh_if_stale
   brew_lock="$AVAILABLE_VERSION_CACHE_DIR/.brew-snapshot.lock"
   mkdir "$brew_lock" 2>/dev/null || return 0
   printf '%s\t%s\n' "$(current_shell_pid)" "$(date +%s)" > "$brew_lock/meta"
   AIUP_ACTIVE_AVAILABLE_LOCK="$brew_lock"
   raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.brew-outdated.XXXXXX")" || { rm -f "$brew_lock/meta"; rmdir "$brew_lock" 2>/dev/null || true; AIUP_ACTIVE_AVAILABLE_LOCK=""; return 0; }
-  if ! bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew outdated --json=v2; then
+  # Same definition as check and the update run: auto-updating casks are
+  # candidates (compared with the installed app below), :latest casks are not.
+  if ! AIUP_PROVIDER_MAX_BYTES=8388608 bounded_provider_capture "$raw" 30 env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew outdated --json=v2 --greedy-auto-updates; then
     while IFS=$'\t' read -r tool current; do
       case "$tool:$(catalog_kind "$tool")" in bf:*|bc:*|*:brew-formula|*:brew-cask) available_cache_write "$tool" "$current" failure '' || true ;; esac
     done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
@@ -4091,6 +4319,18 @@ PY
   AIUP_ACTIVE_AVAILABLE_LOCK=""
 }
 
+# One concurrent pass over every installed tool that publishes outside Homebrew.
+tui_prefetch_live_sources() {
+  local tool current
+  local -a pairs=()
+  while IFS=$'\t' read -r tool current; do
+    [ -n "$tool" ] && [ -n "$current" ] || continue
+    pairs+=("$tool" "$current")
+  done < "$AIUP_TUI_SESSION_DIR/preview-remote.tsv"
+  [ "${#pairs[@]}" -gt 0 ] || return 0
+  live_source_refresh 0 "${pairs[@]}"
+}
+
 tui_prefetch_worker() {
   local offset="$1" tool current kind index=0
   while IFS=$'\t' read -r tool current; do
@@ -4110,6 +4350,7 @@ tui_prefetch_supervisor() {
   trap 'for pid in "${children[@]}"; do kill "$pid" 2>/dev/null || true; done; wait 2>/dev/null || true; exit 0' TERM INT HUP
   sleep 0.35
   tui_prefetch_brew_consolidated || true
+  tui_prefetch_live_sources || true
   index=0
   while [ "$index" -lt "$TUI_PREFETCH_WORKERS" ]; do
     tui_prefetch_worker "$index" & children+=("$!")
@@ -6762,7 +7003,9 @@ update_aider() {
   local method
   method="$(aider_method)"
   info "Aider detected install method: $method"
+  local recorded=installer
   if [ "$method" = 'uv-tool' ] && command_exists uv; then
+    recorded=uv-tool
     run_with_heartbeat "uv tool upgrade aider-chat" uv tool upgrade aider-chat || \
       run_with_heartbeat "uv tool install --force --python python3.12 aider-chat@latest" uv tool install --force --python python3.12 aider-chat@latest || return 1
   else
@@ -6774,7 +7017,7 @@ update_aider() {
     error "Aider is not on PATH after install"
     return 1
   fi
-  set_state_method aider installer
+  set_state_method aider "$recorded"
 }
 
 update_goose() {
@@ -6782,6 +7025,7 @@ update_goose() {
   local method
   method="$(goose_method)"
   info "Goose detected install method: $method"
+  local recorded=brew-formula
   if command_exists brew; then
     brew_update_once || return 1
     brew_ensure_target_tap goose block-goose-cli formula || return 1
@@ -6792,10 +7036,11 @@ update_goose() {
     fi
   else
     run_shell_with_heartbeat "curl -fsSL $GOOSE_INSTALL_URL | bash" || return 1
+    recorded=installer
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
   hash_refresh
-  set_state_method goose brew-formula
+  set_state_method goose "$recorded"
 }
 
 update_cursor() {
@@ -6870,9 +7115,32 @@ print(value)
 ' 2>/dev/null
 }
 
+# An interrupt during download, mount or activation detaches the image, removes
+# this run's temporaries and puts the previous app back if it was moved aside.
 update_screenpipe() {
-  local app current_version arch platform download_dir dmg mountpoint staged_dir staged_app source_app
-  local new_version bundle_id running backup_dir backup_app url target latest_version endpoint metadata_rc
+  local saved_traps rc=0
+  saved_traps="$(trap -p HUP INT TERM)"
+  trap 'screenpipe_interrupted; exit 130' HUP INT TERM
+  update_screenpipe_body || rc=$?
+  trap - HUP INT TERM
+  [ -z "$saved_traps" ] || eval "$saved_traps"
+  return "$rc"
+}
+
+# Runs from the interrupt trap, with update_screenpipe_body's locals in scope.
+screenpipe_interrupted() {
+  local downloads="$STATE_DIR/downloads/screenpipe/"
+  case "${mountpoint:-}" in "$downloads"*) screenpipe_detach_mount "$mountpoint"; rmdir "$mountpoint" 2>/dev/null || true ;; esac
+  case "${dmg:-}" in "$downloads"*) rm -f "$dmg" ;; esac
+  case "${staged_dir:-}" in "$downloads"*) rm -rf "$staged_dir" ;; esac
+  if [ -n "${backup_app:-}" ] && [ -d "$backup_app" ] && [ -n "${app:-}" ] && [ ! -e "$app" ]; then
+    mv "$backup_app" "$app" 2>/dev/null || true
+  fi
+}
+
+update_screenpipe_body() {
+  local app current_version arch platform download_dir dmg='' mountpoint='' staged_dir='' staged_app source_app
+  local new_version bundle_id running backup_dir backup_app='' url target latest_version endpoint metadata_rc
   app="$(catalog_app_path screenpipe)"
   current_version=""
   [ -d "$app" ] && current_version="$(app_bundle_version "$app" || true)"
@@ -7090,13 +7358,13 @@ update_by_kind() {
         local app
         app="$(catalog_app_path "$tool")"
         if [ -n "$app" ] && [ -d "$app" ]; then
-          if [ "$NO_INSTALL" -eq 1 ]; then
+          if [ "$NO_INSTALL" -eq 1 ] && [[ "$AIUP_RESUME_SWITCH" != *"|$tool|"* ]]; then
             warn "$tool is installed as an app but not Homebrew-managed; skip (enter or aiup only $tool to switch to Homebrew without --zap)"
             update_status_set skipped
             return 0
           fi
           brew_cask_adopt "$cask" "$app" || return 1
-          [ "$AIUP_LAST_UPDATE_STATUS" != deferred ] || return 0
+          case "$AIUP_LAST_UPDATE_STATUS" in deferred|cancelled) return 0 ;; esac
         else
           run_with_heartbeat "brew install --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --yes "$cask" || return 1
         fi
@@ -7489,7 +7757,7 @@ if logs.is_dir() and not logs.is_symlink():
     if candidates:latest=read(candidates[0],{})
 if latest:
     for r in latest.get('tools',[]):
-        if r.get('result') in ('failed','unverified','pending','deferred') or r.get('warning'):
+        if r.get('result') in ('failed','unverified','pending','deferred','cancelled') or r.get('warning'):
             card(r['tool']+' · '+r.get('result','needs review'),r.get('note','')+' · aiup logs '+r['tool']+'; use aiup resume when the run is no longer active.');count+=1
 if duplicates:card(str(len(duplicates))+' commands have multiple installations','Review active paths and other copies: aiup duplicates. Nothing is removed automatically.');count+=1
 unsupported=[r for r in items if r['id'].startswith('di:path:') and (r['owner'] in ('PATH executable','unknown','Unknown') or 'no reviewed' in r['guidance'])]
@@ -7610,7 +7878,7 @@ if action in ("retry", "resume"):
     if alive: raise SystemExit("Latest run is still active; wait for it to finish")
     if not data: raise SystemExit("Latest run has no structured results; inspect aiup logs")
     for row in data['tools']:
-        if row.get('result') in (('failed','pending','deferred') if action=='resume' else ('failed','deferred')): print(row['tool'])
+        if row.get('result') in (('failed','pending','deferred','cancelled') if action=='resume' else ('failed','deferred','cancelled')): print(row['tool'], row.get('result'), sep='\t')
     raise SystemExit(0)
 if action == "cleanup":
     print(ink("\naiup · cleanup history"))
@@ -7795,7 +8063,7 @@ run_tool_update() {
   update_report_warnings
   UPDATE_REPORT_WARNINGS=$((UPDATE_REPORT_WARNINGS + UPDATE_REPORT_WARNING))
   case "$rc:$AIUP_LAST_UPDATE_STATUS" in
-    0:current|0:self-updated|0:deferred) ;;
+    0:current|0:self-updated|0:deferred|0:cancelled|0:skipped|0:planned) ;;
     *) brew_cache_invalidate; brew_cache_load ;;
   esac
   if [ "$rc" -eq 0 ]; then
@@ -7873,7 +8141,7 @@ if width >= 76:
 for tool, (status, versions, category, note, before, after, start, end, warning, duration) in visible.items():
     code = "38;2;57;255;20" if status in ("updated", "installed", "update", "cleaned") else "38;5;245"
     if status in ("failed", "unverified"): code = "38;5;203"
-    elif status in ("skipped", "planned", "deferred"): code = "38;5;220"
+    elif status in ("skipped", "planned", "deferred", "cancelled"): code = "38;5;220"
     if mode == "update": versions += " · " + str(duration) + "s"
     if warning: status += " !"
     name_code = category if re.fullmatch(r"[0-9;]+", category) else "38;5;250"
@@ -7980,7 +8248,7 @@ run_tool_update_impl() {
     if "update_$tool"; then
       result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
       case "$result_kind" in
-        current|skipped|self-updated|deferred) result_record "$result_kind" "$tool" ;;
+        current|skipped|self-updated|deferred|cancelled) result_record "$result_kind" "$tool" ;;
         *) result_record completed "$tool" ;;
       esac
       info "========== TOOL DONE: $tool =========="
@@ -7990,7 +8258,7 @@ run_tool_update_impl() {
   elif update_by_kind "$tool"; then
     result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
     case "$result_kind" in
-      current|skipped|self-updated|deferred) result_record "$result_kind" "$tool" ;;
+      current|skipped|self-updated|deferred|cancelled) result_record "$result_kind" "$tool" ;;
       *) result_record completed "$tool" ;;
     esac
     info "========== TOOL DONE: $tool =========="
@@ -9601,7 +9869,7 @@ check_tool_status() {
   local tool="$1" current="$2" kind method cache stamp cached_current state value extra candidate policy
   CHECK_STATUS=unverified
   CHECK_AVAILABLE="$current"
-  CHECK_NOTE='No read-only provider contract; the normal updater remains available.'
+  CHECK_NOTE='No read-only release source for this tool yet. A normal run still updates it.'
   policy="$(policy_reason "$tool")" || { CHECK_NOTE='Preferences could not be read; resolve before updating.'; return 1; }
   if [ -n "$policy" ]; then CHECK_STATUS=skipped; CHECK_NOTE="$policy"; return 0; fi
   if brew_missing_app_for_tool "$tool" >/dev/null; then
@@ -9631,7 +9899,7 @@ check_tool_status() {
     case "$state" in
       newer) CHECK_STATUS=update; CHECK_AVAILABLE="$value"; CHECK_NOTE='' ;;
       current) CHECK_STATUS=current; CHECK_NOTE='' ;;
-      failure) CHECK_NOTE='Provider unavailable, unsupported, or returned invalid metadata; not confirmed current.' ;;
+      failure) CHECK_NOTE='The latest release could not be read just now, so this is not confirmed current. A normal run still updates it.' ;;
     esac
   fi
   check_cask_context "$tool" "$current"
@@ -9667,7 +9935,8 @@ check_brew_snapshot() {
   for tool in "$@"; do
     current="${UPDATE_REPORT_BEFORE[$i]}"; i=$((i+1))
     [ "$current" != 'not installed' ] || continue
-    if [ "$INVENTORY_REFRESH" -eq 0 ] && available_cache_read "$tool" "$current" >/dev/null; then continue; fi
+    # Freshly refreshed Homebrew metadata makes earlier cached answers stale.
+    if [ "$INVENTORY_REFRESH" -eq 0 ] && [ "${AIUP_BREW_METADATA_REFRESHED:-0}" -eq 0 ] && available_cache_read "$tool" "$current" >/dev/null; then continue; fi
     kind="$(catalog_kind "$tool")"
     case "$kind" in
       brew-formula) target="$(catalog_brew_formula "$tool")" ;;
@@ -9676,7 +9945,7 @@ check_brew_snapshot() {
     esac
     printf '%s\t%s\t%s\t%s\n' "$tool" "$current" "$kind" "$target" >> "${raw}.targets"
   done
-  if [ -s "${raw}.targets" ] && bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --installed; then
+  if [ -s "${raw}.targets" ] && AIUP_PROVIDER_MAX_BYTES=8388608 bounded_provider_capture "$raw" 30 env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --installed; then
     python3 - "$raw" "${raw}.targets" > "${raw}.parsed" 2>/dev/null <<'PYBREWCHECK'
 import json,sys
 from pathlib import Path
@@ -9721,12 +9990,18 @@ cmd_check() {
     while IFS= read -r tool; do [ -z "$tool" ] || selected+=("$tool"); done < <(installed_update_tools)
   fi
   [ "${#selected[@]}" -gt 0 ] || { printf 'No installed catalog tools found.\n'; return 0; }
+  brew_metadata_refresh_if_stale
+  profile_mark "Homebrew metadata freshness"
   UPDATE_REPORT_MODE=check
   update_report_begin "${selected[@]}" || return 1
   local CHECK_REQUEST_REFRESH="$INVENTORY_REFRESH"
+  local -a live_pairs=()
   # Refresh once, then workers reuse the installed-version-bound responses.
   check_brew_snapshot "${selected[@]}"
   profile_mark "batched Homebrew metadata"
+  for ((i=0; i<${#selected[@]}; i++)); do live_pairs+=("${selected[$i]}" "${UPDATE_REPORT_BEFORE[$i]}"); done
+  live_source_refresh "$INVENTORY_REFRESH" "${live_pairs[@]}"
+  profile_mark "live release sources"
   for ((offset=0; offset<TUI_PREFETCH_WORKERS; offset++)); do
     (
       for ((i=offset; i<${#selected[@]}; i+=TUI_PREFETCH_WORKERS)); do
@@ -10298,10 +10573,16 @@ parse_args() {
       esac
       ;;
     retry|resume)
-      local retry_tools retry_tool
+      local retry_tools retry_tool retry_result
       local -a retry_selected=()
       retry_tools="$(run_history "${args[0]}")" || return 1
-      while IFS= read -r retry_tool; do [ -z "$retry_tool" ] || retry_selected+=("$retry_tool"); done <<< "$retry_tools"
+      # A deferred or cancelled Homebrew switch may ask again; other resumed
+      # tools still never install what is missing.
+      while IFS=$'\t' read -r retry_tool retry_result; do
+        [ -n "$retry_tool" ] || continue
+        retry_selected+=("$retry_tool")
+        case "$retry_result" in deferred|cancelled) AIUP_RESUME_SWITCH="${AIUP_RESUME_SWITCH}|$retry_tool|" ;; esac
+      done <<< "$retry_tools"
       [ "${#retry_selected[@]}" -gt 0 ] || { printf 'No unfinished or failed tools in the latest saved run.\n'; return 0; }
       resolve_tools "${retry_selected[@]}" >/dev/null || return 1
       if [ "${args[0]}" = resume ]; then NO_INSTALL=1
@@ -10397,6 +10678,19 @@ launcher_revision_notice() {
   printf 'aiup: a newer launcher is available. It runs published releases only and keeps working offline.\n      Reinstall it: curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/install-aiup | bash\n' >&2
 }
 
+# Interrupted commands can leave hidden provider and snapshot temporaries (and
+# Screenpipe downloads); remove ones older than an hour. Lock directories are
+# recovered by their own owners-alive checks.
+state_sweep_stale_temporaries() {
+  [ -d "$STATE_DIR" ] && [ ! -L "$STATE_DIR" ] || return 0
+  find "$STATE_DIR" -maxdepth 1 -type f \( -name '.cask-apps.*' -o -name '.brew-refresh.*' \) -mmin +60 -exec rm -f {} + 2>/dev/null || true
+  [ ! -d "$AVAILABLE_VERSION_CACHE_DIR" ] || [ -L "$AVAILABLE_VERSION_CACHE_DIR" ] || \
+    find "$AVAILABLE_VERSION_CACHE_DIR" -maxdepth 1 -type f -name '.*' -mmin +60 -exec rm -f {} + 2>/dev/null || true
+  [ ! -d "$STATE_DIR/downloads/screenpipe" ] || [ -L "$STATE_DIR/downloads/screenpipe" ] || \
+    find "$STATE_DIR/downloads/screenpipe" -mindepth 1 -maxdepth 1 -mmin +60 \( -name 'screenpipe-*.dmg' -o -name 'staged-*' -o -name 'mount-*' \) \
+      -exec sh -c 'for d; do [ -d "$d" ] && { rmdir "$d" 2>/dev/null || case "$d" in */staged-*) rm -rf "$d" ;; esac; } || rm -f "$d"; done' sh {} + 2>/dev/null || true
+}
+
 profile_begin
 if tui_internal_command "${1:-}"; then
   if [ -n "${AIUP_TUI_SESSION_DIR:-}${AIUP_TUI_SESSION_TOKEN:-}" ]; then
@@ -10406,6 +10700,7 @@ if tui_internal_command "${1:-}"; then
   fi
 fi
 launcher_revision_notice
+state_sweep_stale_temporaries
 parse_args "$@"
 AIUP_EXIT_STATUS=$?
 if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ -f "${UPDATE_REPORT_LOG}.active" ]; then

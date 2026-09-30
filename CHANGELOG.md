@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.09.29-04
+
+- Live release sources: `aiup check` and the picker's update preview compare every tool with the source it actually installs from. Tools outside Homebrew use their vendor's release channel (Claude Code honors your `autoUpdatesChannel`; Grok its release channel; Antigravity, Warp, Cursor, Amp and Droid their official updater endpoints), the npm registry or PyPI; Hermes compares the checkout's commit with upstream `main`; npm compares with the npm bundled in Homebrew's current Node. All of them are fetched concurrently in one pass and cached.
+- Fix: npm-packaged tools such as Codex were often reported unverified on a cold npm cache, because `npm view` writes the full package history to disk (16 MB for Codex) and the provider's 1 MB file-size limit stopped it. aiup now reads the registry's small latest-version document.
+- Homebrew freshness: before a check or preview, aiup refreshes Homebrew's package metadata when it is older than 15 minutes (one to three seconds), so "current" means current now. `HOMEBREW_NO_AUTO_UPDATE` is respected.
+- Update candidates now match everywhere: auto-updating casks are included (and compared with the installed app), unversioned `:latest` casks are not, so they no longer reinstall on every run.
+- Safety: an update run waits up to 60 seconds for Homebrew metadata (`AIUP_RUN_PROVIDER_TIMEOUT`); if an app cask's metadata still cannot be read, its upgrade is deferred instead of run unchecked.
+- Declining a switch to Homebrew is reported as `cancelled` rather than updated; `aiup resume` asks again about cancelled and deferred switches.
+- Versions order dev < alpha < beta < rc < release < post.
+- Robustness: provider checks no longer clear the picker's interrupt handling; an interrupted Screenpipe update detaches its disk image, removes its download and restores the previous app; hidden temporaries left by interrupted commands are swept after an hour; the version cache holds up to 512 tools.
+- Goose and Aider record the install method actually used.
+- Clearer notes for checks that could not be confirmed: a normal run still updates the tool.
+
 ## 2026.09.29-03
 
 - Published releases: the launcher now runs the release named by a one-line pointer on `main` (`macos/release`, `<version> <commit>`) and fetches the runtime and catalog at exactly that commit. Files addressed by commit never change, so a public install can no longer pick up a half-finished state of `main`, and the runtime and catalog always match. An unchanged release starts without downloading anything.

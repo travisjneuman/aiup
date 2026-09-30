@@ -107,7 +107,7 @@ AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…10
 
 Npm packages are not reinstalled when fresh provider metadata exactly matches a healthy installation in AIUP’s prefix. Homebrew no-op upgrades are skipped only after a valid post-refresh outdated snapshot. Missing, broken, newer, or unverifiable installations keep the existing update path; `--force` bypasses these shortcuts for repairs. Native updaters and manager-switch rules remain in effect.
 
-`aiup check [tools…]` checks versions without updating software or changing shell profiles. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
+`aiup check [tools…]` checks versions without updating software or changing shell profiles. Each tool is compared with the source it installs from: Homebrew's metadata (refreshed when older than 15 minutes) or the vendor's release channel, npm or PyPI, all fetched in one concurrent pass. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
 
 ### 🔄 Always current, never half-published
 
@@ -217,7 +217,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.29-03** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.29-04** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
