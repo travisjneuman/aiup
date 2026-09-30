@@ -38,6 +38,8 @@ For a bug, use the [bug report form](https://github.com/travisjneuman/aiup/issue
 
 Before adding a managed tool, supply its official source, plain-language purpose, most appropriate category, supported OS/architecture, and installation owner. Review detection, version evidence, update, removal, app-close behavior and dependencies together. Detection alone is not an updater contract. Mark unsupported operations as manual or unavailable; never imply full lifecycle support from a name match. Avoid duplicate aliases for the same installation and distinguish project packages from global tools. Keep runtime/manifest versions paired and regenerate public catalog files with `scripts/sync-public-docs`. Add a focused check only when a concrete adapter issue warrants one.
 
+The catalog carries only maintained software. Remove an entry when its project is archived, declared unmaintained or end of life, or has shipped no release and no code change for more than a year; name a maintained successor when one exists. Prefer the channel that publishes new releases first when it is also official (for example a vendor's npm package over a Homebrew repackaging that trails it), and record the channel's live release source in `live_source_spec` when the tool does not install through Homebrew.
+
 Application cleanup must preserve ambiguous metadata, moved app identities and partially present multi-app installations. Keep destructive app-data purge separate from finishing an already-removed app's Homebrew uninstall. Ownership observations are local evidence, not permission to migrate or remove installations.
 
 ## Releases (maintainers)

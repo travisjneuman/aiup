@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.29-04"
+AIUP_VERSION="2026.09.29-05"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -24,11 +24,7 @@ CURSOR_INSTALL_URL="https://cursor.com/install"
 GOOSE_INSTALL_URL="https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh"
 AMP_INSTALL_URL="https://ampcode.com/install.sh"
 DROID_INSTALL_URL="https://app.factory.ai/cli"
-CONTINUE_INSTALL_URL="https://raw.githubusercontent.com/continuedev/cli/main/scripts/install.sh"
 UV_INSTALL_URL="https://astral.sh/uv/install.sh"
-KIRO_INSTALL_URL="https://cli.kiro.dev/install"
-KIMI_INSTALL_URL="https://code.kimi.com/kimi-code/install.sh"
-OPENCLAW_INSTALL_URL="https://openclaw.ai/install.sh"
 HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
 SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
@@ -89,17 +85,17 @@ BREW_CATALOG_NAMES="|"
 AIUP_BREW_CATALOG_INDEX_READY=0
 HOMEBREW_CHILD_ORDER=(casks fonts formulae libraries recommended available)
 HOMEBREW_RECOMMENDED_CASKS=(
-  raycast obsidian docker linear notion windsurf devin-desktop
-  copilot-cli cursor-cli claude-code chatgpt-atlas kiro
+  raycast obsidian docker linear notion
+  copilot-cli cursor-cli claude-code
   warp-agent-cli coderabbit auto-claude monet ollamac notesollama
   tableplus postman insomnia 1password secretive stats iina
-  wezterm kitty alacritty neovide fork sublime-merge
-  figma brave-browser firefox utm jan gpt4all anythingllm
+  kitty neovide fork sublime-merge
+  figma brave-browser firefox utm
 )
 HOMEBREW_RECOMMENDED_FORMULAE=(
   jq neovim go cmake ninja tree watch wget curl
   ripgrep fd tmux starship eza bat git-delta
-  gh git lazygit helix mise direnv just pnpm yarn
+  gh git lazygit helix direnv just yarn
   podman kubectl helm terraform
 )
 AIUP_REQUIRED_TOOLS=(fzf)
@@ -881,7 +877,7 @@ aiup_npm_pkg_installed() {
 }
 
 npm_install_aiup_latest() {
-  local pkg="$1" name current latest raw
+  local pkg="$1" name current status
   ensure_managed_paths
   name="${pkg%@*}"
   # Only skip a healthy install in the target prefix, on a fresh exact match.
@@ -902,21 +898,45 @@ except (OSError, ValueError, KeyError, TypeError):
 PYCODE
 )"
     if [ -n "$current" ]; then
-      ensure_dir "$AVAILABLE_VERSION_CACHE_DIR"
-      raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.npm-check.XXXXXX")" || return 1
-      if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env npm view "$pkg" version --fetch-retries=0 --fetch-timeout=3000; then
-        latest="$(cat "$raw")"
-        if [ "$latest" = "$current" ]; then
-          rm -f "$raw"
-          update_status_set current
-          info "$name is current ($current); no reinstall needed"
-          return 0
-        fi
+      # The registry's small latest document, not npm view, which first
+      # writes the package's whole history to npm's cache.
+      IFS=$'\t' read -r _ status _ <<< "$(printf '%s\t%s\tnpm\t%s\n' "$name" "$current" "$name" | live_source_run print 2>/dev/null)"
+      if [ "$status" = current ]; then
+        update_status_set current
+        info "$name is current ($current); no reinstall needed"
+        return 0
       fi
-      rm -f "$raw"
     fi
   fi
   run_with_heartbeat "npm install -g --prefix $AIUP_NPM_PREFIX $pkg" npm install -g --prefix "$AIUP_NPM_PREFIX" "$pkg"
+}
+
+# Tools that moved from a Homebrew formula to the npm channel, which publishes
+# first: once aiup's npm copy is installed and runnable, remove the older
+# Homebrew formula so one current copy remains. Homebrew refuses if another
+# formula depends on it.
+npm_retired_brew_formula() {
+  case "$1" in
+    pnpm) printf 'pnpm\n' ;;
+    wrangler) printf 'cloudflare-wrangler\n' ;;
+    *) printf '\n' ;;
+  esac
+}
+
+brew_formula_retire_for_npm() {
+  local tool="$1" pkg="$2" formula bin
+  [ "$DRY_RUN" -eq 0 ] || return 0
+  formula="$(npm_retired_brew_formula "$tool")"
+  [ -n "$formula" ] && brew_formula_installed "$formula" || return 0
+  aiup_npm_pkg_installed "$pkg" || return 0
+  bin="$(binary_of_tool "$tool")"
+  [ -n "$bin" ] && [ -x "$AIUP_NPM_BIN/$bin" ] || return 0
+  info "$tool now updates from npm; removing the older Homebrew formula $formula"
+  if run_with_heartbeat "brew uninstall $formula" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall "$formula"; then
+    brew_cache_invalidate
+  else
+    warn "Kept Homebrew formula $formula (Homebrew declined to remove it); aiup doctor lists the duplicate"
+  fi
 }
 
 npm_uninstall_system_pkg_if_distinct() {
@@ -1567,9 +1587,8 @@ expected_direct_path() {
     hermes) printf '%s/hermes\n' "$LOCAL_BIN" ;;
     pi) printf '%s/pi\n' "$AIUP_NPM_BIN" ;;
     warp) printf '%s/warp\n' "$LOCAL_BIN" ;;
-    continue) printf '%s/cn\n' "$AIUP_NPM_BIN" ;;
     pi-acp) printf '%s/pi-acp\n' "$AIUP_NPM_BIN" ;;
-    vibe|openhands) printf '%s/%s\n' "$LOCAL_BIN" "$tool" ;;
+    vibe) printf '%s/%s\n' "$LOCAL_BIN" "$tool" ;;
     uv) printf '%s/uv\n' "$LOCAL_BIN" ;;
     fabric) printf '%s/fabric\n' "$LOCAL_BIN" ;;
     *) printf '\n' ;;
@@ -1583,8 +1602,16 @@ binary_of_tool() {
     gsd2) printf 'gsd\n' ;;
     antigravity) printf 'agy\n' ;;
     cursor) printf 'cursor-agent\n' ;;
-    continue) printf 'cn\n' ;;
-    wrangler) printf 'wrangler\n' ;;
+    devin-cli) printf 'devin\n' ;;
+    qoder) printf 'qodercli\n' ;;
+    claude-acp) printf 'claude-agent-acp\n' ;;
+    localai) printf 'local-ai\n' ;;
+    whisperkit) printf 'whisperkit-cli\n' ;;
+    kiro) printf 'kiro-cli\n' ;;
+    sox-ng) printf 'sox\n' ;;
+    # Apps without a command of their own: a same-named command on PATH
+    # (for example Apache Superset's) must not count as this app.
+    devin-desktop|kiro-ide|jetbrains-air|conductor|emdash|superset|amp-app|factory-app|antigravity-app|gemini-app|cherry-studio|msty-studio|boltai|chatbox|lobehub|handy|voiceink|wispr-flow|stability-matrix|mochi-diffusion|mlx-vlm) printf '\n' ;;
     cursor-ide) printf 'cursor\n' ;;
     ollama-app) printf 'ollama\n' ;;
     llama-cpp) printf 'llama-cli\n' ;;
@@ -1789,20 +1816,11 @@ catalog_lifecycle() {
   local manifest_lifecycle
   manifest_lifecycle="$(catalog_manifest_field "$1" 4 2>/dev/null || true)"
   [ -n "$manifest_lifecycle" ] && { printf '%s\n' "$manifest_lifecycle"; return 0; }
-  case "$1" in
-    mods) printf 'archived\n' ;;
-    gpt4all) printf 'maintenance\n' ;;
-    *) printf 'active\n' ;;
-  esac
+  printf 'active\n'
 }
 
 catalog_lifecycle_note() {
-  case "$1" in
-    mods) printf 'Charm archived the mods repository. Still installable via Homebrew.\n' ;;
-    openhands) printf 'The official OpenHands CLI repository says this CLI is no longer actively maintained and points users toward Agent Canvas.\n' ;;
-    gpt4all) printf 'The official repository has not published a release since February 2025; Homebrew still provides the vendor installer cask.\n' ;;
-    *) printf '\n' ;;
-  esac
+  printf '\n'
 }
 
 catalog_kind() {
@@ -1813,13 +1831,12 @@ catalog_kind() {
   case "$1" in
     brew|npm) printf 'special\n' ;;
     claude|codex|antigravity|grok|gemini|opencode|kilo|gsd2|hermes|pi|warp|copilot|aider|goose|cursor|qwen) printf 'special\n' ;;
-    crush|cline|continue|pi-acp|qwen|n8n) printf 'aiup-npm\n' ;;
+    crush|cline|pi-acp|qwen|n8n|pnpm|wrangler) printf 'aiup-npm\n' ;;
     amp|droid|uv) printf 'curl-installer\n' ;;
     kiro) printf 'brew-cask\n' ;;
-    fzf|kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
-    chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
+    fzf|kimi|openclaw|gh|deno|llm|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
+    chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|anythingllm) printf 'brew-cask\n' ;;
     screenpipe) printf 'app\n' ;;
-    interpreter) printf 'uv-tool\n' ;;
     sgpt) printf 'uv-tool\n' ;;
     *) printf 'unknown\n' ;;
   esac
@@ -1959,6 +1976,8 @@ catalog_brew_formula() {
     uv) printf 'uv\n' ;;
     goose) printf 'block-goose-cli\n' ;;
     cline) printf 'cline\n' ;;
+    pnpm) printf 'pnpm\n' ;;
+    wrangler) printf 'cloudflare-wrangler\n' ;;
     *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
   esac
 }
@@ -1976,19 +1995,12 @@ catalog_curl_url() {
     amp) printf '%s\n' "$AMP_INSTALL_URL" ;;
     droid) printf '%s\n' "$DROID_INSTALL_URL" ;;
     uv) printf '%s\n' "$UV_INSTALL_URL" ;;
-    continue) printf '%s\n' "$CONTINUE_INSTALL_URL" ;;
-    kiro) printf '%s\n' "$KIRO_INSTALL_URL" ;;
-    kimi) printf '%s\n' "$KIMI_INSTALL_URL" ;;
-    openclaw) printf '%s\n' "$OPENCLAW_INSTALL_URL" ;;
     *) printf '\n' ;;
   esac
 }
 
 catalog_uv_pkg() {
-  case "$1" in
-    llm) printf 'llm\n' ;;
-    *) catalog_manifest_field "$1" 7 2>/dev/null || true ;;
-  esac
+  catalog_manifest_field "$1" 7 2>/dev/null || true
 }
 
 catalog_app_path() {
@@ -2004,8 +2016,6 @@ catalog_app_path() {
     kdenlive) printf '/Applications/kdenlive.app\n' ;;
     krita) printf '/Applications/Krita.app\n' ;;
     inkscape) printf '/Applications/Inkscape.app\n' ;;
-    diffusionbee) printf '/Applications/DiffusionBee.app\n' ;;
-    upscayl) printf '/Applications/Upscayl.app\n' ;;
     audacity) printf '/Applications/Audacity.app\n' ;;
     chatgpt) printf '/Applications/ChatGPT.app\n' ;;
     cursor-ide) printf '/Applications/Cursor.app\n' ;;
@@ -2030,9 +2040,29 @@ catalog_app_path() {
     iterm2) printf '/Applications/iTerm.app\n' ;;
     screenpipe) printf '/Applications/screenpipe.app\n' ;;
     jan) printf '/Applications/Jan.app\n' ;;
-    gpt4all) printf '/Applications/GPT4All.app\n' ;;
     anythingllm) printf '/Applications/AnythingLLM.app\n' ;;
     llama-app) printf '/Applications/Llama.app\n' ;;
+    devin-desktop) printf '/Applications/Devin.app\n' ;;
+    kiro-ide) printf '/Applications/Kiro.app\n' ;;
+    jetbrains-air) printf '/Applications/Air.app\n' ;;
+    conductor) printf '/Applications/Conductor.app\n' ;;
+    emdash) printf '/Applications/Emdash.app\n' ;;
+    superset) printf '/Applications/Superset.app\n' ;;
+    amp-app) printf '/Applications/Amp.app\n' ;;
+    factory-app) printf '/Applications/Factory.app\n' ;;
+    antigravity-app) printf '/Applications/Antigravity.app\n' ;;
+    gemini-app) printf '/Applications/Gemini.app\n' ;;
+    cherry-studio) printf '/Applications/Cherry Studio.app\n' ;;
+    msty-studio) printf '/Applications/MstyStudio.app\n' ;;
+    boltai) printf '/Applications/BoltAI.app\n' ;;
+    chatbox) printf '/Applications/Chatbox.app\n' ;;
+    lobehub) printf '/Applications/LobeHub.app\n' ;;
+    osaurus) printf '/Applications/osaurus.app\n' ;;
+    handy) printf '/Applications/Handy.app\n' ;;
+    voiceink) printf '/Applications/VoiceInk.app\n' ;;
+    wispr-flow) printf '/Applications/Wispr Flow.app\n' ;;
+    stability-matrix) printf '/Applications/Stability Matrix.app\n' ;;
+    mochi-diffusion) printf '/Applications/Mochi Diffusion.app\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -2168,11 +2198,8 @@ catalog_label() {
     kimi) printf 'Kimi Code CLI — Moonshot (kimi-code)\n' ;;
     openclaw) printf 'OpenClaw — personal/local AI assistant CLI\n' ;;
     cline) printf 'Cline CLI — npm cline\n' ;;
-    continue) printf 'Continue CLI — @continuedev/cli\n' ;;
     pi-acp) printf 'Pi ACP adapter (pi-acp) for T3 Code / editors\n' ;;
     llm) printf 'llm — Simon Willison Unix LLM CLI\n' ;;
-    mods) printf 'mods — Charm pipe-to-LLM (upstream archived)\n' ;;
-    aichat) printf 'aichat — all-in-one terminal AI workstation\n' ;;
     fabric) printf 'fabric-ai — Daniel Miessler prompt-pattern CLI\n' ;;
     sgpt) printf 'shell-gpt (sgpt) via uv\n' ;;
     ollama) printf 'Ollama local-model CLI\n' ;;
@@ -2187,12 +2214,10 @@ catalog_label() {
     grokbot) printf 'Grok Bot — xAI teammates that work across your apps\n' ;;
     hermes-desktop) printf 'Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI\n' ;;
     jan) printf 'Jan — local ChatGPT-style app\n' ;;
-    gpt4all) printf 'GPT4All — local LLM desktop app\n' ;;
     anythingllm) printf 'AnythingLLM — private local RAG/chat app\n' ;;
     mlx) printf 'MLX — Apple Silicon engine for running local AI (not a chat app)\n' ;;
     mlx-lm) printf 'mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX\n' ;;
     n8n) printf 'n8n — workflow automation via the official npm package\n' ;;
-    interpreter) printf 'Open Interpreter — natural-language computer-use agent\n' ;;
     vscode) printf 'Visual Studio Code\n' ;;
     vscode-insiders) printf 'VS Code Insiders\n' ;;
     claude-app) printf 'Claude desktop app (not Claude Code CLI)\n' ;;
@@ -2245,11 +2270,8 @@ catalog_docs_url() {
     kimi) printf 'https://github.com/MoonshotAI/kimi-code\n' ;;
     openclaw) printf 'https://github.com/openclaw/openclaw\n' ;;
     cline) printf 'https://github.com/cline/cline\n' ;;
-    continue) printf 'https://github.com/continuedev/continue\n' ;;
     pi-acp) printf 'https://www.npmjs.com/package/pi-acp\n' ;;
     llm) printf 'https://github.com/simonw/llm\n' ;;
-    mods) printf 'https://github.com/charmbracelet/mods\n' ;;
-    aichat) printf 'https://github.com/sigoden/aichat\n' ;;
     fabric) printf 'https://github.com/danielmiessler/fabric\n' ;;
     sgpt) printf 'https://github.com/TheR1D/shell_gpt\n' ;;
     ollama) printf 'https://github.com/ollama/ollama\n' ;;
@@ -2278,10 +2300,8 @@ catalog_docs_url() {
     ghostty) printf 'https://github.com/ghostty-org/ghostty\n' ;;
     iterm2) printf 'https://iterm2.com/\n' ;;
     jan) printf 'https://github.com/janhq/jan\n' ;;
-    gpt4all) printf 'https://github.com/nomic-ai/gpt4all\n' ;;
     anythingllm) printf 'https://github.com/Mintplex-Labs/anything-llm\n' ;;
     n8n) printf 'https://github.com/n8n-io/n8n\n' ;;
-    interpreter) printf 'https://github.com/openinterpreter/open-interpreter\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -2978,7 +2998,6 @@ app_path_for_cask() {
     firefox) app='Firefox.app' ;;
     utm) app='UTM.app' ;;
     jan) app='Jan.app' ;;
-    gpt4all) app='GPT4All.app' ;;
     anythingllm) app='AnythingLLM.app' ;;
     hermes-desktop) app='Hermes.app' ;;
     *) return 1 ;;
@@ -2999,7 +3018,7 @@ formula_cmd_name() {
   case "$1" in
     git-delta) printf 'delta\n' ;;
     ripgrep) printf 'rg\n' ;;
-    whisper-cpp) printf 'whisper-cli\n' ;;
+    whisper.cpp) printf 'whisper-cli\n' ;;
     *) printf '%s\n' "$1" ;;
   esac
 }
@@ -3099,7 +3118,7 @@ brew_extra_label() {
     yq) printf 'yq structured-data processor\n' ;;
     shellcheck) printf 'ShellCheck shell analyzer\n' ;;
     actionlint) printf 'actionlint GitHub Actions checker\n' ;;
-    whisper-cpp) printf 'whisper.cpp local speech-to-text engine\n' ;;
+    whisper.cpp) printf 'whisper.cpp local speech-to-text engine\n' ;;
     yarn) printf 'yarn\n' ;;
     podman) printf 'Podman\n' ;;
     kubectl) printf 'kubectl\n' ;;
@@ -3514,6 +3533,31 @@ cmd_docs() {
   open_url "$url"
 }
 
+# Each uv tool lives in its own environment under uv's tool directory, with a
+# receipt; the installed distribution's dist-info directory names its version.
+uv_tool_root() {
+  printf '%s\n' "${UV_TOOL_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/uv/tools}"
+}
+
+uv_tool_installed() {
+  [ -n "$1" ] && [ -f "$(uv_tool_root)/$1/uv-receipt.toml" ]
+}
+
+uv_tool_version() {
+  local pkg="$1" root name dir base
+  uv_tool_installed "$pkg" || return 1
+  root="$(uv_tool_root)"
+  name="$(printf '%s' "$pkg" | tr 'A-Z.-' 'a-z__')"
+  for dir in "$root/$pkg"/lib/python*/site-packages/*.dist-info; do
+    [ -d "$dir" ] || continue
+    base="${dir##*/}"; base="${base%.dist-info}"
+    [ "$(printf '%s' "${base%-*}" | tr 'A-Z.-' 'a-z__')" = "$name" ] || continue
+    printf '%s\n' "${base##*-}"
+    return 0
+  done
+  return 1
+}
+
 version_of_path() {
   local path="$1"
   [ -x "$path" ] || return 1
@@ -3574,7 +3618,13 @@ version_of_tool() {
       return 0
     fi
   fi
-  pkg="$(catalog_npm_pkg "$tool")"
+  if [ "$kind" = 'uv-tool' ] && version="$(uv_tool_version "$(catalog_uv_pkg "$tool")")"; then
+    printf '%s\n' "$version"
+    return 0
+  fi
+  pkg=''
+  # Manifest targets of Homebrew and uv entries are not npm packages.
+  case "$kind" in brew-formula|brew-cask|uv-tool) ;; *) pkg="$(catalog_npm_pkg "$tool")" ;; esac
   if [ -n "$pkg" ]; then
     if [ -n "$pkg" ] && [ -f "$(npm_pkg_dir_from_prefix "$AIUP_NPM_PREFIX" "$pkg")/package.json" ]; then
       version="$(python3 - "$(npm_pkg_dir_from_prefix "$AIUP_NPM_PREFIX" "$pkg")/package.json" <<'PY'
@@ -4754,7 +4804,11 @@ generic_method() {
     app)
       if [ -n "$app" ] && [ -d "$app" ]; then printf 'app\n'; return 0; fi
       ;;
-    curl-installer|uv-tool)
+    uv-tool)
+      if uv_tool_installed "$(catalog_uv_pkg "$tool")"; then printf 'uv-tool\n'; return 0; fi
+      ;;
+    curl-installer)
+      if [ -n "$bin" ] && command_exists "$bin"; then printf 'installer\n'; return 0; fi
       ;;
   esac
   if [ -n "$bin" ] && command_exists "$bin"; then
@@ -4781,12 +4835,11 @@ preferred_method_of() {
     pi) printf 'aiup-npm\n' ;;
     screenpipe) printf 'official-dmg\n' ;;
     warp) printf 'installer\n' ;;
-    crush|cline|continue|pi-acp|n8n|remotion) printf 'aiup-npm\n' ;;
+    crush|cline|pi-acp|n8n|remotion|pnpm|wrangler) printf 'aiup-npm\n' ;;
     amp|droid|uv) printf 'installer\n' ;;
-    kiro|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|gpt4all|anythingllm) printf 'brew-cask\n' ;;
-    kimi|openclaw|gh|wrangler|deno|llm|mods|aichat|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
-    sgpt|interpreter) printf 'uv-tool\n' ;;
-    vibe|openhands) printf 'uv-tool\n' ;;
+    kiro|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|lm-studio|warp-app|ghostty|iterm2|jan|anythingllm) printf 'brew-cask\n' ;;
+    kimi|openclaw|gh|deno|llm|fabric|ollama|mlx|mlx-lm) printf 'brew-formula\n' ;;
+    sgpt|vibe) printf 'uv-tool\n' ;;
     llama-cpp) printf 'brew-formula\n' ;;
     llama-app) printf 'brew-cask\n' ;;
     copilot) printf 'aiup-npm\n' ;;
@@ -4797,6 +4850,7 @@ preferred_method_of() {
     *)
       case "$(catalog_kind "$1")" in
         brew-formula|brew-cask|aiup-npm|uv-tool) catalog_kind "$1" ;;
+        curl-installer) printf 'installer\n' ;;
         *) printf 'unknown\n' ;;
       esac
       ;;
@@ -4847,8 +4901,13 @@ tool_is_present() {
       aiup_npm_pkg_installed @openai/codex && return 0
       ;;
   esac
-  local pkg formula cask app
-  pkg="$(catalog_npm_pkg "$tool")"
+  local pkg formula cask app kind
+  kind="$(catalog_kind "$tool")"
+  if [ "$kind" = uv-tool ]; then
+    uv_tool_installed "$(catalog_uv_pkg "$tool")" && return 0
+  fi
+  pkg=''
+  case "$kind" in brew-formula|brew-cask|uv-tool) ;; *) pkg="$(catalog_npm_pkg "$tool")" ;; esac
   [ -n "$pkg" ] && aiup_npm_pkg_installed "$pkg" && return 0
   [ -n "$pkg" ] && system_npm_pkg_installed "$pkg" && return 0
   formula="$(catalog_brew_formula "$tool")"
@@ -5787,11 +5846,7 @@ def closure(item_id):
             if dep not in result: result.append(dep)
     visit(item_id)
     return result
-notes = {
-    "mods": "Charm archived the mods repository. Still installable via Homebrew.",
-    "openhands": "The official OpenHands CLI repository says this CLI is no longer actively maintained and points users toward Agent Canvas.",
-    "gpt4all": "The official repository has not published a release since February 2025; Homebrew still provides the vendor installer cask.",
-}
+notes = {}
 preview = {}
 remote = []
 docs_rows = []
@@ -5992,7 +6047,9 @@ def emit_rows(query=""):
         labels={}
         aliases={'ripgrep':'rg', 'fd':'fd find', 'remotion':'@remotion/cli video react',
                  'macwhisper':'transcription speech audio', 'whisper-cpp':'whisper-cli transcription speech audio',
-                 'diffusionbee':'stable diffusion image generation', 'upscayl':'image upscale enhancement',
+                 'mochi-diffusion':'stable diffusion image generation', 'stability-matrix':'stable diffusion image generation',
+                 'sox-ng':'sox audio conversion effects', 'handy':'dictation speech-to-text', 'voiceink':'dictation speech-to-text',
+                 'wispr-flow':'dictation speech-to-text', 'hf':'huggingface hugging face models', 'devin-desktop':'windsurf',
                  'ffmpeg':'ffprobe video audio encoding', 'audacity':'audio recording editing'}
         with manifest.open(encoding='utf-8') as handle:
             for row in csv.reader((l for l in handle if not l.startswith('#')),delimiter='\t'):
@@ -6442,20 +6499,22 @@ status_of() {
     return 0
   fi
 
-  case "$tool" in
-    fzf|npm|claude|codex|antigravity|gemini|opencode|kilo|gsd2|hermes|pi|grok|warp|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|pi-acp|uv|gh|wrangler|deno|llm|mods|aichat|fabric|sgpt|ollama|chatgpt|cursor-ide|zed|cmux|ollama-app)
-      if [ "$method" = "$preferred" ] && [ "$duplicates" = 'no' ] && [ "$path_active" = 'yes' ] && [ "$persistent" != 'no' ]; then
-        printf 'GOOD\n'
-      elif [ "$method" = 'missing' ]; then
-        printf 'BROKEN\n'
-      elif expected_binary_exists "$tool" && [ "$path_active" = 'no' ]; then
-        printf 'BROKEN\n'
-      else
-        printf 'WARN\n'
-      fi
-      ;;
-    *) printf 'WARN\n' ;;
-  esac
+  # Apps are opened, not run from PATH, and some tools have no command named
+  # for them: judge these by their manager alone.
+  if [ -z "$(binary_of_tool "$tool")" ] || { [ "$path_active" = 'no' ] && [ "$(catalog_kind "$tool")" = 'brew-cask' ] && [ -n "$(catalog_app_path "$tool")" ]; }; then
+    if [ "$method" = "$preferred" ] && [ "$duplicates" = 'no' ]; then printf 'GOOD\n'; else printf 'WARN\n'; fi
+    return 0
+  fi
+
+  if [ "$method" = "$preferred" ] && [ "$duplicates" = 'no' ] && [ "$path_active" = 'yes' ] && [ "$persistent" != 'no' ]; then
+    printf 'GOOD\n'
+  elif [ "$method" = 'missing' ]; then
+    printf 'BROKEN\n'
+  elif expected_binary_exists "$tool" && [ "$path_active" = 'no' ]; then
+    printf 'BROKEN\n'
+  else
+    printf 'WARN\n'
+  fi
 }
 
 notes_of() {
@@ -6484,7 +6543,6 @@ notes_of() {
     qwen) printf 'Qwen Code via aiup npm prefix (@qwen-code/qwen-code).\n' ;;
     screenpipe) printf 'Official Screenpipe stable DMG from screenpipe.com, architecture-selected and verified before the app bundle is replaced. aiup replaces only the app bundle and does not remove its settings or capture paths.\n' ;;
     vibe) printf 'Mistral Vibe is installed and upgraded as the uv tool mistral-vibe. First use still requires its own provider setup.\n' ;;
-    openhands) printf 'OpenHands CLI is sunset: its official CLI repository says it is no longer actively maintained. Install only for legacy compatibility.\n' ;;
     llama-cpp) printf 'llama.cpp is a Homebrew formula; model files are separate and are never downloaded by aiup.\n' ;;
     llama-app) printf 'Llama is the official ggml local-LLM menu-bar app distributed as the llama-app Homebrew cask.\n' ;;
     *) printf '\n' ;;
@@ -7322,6 +7380,7 @@ update_by_kind() {
       npm_install_aiup_latest "${pkg}@latest" || return 1
       hash_refresh
       npm_uninstall_system_pkg_if_distinct "$pkg" || true
+      brew_formula_retire_for_npm "$tool" "$pkg" || true
       set_state_method "$tool" aiup-npm
       ;;
     brew-formula)
@@ -7387,7 +7446,10 @@ update_by_kind() {
       if uv tool list 2>/dev/null | grep -q "^${uvpkg} "; then
         run_with_heartbeat "uv tool upgrade $uvpkg" uv tool upgrade "$uvpkg" || return 1
       else
-        run_with_heartbeat "uv tool install $uvpkg" uv tool install "$uvpkg" || return 1
+        local arg
+        local -a uv_args=()
+        while IFS= read -r arg; do [ -z "$arg" ] || uv_args+=("$arg"); done < <(uv_tool_install_args "$tool" "$uvpkg")
+        run_with_heartbeat "uv tool install ${uv_args[*]}" uv tool install "${uv_args[@]}" || return 1
       fi
       set_state_method "$tool" uv-tool
       ;;
@@ -7399,6 +7461,16 @@ update_by_kind() {
       error "No updater for $tool"
       return 1
       ;;
+  esac
+}
+
+# Install arguments for uv tools that need a supported Python or the extras
+# their documentation installs by default. Upgrades keep both.
+uv_tool_install_args() {
+  case "$1" in
+    open-webui) printf '%s\n' --python 3.12 "$2" ;;
+    markitdown) printf '%s\n' "$2[all]" ;;
+    *) printf '%s\n' "$2" ;;
   esac
 }
 
@@ -10185,7 +10257,6 @@ resolve_tools() {
   for arg in "$@"; do
     case "$arg" in
       brew|homebrew) out+=("brew") ;;
-      npm|uv|fzf|gh|wrangler|deno|bun|pnpm|jq|yq|ripgrep|fd|just|shellcheck|actionlint|claude|codex|antigravity|opencode|kilo|gsd2|hermes|pi|grok|warp|gemini|copilot|aider|goose|cursor|qwen|crush|amp|kiro|droid|kimi|openclaw|cline|continue|interpreter|pi-acp|llm|mods|aichat|fabric|sgpt|vibe|openhands|llama-cpp|llama-app|whisper-cpp|ollama|lm-studio|jan|gpt4all|anythingllm|mlx|mlx-lm|chatgpt|cursor-ide|zed|cmux|ollama-app|t3-code|t3-nightly|grokbot|hermes-desktop|vscode|vscode-insiders|claude-app|copilot-app|opencode-desktop|antigravity-ide|perplexity|macwhisper|screenpipe|n8n|remotion|warp-app|ghostty|iterm2) out+=("$arg") ;;
       vscode-code|code) out+=("vscode") ;;
       t3) out+=("t3-code") ;;
       grok-bot) out+=("grokbot") ;;
@@ -10196,7 +10267,6 @@ resolve_tools() {
       gsd|gsd-pi) out+=("gsd2") ;;
       oz) out+=("warp") ;;
       cursor-agent) out+=("cursor") ;;
-      cn) out+=("continue") ;;
       fabric-ai) out+=("fabric") ;;
       kiro-cli) out+=("kiro") ;;
       kimi-code) out+=("kimi") ;;

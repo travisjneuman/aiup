@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026.09.29-05
+
+- Catalog review: the catalog now carries only maintained software. Removed as archived, unmaintained or inactive: mods, Continue CLI, OpenHands CLI, Open Interpreter, aichat, GPT4All, DiffusionBee, Upscayl and SoX (replaced by the maintained SoX NG). aiup does not remove installed copies. `docs/catalog-research.md` lists the reasons.
+- 39 new entries, each checked for a release in the last three months: coding agents Devin CLI, Auggie, Junie, Letta Code and Qoder CLI; the Claude and Codex ACP adapters; MCP Inspector and mise; the Devin (formerly Windsurf), Kiro and JetBrains Air editors; Conductor, Emdash, Superset, Amp, Factory and Antigravity workspace apps; Gemini, Cherry Studio, Msty Studio, BoltAI, Chatbox and LobeHub chat apps; LocalAI, RamaLama, Osaurus, mlx-vlm, the Hugging Face CLI and Open WebUI; WhisperKit, Handy, VoiceInk, Wispr Flow, Stability Matrix, Mochi Diffusion and SoX NG; Repomix and MarkItDown.
+- pnpm and Wrangler now install from their official npm packages, which publish before Homebrew's formulae. Once the npm copy is installed and runs, aiup removes the older Homebrew formula so one current copy remains (Homebrew declines if another formula depends on it).
+- whisper.cpp follows Homebrew's rename of its formula from `whisper-cpp` to `whisper.cpp`.
+- uv tools are detected from uv's own tool receipts, so a uv tool's version and install method are read without running it. Open WebUI installs with Python 3.12, which it requires; MarkItDown installs with its documented file-format extras.
+- Health (`GOOD`/`WARN`/`BROKEN`) is now judged for every catalog entry, not only the original set. Apps, and tools without a command of their own, are judged by their manager rather than by a PATH command.
+- The npm-channel "already current" check reads the registry's small latest-version document instead of running `npm view`.
+- Kiro CLI is found by its `kiro-cli` command. Recommended Homebrew extras no longer list tools the catalog already manages.
+
 ## 2026.09.29-04
 
 - Live release sources: `aiup check` and the picker's update preview compare every tool with the source it actually installs from. Tools outside Homebrew use their vendor's release channel (Claude Code honors your `autoUpdatesChannel`; Grok its release channel; Antigravity, Warp, Cursor, Amp and Droid their official updater endpoints), the npm registry or PyPI; Hermes compares the checkout's commit with upstream `main`; npm compares with the npm bundled in Homebrew's current Node. All of them are fetched concurrently in one pass and cached.

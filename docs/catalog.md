@@ -1,4 +1,4 @@
-# Catalog (2026.09.29-04)
+# Catalog (2026.09.29-05)
 
 Generated from `macos/aiup` via `aiup catalog --markdown`.
 
@@ -10,11 +10,12 @@ Runtimes and installers other tools need
 |---|---|
 | `brew` | Homebrew — required for formulae, casks, and Node/npm on this system (not removable) |
 | `npm` | Node/npm via Homebrew (infrastructure; update-only, not removable) |
-| `uv` | Astral uv/uvx — Python toolchain (also used to install Aider/llm) |
+| `uv` | Astral uv/uvx — Python toolchain (also installs the uv-tool items) |
 | `fzf` | fzf fuzzy finder — required interactive catalog |
 | `deno` | Deno runtime |
 | `bun` | Bun JavaScript runtime, bundler, test runner, and package manager |
-| `pnpm` | pnpm fast, disk-efficient JavaScript package manager |
+| `pnpm` | pnpm fast, disk-efficient JavaScript package manager (official npm package) |
+| `mise` | mise — polyglot runtime/tool version manager |
 
 ## 🤖 coding-agents
 
@@ -43,9 +44,12 @@ Agents that write and edit code in the terminal
 | `droid` | Factory Droid — Factory.ai coding agent |
 | `kimi` | Kimi Code CLI — Moonshot (kimi-code) |
 | `cline` | Cline CLI — npm cline |
-| `continue` | Continue CLI — @continuedev/cli |
 | `vibe` | Mistral Vibe — open-source CLI coding assistant |
-| `openhands` | [SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained |
+| `devin-cli` | Devin CLI — Cognition coding agent |
+| `auggie` | Auggie — Augment Code CLI (@augmentcode/auggie) |
+| `junie` | Junie CLI — JetBrains coding agent (@jetbrains/junie) |
+| `letta` | Letta Code — stateful agent CLI (@letta-ai/letta-code) |
+| `qoder` | Qoder CLI — @qoder-ai/qodercli |
 
 ## 🖥️ workspaces
 
@@ -57,6 +61,12 @@ Desktop hubs that drive those agents
 | `t3-nightly` | T3 Code Nightly — desktop hub (nightly build) |
 | `opencode-desktop` | OpenCode desktop client |
 | `hermes-desktop` | Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI |
+| `conductor` | Conductor — run parallel Claude Code/Codex agents in worktrees |
+| `emdash` | Emdash — run multiple coding agents in parallel |
+| `superset` | Superset — terminal workspace for orchestrating coding agents |
+| `amp-app` | Amp desktop app — Sourcegraph agent environment (macOS 26+) |
+| `factory-app` | Factory desktop — native interface for Factory Droids |
+| `antigravity-app` | Google Antigravity 2 — agent orchestration hub app |
 
 ## ✏️ editors
 
@@ -69,6 +79,9 @@ Places you type code
 | `cursor-ide` | Cursor IDE app (Homebrew cask) |
 | `zed` | Zed editor app (Homebrew cask) |
 | `antigravity-ide` | Google Antigravity IDE |
+| `devin-desktop` | Devin Desktop — agentic IDE (formerly Windsurf) |
+| `kiro-ide` | Kiro IDE — spec-driven agentic IDE (distinct from Kiro CLI) |
+| `jetbrains-air` | JetBrains Air — agentic development environment |
 
 ## ⌨️ terminals
 
@@ -91,6 +104,12 @@ Cloud chat apps
 | `claude-app` | Claude desktop app (not Claude Code CLI) |
 | `copilot-app` | GitHub Copilot native desktop app |
 | `perplexity` | Perplexity desktop (Personal Computer agent) |
+| `gemini-app` | Google Gemini desktop app (macOS 15+) |
+| `cherry-studio` | Cherry Studio — multi-provider LLM desktop client |
+| `msty-studio` | Msty Studio — local and online model desktop app |
+| `boltai` | BoltAI — native macOS AI chat client |
+| `chatbox` | Chatbox — multi-provider AI chat desktop app |
+| `lobehub` | LobeHub — open-source AI chat/agent desktop app |
 
 ## 🎬 media
 
@@ -101,8 +120,6 @@ Video, images, audio, transcription, and AI creation tools
 | `remotion` | Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies |
 | `macwhisper` | MacWhisper — local speech-to-text |
 | `whisper-cpp` | whisper.cpp local speech-to-text engine (model files are separate) |
-| `diffusionbee` | DiffusionBee — local AI image generation |
-| `upscayl` | Upscayl — AI image upscaling |
 | `ffmpeg` | FFmpeg — audio/video conversion and encoding (media utility) |
 | `audacity` | Audacity — audio editing and recording (media utility) |
 | `draw-things` | Draw Things — local AI image generation; models downloaded separately |
@@ -117,9 +134,15 @@ Video, images, audio, transcription, and AI creation tools
 | `krita` | Krita — digital painting and illustration (media utility; AI plugins are separate) |
 | `inkscape` | Inkscape — vector graphics and SVG editing (media utility) |
 | `imagemagick` | ImageMagick — command-line image conversion and processing (magick) |
-| `sox` | SoX — command-line audio processing (media utility) |
 | `yt-dlp` | yt-dlp — command-line audio/video downloads (media utility) |
 | `vips` | libvips — efficient image processing CLI/library (media utility) |
+| `whisperkit` | WhisperKit CLI — Argmax on-device speech recognition (models separate) |
+| `handy` | Handy — open-source local speech-to-text dictation |
+| `voiceink` | VoiceInk — local AI dictation (macOS 15+) |
+| `wispr-flow` | Wispr Flow — AI dictation; vendor account required |
+| `stability-matrix` | Stability Matrix — Stable Diffusion package manager and inference UI |
+| `mochi-diffusion` | Mochi Diffusion — native Core ML Stable Diffusion (macOS 15+) |
+| `sox-ng` | SoX NG — maintained SoX fork for command-line audio processing (replaces sox) |
 
 ## 🧠 local-ai
 
@@ -130,7 +153,6 @@ Local models, inference engines, and contextual capture
 | `ollama` | Ollama local-model CLI |
 | `lm-studio` | LM Studio — local LLM desktop app |
 | `jan` | Jan — local ChatGPT-style app |
-| `gpt4all` | GPT4All — local LLM desktop app (maintenance-only) |
 | `anythingllm` | AnythingLLM — private local RAG/chat app |
 | `mlx` | MLX — Apple Silicon engine for running local AI (not a chat app) |
 | `mlx-lm` | mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX |
@@ -138,6 +160,12 @@ Local models, inference engines, and contextual capture
 | `screenpipe` | screenpipe — local screen/audio capture (official stable DMG updater) |
 | `llama-cpp` | llama.cpp — local LLM inference engine and server |
 | `llama-app` | Llama — official local LLM menu-bar app |
+| `localai` | LocalAI — OpenAI-compatible local inference server |
+| `ramalama` | RamaLama — run local models via containers |
+| `osaurus` | Osaurus — MLX-based local LLM server app (macOS 15+) |
+| `mlx-vlm` | mlx-vlm — vision-language models on Apple Silicon via MLX |
+| `hf` | Hugging Face CLI (hf) — model download and hub management |
+| `open-webui` | Open WebUI — self-hosted chat UI for Ollama/OpenAI-compatible APIs (Python 3.11–3.12) |
 
 ## ⚡ automation
 
@@ -149,7 +177,6 @@ General-purpose agents and workflow automation
 | `openclaw` | OpenClaw — personal/local AI assistant CLI |
 | `grokbot` | Grok Bot — xAI teammates that work across your apps |
 | `n8n` | n8n — workflow automation via the official npm package |
-| `interpreter` | Open Interpreter — natural-language computer-use agent |
 
 ## 🔧 llm-utils
 
@@ -158,10 +185,10 @@ Unix-pipe LLM CLIs
 | Id | Label |
 |---|---|
 | `llm` | llm — Simon Willison Unix LLM CLI |
-| `mods` | mods — Charm pipe-to-LLM (upstream archived) |
-| `aichat` | aichat — all-in-one terminal AI workstation |
 | `fabric` | fabric-ai — Daniel Miessler prompt-pattern CLI |
 | `sgpt` | shell-gpt (sgpt) via uv |
+| `repomix` | Repomix — pack a repository into one AI-friendly file |
+| `markitdown` | MarkItDown — Microsoft file-to-Markdown converter for LLMs |
 
 ## 🛠️ dev-utils
 
@@ -170,7 +197,7 @@ Development, search, data, and deployment utilities
 | Id | Label |
 |---|---|
 | `gh` | GitHub CLI |
-| `wrangler` | Cloudflare Workers CLI (cloudflare-wrangler) |
+| `wrangler` | Cloudflare Workers CLI — official npm package (wrangler) |
 | `jq` | jq command-line JSON processor |
 | `yq` | yq command-line YAML, JSON, XML, CSV, and properties processor |
 | `ripgrep` | ripgrep fast recursive search (rg) |
@@ -178,6 +205,7 @@ Development, search, data, and deployment utilities
 | `just` | just project command runner |
 | `shellcheck` | ShellCheck shell-script static analyzer |
 | `actionlint` | actionlint GitHub Actions workflow checker |
+| `mcp-inspector` | MCP Inspector — visual testing tool for MCP servers |
 
 ## 🔌 adapters
 
@@ -186,6 +214,8 @@ Glue between agents and editors
 | Id | Label |
 |---|---|
 | `pi-acp` | Pi ACP adapter (pi-acp) for T3 Code / editors |
+| `claude-acp` | Claude Agent ACP adapter (@agentclientprotocol/claude-agent-acp) for Zed / editors |
+| `codex-acp` | Codex ACP adapter (@agentclientprotocol/codex-acp) for Zed / editors |
 
 ## 🍺 homebrew
 
@@ -209,13 +239,9 @@ Recommended extras:
 | cask | `docker` | Docker Desktop |
 | cask | `linear` | Linear issue tracker |
 | cask | `notion` | Notion |
-| cask | `windsurf` | Windsurf AI IDE |
-| cask | `devin-desktop` | Devin Desktop |
 | cask | `copilot-cli` | GitHub Copilot CLI (Homebrew cask) |
 | cask | `cursor-cli` | Cursor Agent CLI cask |
 | cask | `claude-code` | Claude Code cask |
-| cask | `chatgpt-atlas` | ChatGPT Atlas |
-| cask | `kiro` | Kiro IDE |
 | cask | `warp-agent-cli` | Warp Agent CLI cask |
 | cask | `coderabbit` | CodeRabbit AI review |
 | cask | `auto-claude` | Auto Claude |
@@ -229,9 +255,7 @@ Recommended extras:
 | cask | `secretive` | Secretive SSH keys |
 | cask | `stats` | Stats menu-bar monitors |
 | cask | `iina` | IINA media player |
-| cask | `wezterm` | WezTerm |
 | cask | `kitty` | Kitty terminal |
-| cask | `alacritty` | Alacritty terminal |
 | cask | `neovide` | Neovide (Neovim GUI) |
 | cask | `fork` | Fork git client |
 | cask | `sublime-merge` | Sublime Merge |
@@ -239,9 +263,6 @@ Recommended extras:
 | cask | `brave-browser` | Brave Browser |
 | cask | `firefox` | Firefox |
 | cask | `utm` | UTM virtual machines |
-| cask | `jan` | Homebrew cask jan |
-| cask | `gpt4all` | Homebrew cask gpt4all |
-| cask | `anythingllm` | Homebrew cask anythingllm |
 | formula | `jq` | jq JSON processor |
 | formula | `neovim` | Neovim |
 | formula | `go` | Go language |
@@ -262,10 +283,8 @@ Recommended extras:
 | formula | `git` | git |
 | formula | `lazygit` | lazygit |
 | formula | `helix` | Helix editor |
-| formula | `mise` | mise runtime manager |
 | formula | `direnv` | direnv |
 | formula | `just` | just command runner |
-| formula | `pnpm` | pnpm |
 | formula | `yarn` | yarn |
 | formula | `podman` | Podman |
 | formula | `kubectl` | kubectl |

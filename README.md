@@ -217,22 +217,22 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.29-04** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.29-05** · **131** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
-| ⚙️ | **infra** | Runtimes and installers other tools need | 7 tools |
-| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 24 tools |
-| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 4 tools |
-| ✏️ | **editors** | Places you type code | 5 tools |
+| ⚙️ | **infra** | Runtimes and installers other tools need | 8 tools |
+| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
+| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 10 tools |
+| ✏️ | **editors** | Places you type code | 8 tools |
 | ⌨️ | **terminals** | Places you run commands | 4 tools |
-| 💬 | **chat** | Cloud chat apps | 4 tools |
-| 🎬 | **media** | Video, images, audio, transcription, and AI creation tools | 22 tools |
-| 🧠 | **local-ai** | Local models, inference engines, and contextual capture | 11 tools |
-| ⚡ | **automation** | General-purpose agents and workflow automation | 5 tools |
+| 💬 | **chat** | Cloud chat apps | 10 tools |
+| 🎬 | **media** | Video, images, audio, transcription, and AI creation tools | 26 tools |
+| 🧠 | **local-ai** | Local models, inference engines, and contextual capture | 16 tools |
+| ⚡ | **automation** | General-purpose agents and workflow automation | 4 tools |
 | 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
-| 🛠️ | **dev-utils** | Development, search, data, and deployment utilities | 9 tools |
-| 🔌 | **adapters** | Glue between agents and editors | 1 tool |
+| 🛠️ | **dev-utils** | Development, search, data, and deployment utilities | 10 tools |
+| 🔌 | **adapters** | Glue between agents and editors | 3 tools |
 | 🍺 | **homebrew** | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 

@@ -1,6 +1,6 @@
 {
   "name": "aiup",
-  "version": "2026.09.29-04",
+  "version": "2026.09.29-05",
   "categories": [
     {
       "id": "infra",
@@ -29,7 +29,7 @@
           "kind": "curl-installer",
           "lifecycle": "active",
           "docs": "https://github.com/astral-sh/uv",
-          "label": "Astral uv/uvx — Python toolchain (also used to install Aider/llm)"
+          "label": "Astral uv/uvx — Python toolchain (also installs the uv-tool items)"
         },
         {
           "id": "fzf",
@@ -58,10 +58,18 @@
         {
           "id": "pnpm",
           "category": "infra",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://pnpm.io/",
-          "label": "pnpm fast, disk-efficient JavaScript package manager"
+          "label": "pnpm fast, disk-efficient JavaScript package manager (official npm package)"
+        },
+        {
+          "id": "mise",
+          "category": "infra",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://mise.jdx.dev/",
+          "label": "mise — polyglot runtime/tool version manager"
         }
       ]
     },
@@ -179,7 +187,7 @@
           "category": "coding-agents",
           "kind": "special",
           "lifecycle": "active",
-          "docs": "https://cursor.com/docs/cli",
+          "docs": "https://cursor.com/docs/cli/overview",
           "label": "Cursor Agent CLI (cursor-agent / cursor-cli cask)"
         },
         {
@@ -239,14 +247,6 @@
           "label": "Cline CLI — npm cline"
         },
         {
-          "id": "continue",
-          "category": "coding-agents",
-          "kind": "aiup-npm",
-          "lifecycle": "active",
-          "docs": "https://github.com/continuedev/continue",
-          "label": "Continue CLI — @continuedev/cli"
-        },
-        {
           "id": "vibe",
           "category": "coding-agents",
           "kind": "uv-tool",
@@ -255,12 +255,44 @@
           "label": "Mistral Vibe — open-source CLI coding assistant"
         },
         {
-          "id": "openhands",
+          "id": "devin-cli",
           "category": "coding-agents",
-          "kind": "uv-tool",
-          "lifecycle": "sunset",
-          "docs": "https://github.com/OpenHands/OpenHands-CLI",
-          "label": "[SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained"
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://docs.devin.ai/cli",
+          "label": "Devin CLI — Cognition coding agent"
+        },
+        {
+          "id": "auggie",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://docs.augmentcode.com/cli/overview",
+          "label": "Auggie — Augment Code CLI (@augmentcode/auggie)"
+        },
+        {
+          "id": "junie",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/JetBrains/junie",
+          "label": "Junie CLI — JetBrains coding agent (@jetbrains/junie)"
+        },
+        {
+          "id": "letta",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/letta-ai/letta-code",
+          "label": "Letta Code — stateful agent CLI (@letta-ai/letta-code)"
+        },
+        {
+          "id": "qoder",
+          "category": "coding-agents",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://qoder.com/cli",
+          "label": "Qoder CLI — @qoder-ai/qodercli"
         }
       ]
     },
@@ -300,6 +332,54 @@
           "lifecycle": "active",
           "docs": "https://hermes-agent.nousresearch.com/desktop",
           "label": "Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI"
+        },
+        {
+          "id": "conductor",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.conductor.build/",
+          "label": "Conductor — run parallel Claude Code/Codex agents in worktrees"
+        },
+        {
+          "id": "emdash",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/generalaction/emdash",
+          "label": "Emdash — run multiple coding agents in parallel"
+        },
+        {
+          "id": "superset",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/superset-sh/superset",
+          "label": "Superset — terminal workspace for orchestrating coding agents"
+        },
+        {
+          "id": "amp-app",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://ampcode.com/app",
+          "label": "Amp desktop app — Sourcegraph agent environment (macOS 26+)"
+        },
+        {
+          "id": "factory-app",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://factory.com/",
+          "label": "Factory desktop — native interface for Factory Droids"
+        },
+        {
+          "id": "antigravity-app",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://antigravity.google/product/antigravity-2",
+          "label": "Google Antigravity 2 — agent orchestration hub app"
         }
       ]
     },
@@ -347,6 +427,30 @@
           "lifecycle": "active",
           "docs": "https://antigravity.google/product/antigravity-ide",
           "label": "Google Antigravity IDE"
+        },
+        {
+          "id": "devin-desktop",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://devin.ai/desktop",
+          "label": "Devin Desktop — agentic IDE (formerly Windsurf)"
+        },
+        {
+          "id": "kiro-ide",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://kiro.dev/",
+          "label": "Kiro IDE — spec-driven agentic IDE (distinct from Kiro CLI)"
+        },
+        {
+          "id": "jetbrains-air",
+          "category": "editors",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.jetbrains.com/air/",
+          "label": "JetBrains Air — agentic development environment"
         }
       ]
     },
@@ -425,6 +529,54 @@
           "lifecycle": "active",
           "docs": "https://www.perplexity.ai/personal-computer",
           "label": "Perplexity desktop (Personal Computer agent)"
+        },
+        {
+          "id": "gemini-app",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://gemini.google/desktop/",
+          "label": "Google Gemini desktop app (macOS 15+)"
+        },
+        {
+          "id": "cherry-studio",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/CherryHQ/cherry-studio",
+          "label": "Cherry Studio — multi-provider LLM desktop client"
+        },
+        {
+          "id": "msty-studio",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://msty.ai/",
+          "label": "Msty Studio — local and online model desktop app"
+        },
+        {
+          "id": "boltai",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://boltai.com/",
+          "label": "BoltAI — native macOS AI chat client"
+        },
+        {
+          "id": "chatbox",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://chatboxai.app/en",
+          "label": "Chatbox — multi-provider AI chat desktop app"
+        },
+        {
+          "id": "lobehub",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/lobehub/lobehub",
+          "label": "LobeHub — open-source AI chat/agent desktop app"
         }
       ]
     },
@@ -456,22 +608,6 @@
           "lifecycle": "active",
           "docs": "https://github.com/ggml-org/whisper.cpp",
           "label": "whisper.cpp local speech-to-text engine (model files are separate)"
-        },
-        {
-          "id": "diffusionbee",
-          "category": "media",
-          "kind": "brew-cask",
-          "lifecycle": "active",
-          "docs": "https://diffusionbee.com/",
-          "label": "DiffusionBee — local AI image generation"
-        },
-        {
-          "id": "upscayl",
-          "category": "media",
-          "kind": "brew-cask",
-          "lifecycle": "active",
-          "docs": "https://upscayl.org/",
-          "label": "Upscayl — AI image upscaling"
         },
         {
           "id": "ffmpeg",
@@ -586,14 +722,6 @@
           "label": "ImageMagick — command-line image conversion and processing (magick)"
         },
         {
-          "id": "sox",
-          "category": "media",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://sox.sourceforge.net/",
-          "label": "SoX — command-line audio processing (media utility)"
-        },
-        {
           "id": "yt-dlp",
           "category": "media",
           "kind": "brew-formula",
@@ -608,6 +736,62 @@
           "lifecycle": "active",
           "docs": "https://github.com/libvips/libvips",
           "label": "libvips — efficient image processing CLI/library (media utility)"
+        },
+        {
+          "id": "whisperkit",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/argmaxinc/argmax-oss-swift",
+          "label": "WhisperKit CLI — Argmax on-device speech recognition (models separate)"
+        },
+        {
+          "id": "handy",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/cjpais/Handy",
+          "label": "Handy — open-source local speech-to-text dictation"
+        },
+        {
+          "id": "voiceink",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/Beingpax/VoiceInk",
+          "label": "VoiceInk — local AI dictation (macOS 15+)"
+        },
+        {
+          "id": "wispr-flow",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://wisprflow.ai/",
+          "label": "Wispr Flow — AI dictation; vendor account required"
+        },
+        {
+          "id": "stability-matrix",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/LykosAI/StabilityMatrix",
+          "label": "Stability Matrix — Stable Diffusion package manager and inference UI"
+        },
+        {
+          "id": "mochi-diffusion",
+          "category": "media",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/MochiDiffusion/MochiDiffusion",
+          "label": "Mochi Diffusion — native Core ML Stable Diffusion (macOS 15+)"
+        },
+        {
+          "id": "sox-ng",
+          "category": "media",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://codeberg.org/sox_ng/sox_ng",
+          "label": "SoX NG — maintained SoX fork for command-line audio processing (replaces sox)"
         }
       ]
     },
@@ -639,14 +823,6 @@
           "lifecycle": "active",
           "docs": "https://github.com/janhq/jan",
           "label": "Jan — local ChatGPT-style app"
-        },
-        {
-          "id": "gpt4all",
-          "category": "local-ai",
-          "kind": "brew-cask",
-          "lifecycle": "maintenance",
-          "docs": "https://github.com/nomic-ai/gpt4all",
-          "label": "GPT4All — local LLM desktop app (maintenance-only)"
         },
         {
           "id": "anythingllm",
@@ -703,6 +879,54 @@
           "lifecycle": "active",
           "docs": "https://github.com/ggml-org/Llama-macOS",
           "label": "Llama — official local LLM menu-bar app"
+        },
+        {
+          "id": "localai",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://localai.io/",
+          "label": "LocalAI — OpenAI-compatible local inference server"
+        },
+        {
+          "id": "ramalama",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://ramalama.ai/",
+          "label": "RamaLama — run local models via containers"
+        },
+        {
+          "id": "osaurus",
+          "category": "local-ai",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/osaurus-ai/osaurus",
+          "label": "Osaurus — MLX-based local LLM server app (macOS 15+)"
+        },
+        {
+          "id": "mlx-vlm",
+          "category": "local-ai",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/Blaizzy/mlx-vlm",
+          "label": "mlx-vlm — vision-language models on Apple Silicon via MLX"
+        },
+        {
+          "id": "hf",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://huggingface.co/docs/huggingface_hub/guides/cli",
+          "label": "Hugging Face CLI (hf) — model download and hub management"
+        },
+        {
+          "id": "open-webui",
+          "category": "local-ai",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/open-webui/open-webui",
+          "label": "Open WebUI — self-hosted chat UI for Ollama/OpenAI-compatible APIs (Python 3.11–3.12)"
         }
       ]
     },
@@ -742,14 +966,6 @@
           "lifecycle": "active",
           "docs": "https://github.com/n8n-io/n8n",
           "label": "n8n — workflow automation via the official npm package"
-        },
-        {
-          "id": "interpreter",
-          "category": "automation",
-          "kind": "uv-tool",
-          "lifecycle": "active",
-          "docs": "https://github.com/openinterpreter/open-interpreter",
-          "label": "Open Interpreter — natural-language computer-use agent"
         }
       ]
     },
@@ -767,27 +983,11 @@
           "label": "llm — Simon Willison Unix LLM CLI"
         },
         {
-          "id": "mods",
-          "category": "llm-utils",
-          "kind": "brew-formula",
-          "lifecycle": "archived",
-          "docs": "https://github.com/charmbracelet/mods",
-          "label": "mods — Charm pipe-to-LLM (upstream archived)"
-        },
-        {
-          "id": "aichat",
-          "category": "llm-utils",
-          "kind": "brew-formula",
-          "lifecycle": "active",
-          "docs": "https://github.com/sigoden/aichat",
-          "label": "aichat — all-in-one terminal AI workstation"
-        },
-        {
           "id": "fabric",
           "category": "llm-utils",
           "kind": "brew-formula",
           "lifecycle": "active",
-          "docs": "https://github.com/danielmiessler/fabric",
+          "docs": "https://github.com/danielmiessler/Fabric",
           "label": "fabric-ai — Daniel Miessler prompt-pattern CLI"
         },
         {
@@ -797,6 +997,22 @@
           "lifecycle": "active",
           "docs": "https://github.com/TheR1D/shell_gpt",
           "label": "shell-gpt (sgpt) via uv"
+        },
+        {
+          "id": "repomix",
+          "category": "llm-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/yamadashy/repomix",
+          "label": "Repomix — pack a repository into one AI-friendly file"
+        },
+        {
+          "id": "markitdown",
+          "category": "llm-utils",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/microsoft/markitdown",
+          "label": "MarkItDown — Microsoft file-to-Markdown converter for LLMs"
         }
       ]
     },
@@ -816,17 +1032,17 @@
         {
           "id": "wrangler",
           "category": "dev-utils",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/cloudflare/workers-sdk",
-          "label": "Cloudflare Workers CLI (cloudflare-wrangler)"
+          "label": "Cloudflare Workers CLI — official npm package (wrangler)"
         },
         {
           "id": "jq",
           "category": "dev-utils",
           "kind": "brew-formula",
           "lifecycle": "active",
-          "docs": "https://jqlang.github.io/jq/",
+          "docs": "https://jqlang.org/",
           "label": "jq command-line JSON processor"
         },
         {
@@ -876,6 +1092,14 @@
           "lifecycle": "active",
           "docs": "https://rhysd.github.io/actionlint/",
           "label": "actionlint GitHub Actions workflow checker"
+        },
+        {
+          "id": "mcp-inspector",
+          "category": "dev-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/modelcontextprotocol/inspector",
+          "label": "MCP Inspector — visual testing tool for MCP servers"
         }
       ]
     },
@@ -891,6 +1115,22 @@
           "lifecycle": "active",
           "docs": "https://www.npmjs.com/package/pi-acp",
           "label": "Pi ACP adapter (pi-acp) for T3 Code / editors"
+        },
+        {
+          "id": "claude-acp",
+          "category": "adapters",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/agentclientprotocol/claude-agent-acp",
+          "label": "Claude Agent ACP adapter (@agentclientprotocol/claude-agent-acp) for Zed / editors"
+        },
+        {
+          "id": "codex-acp",
+          "category": "adapters",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/agentclientprotocol/codex-acp",
+          "label": "Codex ACP adapter (@agentclientprotocol/codex-acp) for Zed / editors"
         }
       ]
     },
@@ -960,7 +1200,7 @@
       "kind": "curl-installer",
       "lifecycle": "active",
       "docs": "https://github.com/astral-sh/uv",
-      "label": "Astral uv/uvx — Python toolchain (also used to install Aider/llm)"
+      "label": "Astral uv/uvx — Python toolchain (also installs the uv-tool items)"
     },
     {
       "id": "fzf",
@@ -981,10 +1221,10 @@
     {
       "id": "wrangler",
       "category": "dev-utils",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/cloudflare/workers-sdk",
-      "label": "Cloudflare Workers CLI (cloudflare-wrangler)"
+      "label": "Cloudflare Workers CLI — official npm package (wrangler)"
     },
     {
       "id": "deno",
@@ -1005,17 +1245,17 @@
     {
       "id": "pnpm",
       "category": "infra",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://pnpm.io/",
-      "label": "pnpm fast, disk-efficient JavaScript package manager"
+      "label": "pnpm fast, disk-efficient JavaScript package manager (official npm package)"
     },
     {
       "id": "jq",
       "category": "dev-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
-      "docs": "https://jqlang.github.io/jq/",
+      "docs": "https://jqlang.org/",
       "label": "jq command-line JSON processor"
     },
     {
@@ -1183,7 +1423,7 @@
       "category": "coding-agents",
       "kind": "special",
       "lifecycle": "active",
-      "docs": "https://cursor.com/docs/cli",
+      "docs": "https://cursor.com/docs/cli/overview",
       "label": "Cursor Agent CLI (cursor-agent / cursor-cli cask)"
     },
     {
@@ -1251,14 +1491,6 @@
       "label": "Cline CLI — npm cline"
     },
     {
-      "id": "continue",
-      "category": "coding-agents",
-      "kind": "aiup-npm",
-      "lifecycle": "active",
-      "docs": "https://github.com/continuedev/continue",
-      "label": "Continue CLI — @continuedev/cli"
-    },
-    {
       "id": "pi-acp",
       "category": "adapters",
       "kind": "aiup-npm",
@@ -1275,27 +1507,11 @@
       "label": "llm — Simon Willison Unix LLM CLI"
     },
     {
-      "id": "mods",
-      "category": "llm-utils",
-      "kind": "brew-formula",
-      "lifecycle": "archived",
-      "docs": "https://github.com/charmbracelet/mods",
-      "label": "mods — Charm pipe-to-LLM (upstream archived)"
-    },
-    {
-      "id": "aichat",
-      "category": "llm-utils",
-      "kind": "brew-formula",
-      "lifecycle": "active",
-      "docs": "https://github.com/sigoden/aichat",
-      "label": "aichat — all-in-one terminal AI workstation"
-    },
-    {
       "id": "fabric",
       "category": "llm-utils",
       "kind": "brew-formula",
       "lifecycle": "active",
-      "docs": "https://github.com/danielmiessler/fabric",
+      "docs": "https://github.com/danielmiessler/Fabric",
       "label": "fabric-ai — Daniel Miessler prompt-pattern CLI"
     },
     {
@@ -1329,14 +1545,6 @@
       "lifecycle": "active",
       "docs": "https://github.com/janhq/jan",
       "label": "Jan — local ChatGPT-style app"
-    },
-    {
-      "id": "gpt4all",
-      "category": "local-ai",
-      "kind": "brew-cask",
-      "lifecycle": "maintenance",
-      "docs": "https://github.com/nomic-ai/gpt4all",
-      "label": "GPT4All — local LLM desktop app (maintenance-only)"
     },
     {
       "id": "anythingllm",
@@ -1547,14 +1755,6 @@
       "label": "n8n — workflow automation via the official npm package"
     },
     {
-      "id": "interpreter",
-      "category": "automation",
-      "kind": "uv-tool",
-      "lifecycle": "active",
-      "docs": "https://github.com/openinterpreter/open-interpreter",
-      "label": "Open Interpreter — natural-language computer-use agent"
-    },
-    {
       "id": "vibe",
       "category": "coding-agents",
       "kind": "uv-tool",
@@ -1585,30 +1785,6 @@
       "lifecycle": "active",
       "docs": "https://github.com/ggml-org/whisper.cpp",
       "label": "whisper.cpp local speech-to-text engine (model files are separate)"
-    },
-    {
-      "id": "openhands",
-      "category": "coding-agents",
-      "kind": "uv-tool",
-      "lifecycle": "sunset",
-      "docs": "https://github.com/OpenHands/OpenHands-CLI",
-      "label": "[SUNSET] OpenHands CLI — upstream says this CLI is no longer actively maintained"
-    },
-    {
-      "id": "diffusionbee",
-      "category": "media",
-      "kind": "brew-cask",
-      "lifecycle": "active",
-      "docs": "https://diffusionbee.com/",
-      "label": "DiffusionBee — local AI image generation"
-    },
-    {
-      "id": "upscayl",
-      "category": "media",
-      "kind": "brew-cask",
-      "lifecycle": "active",
-      "docs": "https://upscayl.org/",
-      "label": "Upscayl — AI image upscaling"
     },
     {
       "id": "ffmpeg",
@@ -1723,14 +1899,6 @@
       "label": "ImageMagick — command-line image conversion and processing (magick)"
     },
     {
-      "id": "sox",
-      "category": "media",
-      "kind": "brew-formula",
-      "lifecycle": "active",
-      "docs": "https://sox.sourceforge.net/",
-      "label": "SoX — command-line audio processing (media utility)"
-    },
-    {
       "id": "yt-dlp",
       "category": "media",
       "kind": "brew-formula",
@@ -1745,6 +1913,318 @@
       "lifecycle": "active",
       "docs": "https://github.com/libvips/libvips",
       "label": "libvips — efficient image processing CLI/library (media utility)"
+    },
+    {
+      "id": "devin-cli",
+      "category": "coding-agents",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://docs.devin.ai/cli",
+      "label": "Devin CLI — Cognition coding agent"
+    },
+    {
+      "id": "auggie",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://docs.augmentcode.com/cli/overview",
+      "label": "Auggie — Augment Code CLI (@augmentcode/auggie)"
+    },
+    {
+      "id": "junie",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/JetBrains/junie",
+      "label": "Junie CLI — JetBrains coding agent (@jetbrains/junie)"
+    },
+    {
+      "id": "letta",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/letta-ai/letta-code",
+      "label": "Letta Code — stateful agent CLI (@letta-ai/letta-code)"
+    },
+    {
+      "id": "qoder",
+      "category": "coding-agents",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://qoder.com/cli",
+      "label": "Qoder CLI — @qoder-ai/qodercli"
+    },
+    {
+      "id": "claude-acp",
+      "category": "adapters",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/agentclientprotocol/claude-agent-acp",
+      "label": "Claude Agent ACP adapter (@agentclientprotocol/claude-agent-acp) for Zed / editors"
+    },
+    {
+      "id": "codex-acp",
+      "category": "adapters",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/agentclientprotocol/codex-acp",
+      "label": "Codex ACP adapter (@agentclientprotocol/codex-acp) for Zed / editors"
+    },
+    {
+      "id": "mcp-inspector",
+      "category": "dev-utils",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/modelcontextprotocol/inspector",
+      "label": "MCP Inspector — visual testing tool for MCP servers"
+    },
+    {
+      "id": "mise",
+      "category": "infra",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://mise.jdx.dev/",
+      "label": "mise — polyglot runtime/tool version manager"
+    },
+    {
+      "id": "devin-desktop",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://devin.ai/desktop",
+      "label": "Devin Desktop — agentic IDE (formerly Windsurf)"
+    },
+    {
+      "id": "kiro-ide",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://kiro.dev/",
+      "label": "Kiro IDE — spec-driven agentic IDE (distinct from Kiro CLI)"
+    },
+    {
+      "id": "jetbrains-air",
+      "category": "editors",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.jetbrains.com/air/",
+      "label": "JetBrains Air — agentic development environment"
+    },
+    {
+      "id": "conductor",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.conductor.build/",
+      "label": "Conductor — run parallel Claude Code/Codex agents in worktrees"
+    },
+    {
+      "id": "emdash",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/generalaction/emdash",
+      "label": "Emdash — run multiple coding agents in parallel"
+    },
+    {
+      "id": "superset",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/superset-sh/superset",
+      "label": "Superset — terminal workspace for orchestrating coding agents"
+    },
+    {
+      "id": "amp-app",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://ampcode.com/app",
+      "label": "Amp desktop app — Sourcegraph agent environment (macOS 26+)"
+    },
+    {
+      "id": "factory-app",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://factory.com/",
+      "label": "Factory desktop — native interface for Factory Droids"
+    },
+    {
+      "id": "antigravity-app",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://antigravity.google/product/antigravity-2",
+      "label": "Google Antigravity 2 — agent orchestration hub app"
+    },
+    {
+      "id": "gemini-app",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://gemini.google/desktop/",
+      "label": "Google Gemini desktop app (macOS 15+)"
+    },
+    {
+      "id": "cherry-studio",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/CherryHQ/cherry-studio",
+      "label": "Cherry Studio — multi-provider LLM desktop client"
+    },
+    {
+      "id": "msty-studio",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://msty.ai/",
+      "label": "Msty Studio — local and online model desktop app"
+    },
+    {
+      "id": "boltai",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://boltai.com/",
+      "label": "BoltAI — native macOS AI chat client"
+    },
+    {
+      "id": "chatbox",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://chatboxai.app/en",
+      "label": "Chatbox — multi-provider AI chat desktop app"
+    },
+    {
+      "id": "lobehub",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/lobehub/lobehub",
+      "label": "LobeHub — open-source AI chat/agent desktop app"
+    },
+    {
+      "id": "localai",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://localai.io/",
+      "label": "LocalAI — OpenAI-compatible local inference server"
+    },
+    {
+      "id": "ramalama",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://ramalama.ai/",
+      "label": "RamaLama — run local models via containers"
+    },
+    {
+      "id": "osaurus",
+      "category": "local-ai",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/osaurus-ai/osaurus",
+      "label": "Osaurus — MLX-based local LLM server app (macOS 15+)"
+    },
+    {
+      "id": "mlx-vlm",
+      "category": "local-ai",
+      "kind": "uv-tool",
+      "lifecycle": "active",
+      "docs": "https://github.com/Blaizzy/mlx-vlm",
+      "label": "mlx-vlm — vision-language models on Apple Silicon via MLX"
+    },
+    {
+      "id": "hf",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://huggingface.co/docs/huggingface_hub/guides/cli",
+      "label": "Hugging Face CLI (hf) — model download and hub management"
+    },
+    {
+      "id": "open-webui",
+      "category": "local-ai",
+      "kind": "uv-tool",
+      "lifecycle": "active",
+      "docs": "https://github.com/open-webui/open-webui",
+      "label": "Open WebUI — self-hosted chat UI for Ollama/OpenAI-compatible APIs (Python 3.11–3.12)"
+    },
+    {
+      "id": "whisperkit",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/argmaxinc/argmax-oss-swift",
+      "label": "WhisperKit CLI — Argmax on-device speech recognition (models separate)"
+    },
+    {
+      "id": "handy",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/cjpais/Handy",
+      "label": "Handy — open-source local speech-to-text dictation"
+    },
+    {
+      "id": "voiceink",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/Beingpax/VoiceInk",
+      "label": "VoiceInk — local AI dictation (macOS 15+)"
+    },
+    {
+      "id": "wispr-flow",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://wisprflow.ai/",
+      "label": "Wispr Flow — AI dictation; vendor account required"
+    },
+    {
+      "id": "stability-matrix",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/LykosAI/StabilityMatrix",
+      "label": "Stability Matrix — Stable Diffusion package manager and inference UI"
+    },
+    {
+      "id": "mochi-diffusion",
+      "category": "media",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/MochiDiffusion/MochiDiffusion",
+      "label": "Mochi Diffusion — native Core ML Stable Diffusion (macOS 15+)"
+    },
+    {
+      "id": "sox-ng",
+      "category": "media",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://codeberg.org/sox_ng/sox_ng",
+      "label": "SoX NG — maintained SoX fork for command-line audio processing (replaces sox)"
+    },
+    {
+      "id": "repomix",
+      "category": "llm-utils",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/yamadashy/repomix",
+      "label": "Repomix — pack a repository into one AI-friendly file"
+    },
+    {
+      "id": "markitdown",
+      "category": "llm-utils",
+      "kind": "uv-tool",
+      "lifecycle": "active",
+      "docs": "https://github.com/microsoft/markitdown",
+      "label": "MarkItDown — Microsoft file-to-Markdown converter for LLMs"
     }
   ],
   "recommended": [
@@ -1775,16 +2255,6 @@
     },
     {
       "kind": "cask",
-      "id": "windsurf",
-      "label": "Windsurf AI IDE"
-    },
-    {
-      "kind": "cask",
-      "id": "devin-desktop",
-      "label": "Devin Desktop"
-    },
-    {
-      "kind": "cask",
       "id": "copilot-cli",
       "label": "GitHub Copilot CLI (Homebrew cask)"
     },
@@ -1797,16 +2267,6 @@
       "kind": "cask",
       "id": "claude-code",
       "label": "Claude Code cask"
-    },
-    {
-      "kind": "cask",
-      "id": "chatgpt-atlas",
-      "label": "ChatGPT Atlas"
-    },
-    {
-      "kind": "cask",
-      "id": "kiro",
-      "label": "Kiro IDE"
     },
     {
       "kind": "cask",
@@ -1875,18 +2335,8 @@
     },
     {
       "kind": "cask",
-      "id": "wezterm",
-      "label": "WezTerm"
-    },
-    {
-      "kind": "cask",
       "id": "kitty",
       "label": "Kitty terminal"
-    },
-    {
-      "kind": "cask",
-      "id": "alacritty",
-      "label": "Alacritty terminal"
     },
     {
       "kind": "cask",
@@ -1922,21 +2372,6 @@
       "kind": "cask",
       "id": "utm",
       "label": "UTM virtual machines"
-    },
-    {
-      "kind": "cask",
-      "id": "jan",
-      "label": "Homebrew cask jan"
-    },
-    {
-      "kind": "cask",
-      "id": "gpt4all",
-      "label": "Homebrew cask gpt4all"
-    },
-    {
-      "kind": "cask",
-      "id": "anythingllm",
-      "label": "Homebrew cask anythingllm"
     },
     {
       "kind": "formula",
@@ -2040,11 +2475,6 @@
     },
     {
       "kind": "formula",
-      "id": "mise",
-      "label": "mise runtime manager"
-    },
-    {
-      "kind": "formula",
       "id": "direnv",
       "label": "direnv"
     },
@@ -2052,11 +2482,6 @@
       "kind": "formula",
       "id": "just",
       "label": "just command runner"
-    },
-    {
-      "kind": "formula",
-      "id": "pnpm",
-      "label": "pnpm"
     },
     {
       "kind": "formula",

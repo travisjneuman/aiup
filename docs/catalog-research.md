@@ -21,7 +21,17 @@ aiup does not turn a repository name into an updater automatically. A new manage
 | `jq`, `yq` | Managed, active | Homebrew formulae `jq` and `yq` | [jq](https://formulae.brew.sh/formula/jq) and [yq](https://formulae.brew.sh/formula/yq) are official Homebrew formulae for structured-data work used by development tooling. |
 | `ripgrep`, `fd`, `just` | Managed, active | Homebrew formulae `ripgrep`, `fd`, and `just` | [ripgrep](https://formulae.brew.sh/formula/ripgrep), [fd](https://formulae.brew.sh/formula/fd), and [just](https://formulae.brew.sh/formula/just) publish macOS bottles and stable upgrade paths. |
 | `shellcheck`, `actionlint` | Managed, active | Homebrew formulae `shellcheck` and `actionlint` | [ShellCheck](https://formulae.brew.sh/formula/shellcheck) and [actionlint](https://formulae.brew.sh/formula/actionlint) provide shell and GitHub Actions validation. actionlint declares ShellCheck as a dependency, which Homebrew resolves. |
-| `whisper-cpp` | Managed, active | Homebrew formula `whisper-cpp` | [Homebrew's whisper-cpp formula](https://formulae.brew.sh/formula/whisper-cpp) supplies a macOS bottle and points to the official [whisper.cpp](https://github.com/ggml-org/whisper.cpp) project. Model files remain a separate user choice and are not downloaded by aiup. |
+| `whisper-cpp` | Managed, active | Homebrew formula `whisper.cpp` (renamed from `whisper-cpp`) | [Homebrew's whisper.cpp formula](https://formulae.brew.sh/formula/whisper.cpp) supplies a macOS bottle and points to the official [whisper.cpp](https://github.com/ggml-org/whisper.cpp) project. Model files remain a separate user choice and are not downloaded by aiup. |
+
+## 2026-09-29 review
+
+Removed as archived, unmaintained or inactive: `mods` (archived; Homebrew-deprecated), `continue` (read-only, final release), `openhands` (CLI unmaintained; successor Agent Canvas ships only as a DMG), `interpreter` (the Python package stopped in 2024 and the repository became a different product), `aichat` (no release in over a year), `gpt4all` (no release since February 2025), `diffusionbee` (no release since 2024; Mochi Diffusion and Stability Matrix cover local image generation), `upscayl` (no code change in a year) and `sox` (last release 2015; replaced by the maintained `sox-ng`). aiup does not remove installed copies; Homebrew-installed ones still appear in the Homebrew view.
+
+Channel and target fixes: `pnpm` and `wrangler` now install from their official npm packages, which publish releases before the Homebrew formulae (an existing Homebrew copy is removed once the npm copy is in place); `whisper-cpp` follows Homebrew's rename to `whisper.cpp`.
+
+Added, each verified against Homebrew, npm or PyPI metadata and a release in the last three months: coding agents `devin-cli`, `auggie`, `junie`, `letta`, `qoder`; adapters `claude-acp`, `codex-acp`; editors `devin-desktop` (formerly Windsurf), `kiro-ide`, `jetbrains-air`; workspaces `conductor`, `emdash`, `superset`, `amp-app`, `factory-app`, `antigravity-app`; chat `gemini-app`, `cherry-studio`, `msty-studio`, `boltai`, `chatbox`, `lobehub`; local AI `localai`, `ramalama`, `osaurus`, `mlx-vlm`, `hf`, `open-webui`; media `whisperkit`, `handy`, `voiceink`, `wispr-flow`, `stability-matrix`, `mochi-diffusion`, `sox-ng`; infrastructure `mise`; LLM utilities `repomix`, `markitdown`.
+
+Candidates for a later review: ToolHive Studio, kitty, claude-squad, ccusage, Trae, Dia, Poe and ComfyUI Desktop (confirm its current source first). Not added: the Kimi desktop cask (an installer wrapper, not the app), casks that are disabled or discontinued (`codex-app`, `chatgpt-atlas`, `msty`, `alacritty`), inactive projects (`@google/jules`, `vibe-kanban`, `@iflow-ai/iflow-cli`, exo, Wave, WezTerm, vllm-metal, mlx-whisper), and Codebuff while it moves to `freebuff`.
 
 ## Confirmed existing coverage
 
@@ -35,5 +45,5 @@ aiup does not turn a repository name into an updater automatically. A new manage
 2. Verify macOS architecture and minimum OS requirements before adding an entry.
 3. Prefer package-manager updates when the package manager owns dependency closure.
 4. Reject entries whose only practical path is an unreviewed source clone, an arbitrary third-party script, or a destructive replacement.
-5. Mark products sunset, archived, or maintenance-mode when primary sources show that status.
+5. Remove products that are archived, declared unmaintained or end of life, or inactive for more than a year; the catalog carries only maintained software. The lifecycle column stays for short, documented transitions.
 6. Keep research candidates in this document until the update/remove contract is complete; local discovery still makes installed candidates visible immediately.
