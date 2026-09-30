@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.09.29-03
+
+- Published releases: the launcher now runs the release named by a one-line pointer on `main` (`macos/release`, `<version> <commit>`) and fetches the runtime and catalog at exactly that commit. Files addressed by commit never change, so a public install can no longer pick up a half-finished state of `main`, and the runtime and catalog always match. An unchanged release starts without downloading anything.
+- Offline fallback: if the release pointer cannot be fetched, or a new download fails validation, the launcher says why and runs the last validated release instead of stopping. The installed release is revalidated on every run and downloaded again if damaged. Only a first run with nothing installed needs the network.
+- Launcher hardening: HTTPS-only downloads and redirects, bounded retries, an 8 MB size cap, interrupt traps that exit with the signal's status, best-effort retention that never stops a launch (it keeps the current and previous release plus anything under a day old, because an open picker may re-run it), and a sweep of stale hidden temporaries older than an hour.
+- The installer uses the same HTTPS-only, bounded download and checks for the release-pointer launcher.
+- Runs through a pre-release launcher print a once-a-day notice with the reinstall command.
+- `scripts/publish-release` writes the pointer for the pushed `origin/main` and refuses a runtime/catalog version mismatch. The release process is in `CONTRIBUTING.md`.
+
 ## 2026.09.29-02
 
 - An app cask whose app, Homebrew record and latest version all match is reported as `current`, not `current (self-updated)` (seen in dry runs for cmux, MacWhisper and Itsycal).

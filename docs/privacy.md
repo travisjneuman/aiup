@@ -26,7 +26,7 @@ The interactive catalog also builds a local-only inventory of app bundle identif
 
 The network lanes are separate:
 
-1. **Launcher refresh:** a public installation requests the current runtime and catalog manifest from `raw.githubusercontent.com` before every invocation. Those requests do not contain the local inventory. If either request fails validation or is unavailable, aiup stops rather than running an old cache. An explicit `AIUP_SOURCE_PATH` development run skips this refresh.
+1. **Launcher refresh:** a public installation requests the small release pointer from `raw.githubusercontent.com` before every invocation, and downloads the runtime and catalog manifest only when a new release is published. Those requests do not contain the local inventory. If a request fails or a download fails validation, aiup runs the last validated release. An explicit `AIUP_SOURCE_PATH` development run skips this refresh.
 2. **Homebrew and vendor maintenance:** actions that inspect remote versions, install, or update software may contact Homebrew, npm registries, GitHub releases, or the selected vendor's documented metadata/download endpoints. These requests are made only by the relevant action; their remote services have their own logging and privacy policies.
 3. **User-opened links:** `aiup docs` or the picker docs key opens a catalog URL. A detected-only item opens a Google search only after the user deliberately chooses that action. Merely scanning local inventory does not open those links.
 
@@ -37,10 +37,12 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | Path | Purpose |
 |---|---|
 | `~/.local/share/aiup/methods/` | Last known install method per tool |
-| `~/.local/share/aiup/generations/<id>/aiup` | Runtime in the current or previous immutable validated pair; older unreferenced aiup generations are pruned |
+| `~/.local/share/aiup/generations/<id>/aiup` | Runtime of a validated release; generations other than the current, the previous, and any less than a day old are pruned |
 | `~/.local/share/aiup/generations/<id>/manifest.tsv` | Catalog paired with that generation's runtime; never mixed across generations |
+| `~/.local/share/aiup/generations/<id>/release` | Commit of the published release this generation came from |
 | `~/.local/share/aiup/current-generation` | Atomically replaced pointer selecting the active pair after refresh |
-| `~/.local/share/aiup/previous-generation` | Previous complete pair retained as recovery evidence, not an offline fallback |
+| `~/.local/share/aiup/previous-generation` | Pointer to the release that was active before the current one |
+| `~/.local/share/aiup/launcher-notice.stamp` | Limits the reinstall notice for pre-release launchers to once a day |
 | `~/.local/share/aiup/activation.lock` | Short-lived process-owned serialization record for finalization, pointer replacement, and exact retention cleanup |
 | `~/.local/share/aiup/npm/` | Isolated npm prefix for Node CLIs |
 | `~/.local/share/aiup/fzf-expanded` | Which catalog categories are expanded |

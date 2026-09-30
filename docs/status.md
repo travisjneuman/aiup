@@ -2,7 +2,7 @@
 
 Status date: **2026-09-29**
 
-Current version: **2026.09.29-02**
+Current version: **2026.09.29-03**
 
 ## Current product scope
 
@@ -26,9 +26,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - defer, never replace, an app bundle that is running, and retry deferred tools through `aiup resume`/`aiup retry`;
 - keep generated catalog documentation synchronized with the manifest;
 - install publicly without probing a maintainer checkout or personal path;
-- refresh and validate the public runtime plus its matching catalog manifest before atomically activating one immutable generation;
-- retain the previous complete generation as recovery evidence without executing it as an offline fallback;
-- fail closed on offline, failed, empty, invalid, mismatched, partial, locked, or unactivatable public refreshes; and
+- run the latest published release: check a one-line release pointer on each run, download the runtime and catalog pinned to that release's commit only when it changes, and validate the pair before atomically activating one generation;
+- run the last validated release when the pointer is unreachable or a new download is empty, invalid, mismatched, or partial, so public installs work offline; and
 - keep local-checkout execution behind an explicit non-empty `AIUP_SOURCE_PATH` opt-in.
 
 The cache/session authority and first performance slice are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md). The lazy/eager/background boundaries, provider TTLs, invalidation rules, fallbacks, and second-slice measurements are documented in [TUI performance slice 2](tui-performance-slice-2-2026-08-26.md). The virtual-category identity, verified bulk-update boundary, and invalidation behavior are documented in [Dynamic Updates category and safe bulk updating](dynamic-updates-category-2026-08-27.md). The independently reproduced contract, fault, security, performance, command, PTY, and publication evidence is in [TUI performance and regression closure](tui-performance-regression-closure-2026-08-27.md).
@@ -38,8 +37,8 @@ The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Indiv
 ## Current limitations
 
 - Linux and Windows are not implemented.
-- There is no tagged release or packaged installer; installation uses the live launcher.
-- A normal public invocation is not offline-capable. It refreshes from GitHub and refuses to execute a stale cache. Offline development requires an explicit local checkout path.
+- There is no packaged installer. Releases are published by updating the `macos/release` pointer; there are no Git tags.
+- A first public run needs GitHub access; later runs fall back to the last validated release when offline.
 - There is no repository CI workflow. Current validation is local.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, macOS floors, and trust requirements change.
 - The minimal site contract and asset bytes pass local static validation. The T3 collaborative preview rendered a clean 1280×800 desktop screenshot, reported no page overflow at its comparable 1683×1052 CSS viewport, exposed only the skip and GitHub links in keyboard order with visible focus, and loaded the 2016×1208 poster when the native `<picture>` branch was forced applicable. A 41-second recording of the current GIF covered more than three complete cycles without adding a control to the accessibility tree. T3's 375px viewport-resize operation timed out again and did not apply, so a true mobile render remains unverified. These checks do not replace Safari/physical-device, screen-reader/assistive-technology, or social-preview acceptance. The owner has accepted the current six-state media and minimal site design.

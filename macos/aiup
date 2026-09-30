@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.29-02"
+AIUP_VERSION="2026.09.29-03"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -10386,6 +10386,17 @@ parse_args() {
   esac
 }
 
+# Launchers before revision 2 fetch whatever main holds on every run. Tell those
+# users, at most once a day, how to move to the release-pinned launcher.
+launcher_revision_notice() {
+  local stamp="$STATE_DIR/launcher-notice.stamp"
+  [ -n "${AIUP_ACTIVE_GENERATION:-}" ] && [ "$AIUP_ACTIVE_GENERATION" != development ] || return 0
+  [ -z "${AIUP_LAUNCHER_REVISION:-}" ] || return 0
+  [ -z "$(find "$stamp" -mmin -1440 2>/dev/null)" ] || return 0
+  mkdir -p "$STATE_DIR" 2>/dev/null && : > "$stamp" 2>/dev/null || true
+  printf 'aiup: a newer launcher is available. It runs published releases only and keeps working offline.\n      Reinstall it: curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/install-aiup | bash\n' >&2
+}
+
 profile_begin
 if tui_internal_command "${1:-}"; then
   if [ -n "${AIUP_TUI_SESSION_DIR:-}${AIUP_TUI_SESSION_TOKEN:-}" ]; then
@@ -10394,6 +10405,7 @@ if tui_internal_command "${1:-}"; then
     exit $?
   fi
 fi
+launcher_revision_notice
 parse_args "$@"
 AIUP_EXIT_STATUS=$?
 if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ -f "${UPDATE_REPORT_LOG}.active" ]; then

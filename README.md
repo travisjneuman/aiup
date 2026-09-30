@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>A macOS-only TUI to scan, update, install, remove, and browse reviewed AI and developer tools.</strong><br/>
-  Inventory stays on your Mac. The public launcher refreshes from GitHub at the start of every run.
+  Inventory stays on your Mac. The public launcher runs the latest published release and keeps working offline.
 </p>
 
 <p align="center">
@@ -109,9 +109,9 @@ Npm packages are not reinstalled when fresh provider metadata exactly matches a 
 
 `aiup check [tools…]` checks versions without updating software or changing shell profiles. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
 
-### 🔄 Always live
+### 🔄 Always current, never half-published
 
-The installed command fetches the public runtime and matching catalog manifest from GitHub on every invocation, validates both, stages them as one pair, then serializes finalization and atomically switches a single `current-generation` pointer. `previous-generation` preserves the former complete validated pair as recovery evidence; older unreferenced aiup generations are pruned, so repeated successes retain at most those two complete pairs. An overlapping invocation's hidden staging directory is never pruned, and a live activation lock is never reclaimed. A failed, empty, invalid, partial, locked, or unactivatable refresh stops without executing the download or an older cache. Public use therefore needs network access at the start of every run.
+The installed command runs the latest published release. Each run makes one small request for the release pointer (`macos/release` on `main`), which names the exact commit whose runtime and catalog form the release. Files addressed by commit never change, so the runtime and catalog always match, and work landing on `main` between releases never reaches your Mac. When the release is unchanged, aiup starts immediately with no download. A new release is downloaded, validated, staged as one pair, and activated by atomically switching a single `current-generation` pointer; `previous-generation` keeps the former pair. If GitHub is unreachable or a new download fails validation, aiup says so and runs the last validated release. Only a first run with nothing installed yet needs network access.
 
 Repository contributors can opt into an offline local checkout for one invocation by deliberately setting `AIUP_SOURCE_PATH` to that checkout's `macos/aiup` file. No checkout path is guessed or probed by default.
 
@@ -217,7 +217,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.29-02** · **101** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.29-03** · **101** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

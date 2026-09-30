@@ -21,6 +21,7 @@ validate_launcher() {
   head -n 1 "$launcher_path" | grep -q '^#!/usr/bin/env bash$' || die "downloaded launcher had an unexpected shebang"
   grep -Fq 'AIUP_UPSTREAM_URL=' "$launcher_path" || die "downloaded file was missing the launcher upstream marker"
   grep -Fq 'AIUP_CURRENT_POINTER=' "$launcher_path" || die "downloaded file was missing the pair-activation marker"
+  grep -Fq 'AIUP_RELEASE_URL=' "$launcher_path" || die "downloaded file was missing the release-pointer marker"
   grep -Fq 'validate_runtime()' "$launcher_path" || die "downloaded file was missing launcher validation"
   grep -Fq 'exec bash "$active_runtime" "$@"' "$launcher_path" || die "downloaded file was missing the launcher entry point"
   bash -n "$launcher_path" || die "downloaded launcher failed Bash syntax validation"
@@ -58,9 +59,13 @@ tmp_launcher="$(mktemp "$install_dir/.aiup-install.XXXXXX")" || die "could not c
 cleanup() {
   rm -f "$tmp_launcher"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 --max-filesize "$AIUP_INSTALL_MAX_BYTES" \
+if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 2 --retry-max-time 40 --connect-timeout 10 \
+  --max-time 30 --max-filesize "$AIUP_INSTALL_MAX_BYTES" \
   "$AIUP_LAUNCHER_URL" -o "$tmp_launcher"; then
   die "could not download the aiup launcher"
 fi

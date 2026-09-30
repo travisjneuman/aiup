@@ -2,12 +2,21 @@
 set -u
 set -o pipefail
 
-# Public installs refresh the runtime and catalog from the public repository on
-# every invocation. Local-checkout execution is an explicit development opt-in:
-# AIUP_SOURCE_PATH is consulted only when the user sets it to a non-empty path.
+# Public installs run the published release. A one-line pointer on main
+# (macos/release) names the exact commit whose runtime and catalog form the
+# release; files addressed by commit are immutable, so the pair is always
+# consistent, and an unchanged release costs one tiny request. When the release
+# cannot be checked or a new download fails validation, the last validated
+# release keeps running. Local-checkout execution is an explicit development
+# opt-in: AIUP_SOURCE_PATH is consulted only when the user sets it non-empty.
+AIUP_LAUNCHER_REVISION=2
 AIUP_SOURCE_PATH="${AIUP_SOURCE_PATH:-}"
-AIUP_UPSTREAM_URL="${AIUP_UPSTREAM_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/aiup}"
-AIUP_MANIFEST_URL="${AIUP_MANIFEST_URL:-https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/catalog/manifest.tsv}"
+AIUP_REPO_RAW="${AIUP_REPO_RAW:-https://raw.githubusercontent.com/travisjneuman/aiup}"
+AIUP_RELEASE_URL="${AIUP_RELEASE_URL:-$AIUP_REPO_RAW/main/macos/release}"
+# Direct mode: when both are set, fetch these URLs instead of the release.
+AIUP_UPSTREAM_URL="${AIUP_UPSTREAM_URL:-}"
+AIUP_MANIFEST_URL="${AIUP_MANIFEST_URL:-}"
+AIUP_MAX_BYTES=8388608
 AIUP_STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
 AIUP_GENERATIONS_DIR="${AIUP_GENERATIONS_DIR:-$AIUP_STATE_DIR/generations}"
 AIUP_CURRENT_POINTER="${AIUP_CURRENT_POINTER:-$AIUP_STATE_DIR/current-generation}"
@@ -15,35 +24,45 @@ AIUP_PREVIOUS_POINTER="${AIUP_PREVIOUS_POINTER:-$AIUP_STATE_DIR/previous-generat
 AIUP_ACTIVATION_LOCK="${AIUP_ACTIVATION_LOCK:-$AIUP_STATE_DIR/activation.lock}"
 AIUP_LAUNCHER_TEST_FAIL_AT="${AIUP_LAUNCHER_TEST_FAIL_AT:-}"
 AIUP_LAUNCHER_TEST_HOLD_LOCK="${AIUP_LAUNCHER_TEST_HOLD_LOCK:-0}"
+LAUNCHER_REASON=""
 
 die() {
   printf 'aiup: %s\n' "$*" >&2
   exit 1
 }
 
-validate_runtime() {
+warn() {
+  printf 'aiup: %s\n' "$*" >&2
+}
+
+# Non-fatal checks set LAUNCHER_REASON and return 1.
+runtime_ok() {
   local runtime_path="$1"
-  [ -s "$runtime_path" ] || die "the aiup runtime was empty: $runtime_path"
-  head -n 1 "$runtime_path" | grep -q '^#!/usr/bin/env bash$' || \
-    die "the aiup runtime did not look like an aiup script: $runtime_path"
-  grep -Eq '^AIUP_VERSION="[^"]+"$' "$runtime_path" || \
-    die "the aiup runtime did not declare an aiup version: $runtime_path"
-  bash -n "$runtime_path" || die "the aiup runtime failed shell syntax validation: $runtime_path"
+  LAUNCHER_REASON="the aiup runtime was empty or invalid: $runtime_path"
+  [ -s "$runtime_path" ] || return 1
+  head -n 1 "$runtime_path" | grep -q '^#!/usr/bin/env bash$' || return 1
+  grep -Eq '^AIUP_VERSION="[^"]+"$' "$runtime_path" || return 1
+  LAUNCHER_REASON="the aiup runtime failed shell syntax validation: $runtime_path"
+  bash -n "$runtime_path" 2>/dev/null || return 1
+  LAUNCHER_REASON=""
+}
+
+validate_runtime() {
+  runtime_ok "$1" || die "$LAUNCHER_REASON"
 }
 
 runtime_version() {
   sed -n 's/^AIUP_VERSION="\([^"]*\)"$/\1/p' "$1" | head -n 1
 }
 
-validate_manifest() {
-  local manifest_path="$1"
-  local expected_version="$2"
-  local manifest_version
-  [ -s "$manifest_path" ] || die "the aiup catalog manifest was empty: $manifest_path"
+manifest_ok() {
+  local manifest_path="$1" expected_version="$2" manifest_version
+  LAUNCHER_REASON="the aiup catalog manifest was empty: $manifest_path"
+  [ -s "$manifest_path" ] || return 1
   manifest_version="$(sed -n 's/^# aiup-runtime-version: //p' "$manifest_path" | head -n 1)"
-  [ -n "$manifest_version" ] || die "the aiup catalog manifest did not declare a runtime version: $manifest_path"
-  [ "$manifest_version" = "$expected_version" ] || \
-    die "the aiup runtime and catalog manifest versions did not match"
+  LAUNCHER_REASON="the aiup runtime and catalog manifest versions did not match"
+  [ -n "$manifest_version" ] && [ "$manifest_version" = "$expected_version" ] || return 1
+  LAUNCHER_REASON="the aiup catalog manifest failed validation: $manifest_path"
   awk -F '\t' '
     /^#/ || NF == 0 { next }
     NF < 6 || $1 == "" || $2 == "" || $3 == "" || $4 == "" || $5 == "" || $6 == "" { exit 1 }
@@ -51,33 +70,32 @@ validate_manifest() {
     $1 == "brew" { has_brew = 1 }
     $1 == "fzf" { has_fzf = 1 }
     END { if (!has_brew || !has_fzf) exit 1 }
-  ' "$manifest_path" || die "the aiup catalog manifest failed validation: $manifest_path"
+  ' "$manifest_path" || return 1
+  LAUNCHER_REASON=""
+}
+
+pair_ok() {
+  runtime_ok "$1/aiup" && manifest_ok "$1/manifest.tsv" "$(runtime_version "$1/aiup")"
 }
 
 valid_generation_id() {
   case "$1" in
-    ''|*[!A-Za-z0-9._-]*) return 1 ;;
+    ''|.*|*[!A-Za-z0-9._-]*) return 1 ;;
     *) return 0 ;;
   esac
 }
 
 read_generation_pointer() {
-  local pointer_path="$1"
-  local generation_id
+  local pointer_path="$1" generation_id
   [ -f "$pointer_path" ] || return 1
   generation_id="$(sed -n '1p' "$pointer_path")"
   valid_generation_id "$generation_id" || return 1
+  [ -d "$AIUP_GENERATIONS_DIR/$generation_id" ] && [ ! -L "$AIUP_GENERATIONS_DIR/$generation_id" ] || return 1
   printf '%s\n' "$generation_id"
 }
 
-validate_generation_pair() {
-  local generation_id="$1"
-  local generation_dir="$AIUP_GENERATIONS_DIR/$generation_id"
-  valid_generation_id "$generation_id" || die "an aiup generation pointer was invalid"
-  [ -d "$generation_dir" ] && [ ! -L "$generation_dir" ] || \
-    die "an aiup generation directory was unavailable: $generation_dir"
-  validate_runtime "$generation_dir/aiup"
-  validate_manifest "$generation_dir/manifest.tsv" "$(runtime_version "$generation_dir/aiup")"
+generation_release() {
+  sed -n '1p' "$AIUP_GENERATIONS_DIR/$1/release" 2>/dev/null || true
 }
 
 activation_lock_owner_alive() {
@@ -130,38 +148,50 @@ release_activation_lock() {
   activation_lock_held=0
 }
 
+# Best-effort retention: keep the current and previous generations plus any
+# generation younger than a day (an open picker may still re-run it). Never
+# stops a launch; unfamiliar contents are left in place.
 prune_unreferenced_generations() {
-  local current_generation previous_generation candidate generation_id
-  current_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER")" || \
-    die "the active generation pointer was invalid"
-  validate_generation_pair "$current_generation"
+  local current_generation previous_generation candidate generation_id name
+  current_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER" 2>/dev/null || true)"
   previous_generation="$(read_generation_pointer "$AIUP_PREVIOUS_POINTER" 2>/dev/null || true)"
-  if [ -n "$previous_generation" ]; then
-    validate_generation_pair "$previous_generation"
-  fi
-
   for candidate in "$AIUP_GENERATIONS_DIR"/*; do
-    [ -e "$candidate" ] || continue
     [ -d "$candidate" ] && [ ! -L "$candidate" ] || continue
     generation_id="${candidate##*/}"
     valid_generation_id "$generation_id" || continue
     [ "$generation_id" != "$current_generation" ] || continue
     [ "$generation_id" != "$previous_generation" ] || continue
-    [ -f "$candidate/aiup" ] && [ -f "$candidate/manifest.tsv" ] || \
-      die "refusing to prune an unfamiliar aiup generation: $candidate"
-    [ "$(find "$candidate" -mindepth 1 -maxdepth 1 -print | wc -l | tr -d ' ')" -eq 2 ] || \
-      die "refusing to prune an aiup generation with unexpected contents: $candidate"
-    rm -f "$candidate/aiup" "$candidate/manifest.tsv" || \
-      die "could not prune an unreferenced aiup generation: $candidate"
-    rmdir "$candidate" || die "could not remove an empty aiup generation: $candidate"
+    [ -z "$(find "$candidate" -maxdepth 0 -mmin -1440 2>/dev/null)" ] || continue
+    for name in "$candidate"/* "$candidate"/.[!.]*; do
+      [ -e "$name" ] || continue
+      case "${name##*/}" in aiup|manifest.tsv|release|.DS_Store) ;; *) continue 2 ;; esac
+    done
+    rm -f "$candidate/aiup" "$candidate/manifest.tsv" "$candidate/release" "$candidate/.DS_Store"
+    rmdir "$candidate" 2>/dev/null || warn "left an aiup generation in place: $candidate"
   done
+}
+
+# Interrupted launches can leave hidden downloads, staging directories or
+# pointer temps; remove ones older than an hour.
+sweep_stale_temporaries() {
+  find "$AIUP_STATE_DIR" -maxdepth 1 -type f \( -name '.aiup-*-download.*' -o -name '.current-generation.*' \
+    -o -name '.previous-generation*' -o -name '.activation-lock-owner.*' -o -name '.aiup-release.*' \) \
+    -mmin +60 -exec rm -f {} + 2>/dev/null || true
+  find "$AIUP_GENERATIONS_DIR" -mindepth 1 -maxdepth 1 -type d -name '.staging-*' -mmin +60 \
+    -exec sh -c 'for d; do rm -f "$d/aiup" "$d/manifest.tsv" "$d/release"; rmdir "$d" 2>/dev/null || :; done' sh {} + 2>/dev/null || true
 }
 
 fail_if_requested() {
   [ "$AIUP_LAUNCHER_TEST_FAIL_AT" != "$1" ] || die "injected launcher failure at $1"
 }
 
+fetch() {
+  curl -fsSL --proto '=https' --proto-redir '=https' --compressed --retry 2 --retry-max-time 40 \
+    --connect-timeout 10 --max-time 30 --max-filesize "$AIUP_MAX_BYTES" "$1" -o "$2"
+}
+
 command -v bash >/dev/null 2>&1 || die "bash is required to run aiup"
+export AIUP_LAUNCHER_REVISION
 
 if [ -n "$AIUP_SOURCE_PATH" ]; then
   [ -f "$AIUP_SOURCE_PATH" ] || die "AIUP_SOURCE_PATH is not a file: $AIUP_SOURCE_PATH"
@@ -173,15 +203,14 @@ fi
 
 command -v curl >/dev/null 2>&1 || die "curl is required to refresh the live public runtime"
 command -v mktemp >/dev/null 2>&1 || die "mktemp is required to refresh the live public runtime"
-
 mkdir -p "$AIUP_STATE_DIR" "$AIUP_GENERATIONS_DIR" || die "could not create the aiup state directories"
-tmp_runtime="$(mktemp "$AIUP_STATE_DIR/.aiup-runtime-download.XXXXXX")" || die "could not create a temporary runtime"
-tmp_manifest="$(mktemp "$AIUP_STATE_DIR/.aiup-manifest-download.XXXXXX")" || {
-  rm -f "$tmp_runtime"
-  die "could not create a temporary catalog manifest"
-}
+
+tmp_runtime=""
+tmp_manifest=""
+tmp_release=""
 staging_dir=""
 new_generation_dir=""
+generation_id=""
 previous_pointer_tmp=""
 previous_pointer_rollback_tmp=""
 previous_pointer_changed=0
@@ -194,17 +223,24 @@ activation_owner_tmp=""
 download_runtime_pid=""
 download_manifest_pid=""
 cleanup() {
+  local download_pid
   for download_pid in "$download_runtime_pid" "$download_manifest_pid"; do
     [ -z "$download_pid" ] || { kill "$download_pid" 2>/dev/null || true; wait "$download_pid" 2>/dev/null || true; }
   done
+  download_runtime_pid=""
+  download_manifest_pid=""
   [ -z "$tmp_runtime" ] || rm -f "$tmp_runtime"
   [ -z "$tmp_manifest" ] || rm -f "$tmp_manifest"
+  [ -z "$tmp_release" ] || rm -f "$tmp_release"
   if [ -n "$staging_dir" ]; then
-    rm -f "$staging_dir/aiup" "$staging_dir/manifest.tsv"
+    rm -f "$staging_dir/aiup" "$staging_dir/manifest.tsv" "$staging_dir/release"
     rmdir "$staging_dir" 2>/dev/null || true
   fi
-  if [ "$activated" -eq 0 ] && [ -n "$new_generation_dir" ]; then
-    rm -f "$new_generation_dir/aiup" "$new_generation_dir/manifest.tsv"
+  # Never delete a generation the current pointer already names, even when an
+  # interrupt lands between the pointer switch and the activated flag.
+  if [ "$activated" -eq 0 ] && [ -n "$new_generation_dir" ] && \
+    [ "$(sed -n '1p' "$AIUP_CURRENT_POINTER" 2>/dev/null)" != "$generation_id" ]; then
+    rm -f "$new_generation_dir/aiup" "$new_generation_dir/manifest.tsv" "$new_generation_dir/release"
     rmdir "$new_generation_dir" 2>/dev/null || true
   fi
   if [ "$activated" -eq 0 ] && [ "$previous_pointer_changed" -eq 1 ]; then
@@ -221,22 +257,72 @@ cleanup() {
   [ -z "$activation_owner_tmp" ] || rm -f "$activation_owner_tmp"
   release_activation_lock
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-case "$AIUP_UPSTREAM_URL" in
-  *\?*) runtime_url="${AIUP_UPSTREAM_URL}&aiup_refresh=$(date +%s)-$$" ;;
-  *) runtime_url="${AIUP_UPSTREAM_URL}?aiup_refresh=$(date +%s)-$$" ;;
-esac
-case "$AIUP_MANIFEST_URL" in
-  *\?*) manifest_url="${AIUP_MANIFEST_URL}&aiup_refresh=$(date +%s)-$$" ;;
-  *) manifest_url="${AIUP_MANIFEST_URL}?aiup_refresh=$(date +%s)-$$" ;;
-esac
-# Fetch the independent pair together; activation still requires both validations.
-curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 --max-filesize 1048576 \
-  -H 'Cache-Control: no-cache' "$runtime_url" -o "$tmp_runtime" &
+run_generation() {
+  local active_generation="$1" active_runtime
+  shift
+  active_runtime="$AIUP_GENERATIONS_DIR/$active_generation/aiup"
+  export AIUP_CATALOG_MANIFEST="$AIUP_GENERATIONS_DIR/$active_generation/manifest.tsv"
+  export AIUP_ACTIVE_RUNTIME="$active_runtime"
+  export AIUP_ACTIVE_GENERATION="$active_generation"
+  cleanup
+  trap - EXIT HUP INT TERM
+  exec bash "$active_runtime" "$@"
+}
+
+# Run the last validated release instead of failing when the network or a new
+# download is unusable; with nothing validated yet, stop.
+fall_back() {
+  [ -n "$current_generation" ] || die "$1"
+  warn "$1; running the installed release $(runtime_version "$AIUP_GENERATIONS_DIR/$current_generation/aiup")"
+  shift
+  run_generation "$current_generation" "$@"
+}
+
+sweep_stale_temporaries
+current_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER" 2>/dev/null || true)"
+if [ -n "$current_generation" ] && ! pair_ok "$AIUP_GENERATIONS_DIR/$current_generation"; then
+  warn "the installed aiup release failed validation ($LAUNCHER_REASON); downloading it again"
+  current_generation=""
+fi
+
+release_version=""
+if [ -n "$AIUP_UPSTREAM_URL" ] && [ -n "$AIUP_MANIFEST_URL" ]; then
+  release_id="direct"
+  runtime_url="$AIUP_UPSTREAM_URL"
+  manifest_url="$AIUP_MANIFEST_URL"
+else
+  tmp_release="$(mktemp "$AIUP_STATE_DIR/.aiup-release.XXXXXX")" || die "could not create a temporary release pointer"
+  if ! curl -fsSL --proto '=https' --proto-redir '=https' --retry 1 --connect-timeout 5 --max-time 10 \
+    --max-filesize 4096 "$AIUP_RELEASE_URL" -o "$tmp_release"; then
+    fall_back "could not check for a new aiup release" "$@"
+  fi
+  release_id=""
+  read -r release_version release_id <<EOF
+$(sed -n '/^[^#]/{p;q;}' "$tmp_release")
+EOF
+  rm -f "$tmp_release"
+  tmp_release=""
+  case "$release_id" in
+    *[!0-9a-f]*|'') fall_back "the aiup release pointer was invalid" "$@" ;;
+  esac
+  [ "${#release_id}" -eq 40 ] || fall_back "the aiup release pointer was invalid" "$@"
+  if [ -n "$current_generation" ] && [ "$(generation_release "$current_generation")" = "$release_id" ]; then
+    run_generation "$current_generation" "$@"
+  fi
+  runtime_url="$AIUP_REPO_RAW/$release_id/macos/aiup"
+  manifest_url="$AIUP_REPO_RAW/$release_id/macos/catalog/manifest.tsv"
+fi
+
+tmp_runtime="$(mktemp "$AIUP_STATE_DIR/.aiup-runtime-download.XXXXXX")" || die "could not create a temporary runtime"
+tmp_manifest="$(mktemp "$AIUP_STATE_DIR/.aiup-manifest-download.XXXXXX")" || die "could not create a temporary catalog manifest"
+fetch "$runtime_url" "$tmp_runtime" &
 download_runtime_pid=$!
-curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 --max-filesize 1048576 \
-  -H 'Cache-Control: no-cache' "$manifest_url" -o "$tmp_manifest" &
+fetch "$manifest_url" "$tmp_manifest" &
 download_manifest_pid=$!
 runtime_download_status=0
 manifest_download_status=0
@@ -244,13 +330,16 @@ wait "$download_runtime_pid" || runtime_download_status=$?
 download_runtime_pid=""
 wait "$download_manifest_pid" || manifest_download_status=$?
 download_manifest_pid=""
-[ "$runtime_download_status" -eq 0 ] || die "could not fetch the live public runtime from $AIUP_UPSTREAM_URL"
-[ "$manifest_download_status" -eq 0 ] || die "could not fetch the live public catalog from $AIUP_MANIFEST_URL"
+[ "$runtime_download_status" -eq 0 ] || fall_back "could not fetch the aiup runtime" "$@"
+[ "$manifest_download_status" -eq 0 ] || fall_back "could not fetch the aiup catalog" "$@"
 
-# Nothing becomes active until both downloads have passed pair validation.
-validate_runtime "$tmp_runtime"
+# Nothing becomes active until the downloaded pair passes validation.
+runtime_ok "$tmp_runtime" || fall_back "$LAUNCHER_REASON" "$@"
 downloaded_version="$(runtime_version "$tmp_runtime")"
-validate_manifest "$tmp_manifest" "$downloaded_version"
+manifest_ok "$tmp_manifest" "$downloaded_version" || fall_back "$LAUNCHER_REASON" "$@"
+if [ "$release_id" != direct ] && [ -n "$release_version" ] && [ "$release_version" != "$downloaded_version" ]; then
+  fall_back "the aiup release pointer named $release_version but the runtime is $downloaded_version" "$@"
+fi
 
 safe_version="$(printf '%s' "$downloaded_version" | tr -c 'A-Za-z0-9._-' '_')"
 generation_id="${safe_version}-$(date +%s)-$$"
@@ -265,14 +354,11 @@ tmp_runtime=""
 fail_if_requested manifest-activation
 mv "$tmp_manifest" "$staging_dir/manifest.tsv" || die "could not stage the live catalog manifest"
 tmp_manifest=""
-
-# Revalidate the exact files that will be addressed by the generation pointer.
-validate_runtime "$staging_dir/aiup"
-validate_manifest "$staging_dir/manifest.tsv" "$(runtime_version "$staging_dir/aiup")"
+printf '%s\n' "$release_id" > "$staging_dir/release" || die "could not record the aiup release"
 
 # Only finalization, pointer replacement, and bounded retention are serialized.
 # Downloads and hidden staging directories remain safe to overlap, and pruning
-# never examines or removes another invocation's .staging-* directory.
+# never examines another invocation's .staging-* directory.
 acquire_activation_lock
 case "$AIUP_LAUNCHER_TEST_HOLD_LOCK" in
   0|'') ;;
@@ -281,10 +367,6 @@ case "$AIUP_LAUNCHER_TEST_HOLD_LOCK" in
 esac
 
 previous_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER" 2>/dev/null || true)"
-if [ -f "$AIUP_CURRENT_POINTER" ]; then
-  [ -n "$previous_generation" ] || die "the active generation pointer was invalid"
-  validate_generation_pair "$previous_generation"
-fi
 
 mv "$staging_dir" "$new_generation_dir" || die "could not finalize the validated aiup generation"
 staging_dir=""
@@ -292,12 +374,9 @@ fail_if_requested before-switch
 
 if [ -n "$previous_generation" ]; then
   if [ -f "$AIUP_PREVIOUS_POINTER" ]; then
-    prior_previous_generation="$(read_generation_pointer "$AIUP_PREVIOUS_POINTER")" || \
-      die "the previous generation pointer was invalid"
-    validate_generation_pair "$prior_previous_generation"
     previous_pointer_rollback_tmp="$(mktemp "$AIUP_STATE_DIR/.previous-generation-rollback.XXXXXX")" || \
       die "could not preserve the previous-generation pointer before activation"
-    printf '%s\n' "$prior_previous_generation" > "$previous_pointer_rollback_tmp" || \
+    cp "$AIUP_PREVIOUS_POINTER" "$previous_pointer_rollback_tmp" || \
       die "could not preserve the previous-generation pointer before activation"
     previous_pointer_was_present=1
   fi
@@ -322,16 +401,6 @@ previous_pointer_changed=0
 [ -z "$previous_pointer_rollback_tmp" ] || rm -f "$previous_pointer_rollback_tmp"
 previous_pointer_rollback_tmp=""
 
-active_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER")" || die "the active generation pointer was invalid"
-active_dir="$AIUP_GENERATIONS_DIR/$active_generation"
-active_runtime="$active_dir/aiup"
-active_manifest="$active_dir/manifest.tsv"
-validate_runtime "$active_runtime"
-validate_manifest "$active_manifest" "$(runtime_version "$active_runtime")"
 prune_unreferenced_generations
-export AIUP_CATALOG_MANIFEST="$active_manifest"
-export AIUP_ACTIVE_RUNTIME="$active_runtime"
-export AIUP_ACTIVE_GENERATION="$active_generation"
 release_activation_lock
-trap - EXIT HUP INT TERM
-exec bash "$active_runtime" "$@"
+run_generation "$generation_id" "$@"

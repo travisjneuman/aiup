@@ -1,6 +1,6 @@
 # Install
 
-aiup is a macOS Bash application with a small live launcher. There is no tagged release or packaged macOS artifact yet; the live helper below installs the launcher.
+aiup is a macOS Bash application with a small launcher that runs the latest published release. There is no packaged macOS artifact; the helper below installs the launcher.
 
 ## Supported configuration and prerequisites
 
@@ -50,11 +50,13 @@ Normal update/install subprocesses are unattended, including Homebrew's package 
 
 ## Online, offline, and local development behavior
 
-For a normal public installation, every invocation downloads both `main/macos/aiup` and `main/macos/catalog/manifest.tsv` from `raw.githubusercontent.com`. The launcher validates the script, manifest structure, and matching version before staging both under `~/.local/share/aiup/generations/`. Downloads and hidden `.staging-*` directories may overlap, but generation finalization, pointer replacement, and retention cleanup share one Bash 3-compatible activation lock. A live lock is never reclaimed; a lock whose recorded process no longer exists is recovered through an exact aiup-owned reaper path.
+For a normal public installation, each invocation first fetches the release pointer, `main/macos/release`, from `raw.githubusercontent.com` (at most 4 KB, 10 seconds). Its first non-comment line is `<version> <commit>`. The launcher then fetches `macos/aiup` and `macos/catalog/manifest.tsv` at exactly that commit. Content addressed by a commit is immutable, so the runtime and catalog always come from the same published release, and changes that land on `main` between releases never reach public installs. When the pointer names the release already installed, the launcher runs it without downloading anything.
 
-One atomically replaced `current-generation` pointer selects a complete revalidated pair. `previous-generation` retains the former complete revalidated pair as recovery evidence. After a successful switch, older unreferenced aiup generations containing exactly the expected runtime and manifest are pruned. Repeated successful invocations therefore retain at most the current and previous complete generation directories. Cleanup skips hidden staging directories, symbolic links, unfamiliar directories, unexpected contents, and either referenced generation; it fails closed instead of broadening deletion scope. Neither a partially staged generation nor files from different generations can be selected together.
+A new release is validated (script shape, Bash syntax, manifest structure, and matching versions, including the version named by the pointer) before it is staged under `~/.local/share/aiup/generations/`. Downloads and hidden `.staging-*` directories may overlap, but generation finalization, pointer replacement, and retention cleanup share one Bash 3-compatible activation lock. A live lock is never reclaimed; a lock whose recorded process no longer exists is recovered through an exact aiup-owned reaper path.
 
-If the runtime or manifest is unavailable, empty, invalid, mismatched, cannot acquire its bounded activation turn, or cannot be activated, the command stops. A previous pair is retained for recovery evidence but is not executed as an offline fallback. Normal public use therefore requires GitHub access at the start of every run; later install/update actions may need Homebrew or vendor access too.
+One atomically replaced `current-generation` pointer selects a complete validated pair, and `previous-generation` records the former pair. Retention keeps the current and previous generations plus any generation less than a day old, because an open picker may still re-run it. Older generations are removed only when they contain nothing but aiup's own files; unfamiliar contents are left in place. Hidden temporary files and staging directories that an interrupted launch left behind are removed after an hour.
+
+If the pointer cannot be fetched, or a new release fails to download or validate, the launcher prints the reason and runs the last validated release, so aiup keeps working offline. The installed release is revalidated on every run; if it is damaged, the launcher downloads it again. Only a first run with no validated release stops when GitHub is unreachable. Install and update actions may still need Homebrew or vendor access.
 
 Local repository development is an explicit opt-in and is the only supported offline launcher path:
 
@@ -62,7 +64,7 @@ Local repository development is an explicit opt-in and is the only supported off
 AIUP_SOURCE_PATH="/path/to/your/aiup/macos/aiup" aiup version
 ```
 
-`AIUP_SOURCE_PATH` is used only when deliberately set to a non-empty file path. The launcher never guesses or probes a checkout. A missing or invalid explicit source fails instead of silently falling back to the network. Running `./macos/aiup` from a checkout is equivalent and uses that checkout's adjacent catalog manifest.
+`AIUP_SOURCE_PATH` is used only when deliberately set to a non-empty file path. The launcher never guesses or probes a checkout. A missing or invalid explicit source fails instead of silently falling back to the published release. Running `./macos/aiup` from a checkout is equivalent and uses that checkout's adjacent catalog manifest.
 
 ## Uninstall aiup
 

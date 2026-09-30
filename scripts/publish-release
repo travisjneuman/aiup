@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Point public launchers at the release commit now on origin/main.
+# Run after the release commit is pushed; then commit and push macos/release.
+# Launchers fetch the runtime and catalog at exactly this commit, so work that
+# lands on main between releases never reaches public installs.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+git fetch -q origin
+sha="$(git rev-parse origin/main)"
+version="$(git show "$sha:macos/aiup" | sed -n 's/^AIUP_VERSION="\([^"]*\)"$/\1/p' | head -n 1)"
+manifest="$(git show "$sha:macos/catalog/manifest.tsv" | sed -n 's/^# aiup-runtime-version: //p' | head -n 1)"
+if [ -z "$version" ] || [ "$version" != "$manifest" ]; then
+  printf 'publish-release: runtime (%s) and catalog (%s) versions differ at %s\n' "$version" "$manifest" "$sha" >&2
+  exit 1
+fi
+printf '# aiup release: public launchers run the runtime and catalog at this commit.\n%s %s\n' "$version" "$sha" > macos/release
+printf 'macos/release -> %s %s\n' "$version" "$sha"
