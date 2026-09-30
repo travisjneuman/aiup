@@ -176,6 +176,63 @@ if [ -n "${ZSH_VERSION:-}" ]; then
   setopt SH_WORD_SPLIT 2>/dev/null || true
 fi
 
+# Shared Python version ordering (keep free of single quotes). Missing segments
+# count as zero; a pre-release tag (-beta, -nightly.N, 3.5.0beta18) sorts below
+# its release; "_N"/"-N" revisions sort above it; cask ",build" suffixes compare
+# only when both are numeric.
+AIUP_VERSION_PY='
+import re
+def _version_key(value):
+    text = str(value or "").strip()
+    main_text, _, suffix = text.partition(",")
+    match = re.search(r"\d+(?:\.\d+)*", main_text)
+    if not match:
+        return None
+    main = [int(part) for part in match.group().split(".")]
+    rest = main_text[match.end():].split("+", 1)[0]
+    tag = re.match(r"[-._~]?([A-Za-z][0-9A-Za-z._-]*)", rest)
+    pre = [int(p) if p.isdigit() else p.lower() for p in re.findall(r"\d+|[A-Za-z]+", tag.group(1))] if tag else None
+    revision = None if tag else re.match(r"[-_](\d+)", rest)
+    tail = [int(revision.group(1))] if revision else []
+    build = [int(part) for part in suffix.split(".")] if re.fullmatch(r"\d+(?:\.\d+)*", suffix) else None
+    return main, pre, tail, build
+def _pad_cmp(left, right):
+    width = max(len(left), len(right))
+    left, right = left + [0] * (width - len(left)), right + [0] * (width - len(right))
+    return (left > right) - (left < right)
+def version_cmp(a, b):
+    ka, kb = _version_key(a), _version_key(b)
+    if ka is None or kb is None:
+        return _pad_cmp([int(p) for p in re.findall(r"\d+", str(a or ""))], [int(p) for p in re.findall(r"\d+", str(b or ""))])
+    result = _pad_cmp(ka[0], kb[0])
+    if result: return result
+    pa, pb = ka[1], kb[1]
+    if pa is None and pb is not None: return 1
+    if pa is not None and pb is None: return -1
+    if pa is not None:
+        for x, y in zip(pa, pb):
+            if x == y: continue
+            if isinstance(x, int) and isinstance(y, int): return (x > y) - (x < y)
+            if isinstance(x, int): return -1
+            if isinstance(y, int): return 1
+            return (x > y) - (x < y)
+        if len(pa) != len(pb): return (len(pa) > len(pb)) - (len(pa) < len(pb))
+    result = _pad_cmp(ka[2], kb[2])
+    if result or ka[3] is None or kb[3] is None: return result
+    return _pad_cmp(ka[3], kb[3])
+def bundle_relation(short, build, cask):
+    cask = str(cask or "").strip()
+    bundle = str(short or "").strip() or str(build or "").strip()
+    main, _, suffix = cask.partition(",")
+    if not bundle or main in ("", "-", "latest") or _version_key(bundle) is None or _version_key(main) is None:
+        return "unknown"
+    result = version_cmp(bundle, main)
+    build = str(build or "").strip()
+    if not result and suffix and build and build != bundle and re.fullmatch(r"\d+(?:\.\d+)*", suffix) and re.fullmatch(r"\d+(?:\.\d+)*", build):
+        result = version_cmp(build, suffix)
+    return "newer" if result > 0 else "older" if result < 0 else "same"
+'
+
 _now() {
   date '+%Y-%m-%d %I:%M:%S %p'
 }
@@ -413,9 +470,9 @@ result_record() {
   [ -n "$item" ] || return 0
   case "$kind" in
     completed) RESULT_COMPLETED+=("$item") ;;
-    current) RESULT_CURRENT+=("$item") ;;
+    current|self-updated) RESULT_CURRENT+=("$item") ;;
     removed) RESULT_REMOVED+=("$item") ;;
-    skipped) RESULT_SKIPPED+=("$item") ;;
+    skipped|deferred) RESULT_SKIPPED+=("$item") ;;
     detected) RESULT_DETECTED+=("$item") ;;
     failed) RESULT_FAILED+=("$item") ;;
     cancelled) RESULT_CANCELLED+=("$item") ;;
@@ -797,6 +854,8 @@ brew_missing_apps_load() {
   AIUP_MISSING_APPS_READY=1
   AIUP_MISSING_APPS=''
   AIUP_MOVED_APPS=''
+  AIUP_CASK_BUNDLES=''
+  AIUP_CASK_BUNDLES_READY=0
   capture_fixture_enabled && return 0
   command_exists brew || return 0
   local raw
@@ -869,6 +928,8 @@ except (ValueError,TypeError,KeyError,OSError): pass
 
 PYMISSING
 )"
+    AIUP_CASK_BUNDLES="$(cask_bundle_rows "$raw")"
+    AIUP_CASK_BUNDLES_READY=1
   fi
   rm -f "$raw"
   if [ -f "$STATE_DIR/moved-apps.json" ] && [ ! -L "$STATE_DIR/moved-apps.json" ]; then
@@ -895,6 +956,159 @@ brew_missing_app_for_tool() {
     *) [ "$(catalog_kind "$1")" = brew-cask ] || return 1; target="$(catalog_brew_cask "$1")" ;;
   esac
   printf '%s\n' "${AIUP_MISSING_APPS:-}" | awk -F '\t' -v name="$target" '$1==name {print $2;found=1;exit} END {exit !found}'
+}
+
+# One row per installed cask whose app bundle exists; fields are never empty:
+# token eligible record latest bundle app bundle-vs-latest bundle-vs-record action
+# Eligible casks (auto_updates or catalog) trust the bundle version, because
+# those apps update themselves past Homebrew's install-time record.
+cask_bundle_rows() {
+  python3 -c "$AIUP_VERSION_PY"'
+import json, plistlib, sys
+from pathlib import Path
+raw, manifest = sys.argv[1], sys.argv[2]
+catalog = set()
+try:
+    with open(manifest, encoding="utf-8") as handle:
+        for line in handle:
+            fields = line.rstrip("\n").split("\t")
+            if not line.startswith("#") and len(fields) >= 7 and fields[2] == "brew-cask" and fields[6]:
+                catalog.add(fields[6].rsplit("/", 1)[-1])
+except OSError:
+    pass
+def bundle_versions(app):
+    try:
+        plist = app / "Contents/Info.plist"
+        if plist.stat().st_size > 1048576: return "", ""
+        data = plistlib.loads(plist.read_bytes())
+    except (OSError, ValueError, plistlib.InvalidFileException):
+        return "", ""
+    return str(data.get("CFBundleShortVersionString") or "").strip(), str(data.get("CFBundleVersion") or "").strip()
+def clean(value):
+    return re.sub(r"[\x00-\x1f\x7f]", " ", str(value or "")).strip() or "-"
+try:
+    casks = json.loads(Path(raw).read_text()).get("casks")
+except (OSError, ValueError, AttributeError):
+    casks = None
+for cask in casks if isinstance(casks, list) else []:
+    if not isinstance(cask, dict) or not cask.get("installed") or not isinstance(cask.get("token"), str): continue
+    targets = [Path(a["target"]) for a in cask.get("artifacts") or [] if isinstance(a, dict) and "app" in a and isinstance(a.get("target"), str)]
+    app = next((p for p in targets if p.is_absolute() and p.suffix == ".app" and p.is_dir()), None)
+    if app is None: continue
+    short, build = bundle_versions(app)
+    if not (short or build): continue
+    token = cask["token"].rsplit("/", 1)[-1]
+    record, latest = str(cask["installed"]), str(cask.get("version") or "")
+    eligible = cask.get("auto_updates") is True or token in catalog
+    vs_latest, vs_record = bundle_relation(short, build, latest), bundle_relation(short, build, record)
+    if eligible and vs_latest in ("newer", "same"):
+        action = "self-updated" if vs_record == "newer" or record != latest else "none"
+    elif record != latest and latest != "latest" or eligible and vs_latest == "older":
+        action = "upgrade"
+    else:
+        action = "none"
+    print("\t".join(map(clean, (token, int(eligible), record, latest, short or build, app, vs_latest, vs_record, action))))
+' "$1" "$CATALOG_MANIFEST"
+}
+
+cask_bundle_row() {
+  [ "${AIUP_CASK_BUNDLES_READY:-0}" = 1 ] || return 1
+  printf '%s\n' "${AIUP_CASK_BUNDLES:-}" | awk -F '\t' -v name="${1##*/}" '$1==name {print;found=1;exit} END {exit !found}'
+}
+
+cask_token_of() {
+  case "$1" in
+    bc:*) printf '%s\n' "${1#bc:}" ;;
+    *) [ "$(catalog_kind "$1")" = brew-cask ] || return 1; catalog_brew_cask "$1" | sed 's#.*/##' ;;
+  esac
+}
+
+cask_record_version() {
+  printf '%s\n' "$AIUP_BREW_CASK_VERSIONS" | awk -v name="${1##*/}" '$1==name {$1=""; sub(/^ /, ""); print; exit}'
+}
+
+cask_app_path() {
+  local tool="$1" token row app=''
+  if token="$(cask_token_of "$tool")" && row="$(cask_bundle_row "$token")"; then
+    app="$(printf '%s\n' "$row" | awk -F '\t' '{print $6}')"
+  fi
+  [ -n "$app" ] || case "$tool" in bc:*) app="$(app_path_for_cask "${tool#bc:}" || true)" ;; *) app="$(catalog_app_path "$tool")" ;; esac
+  [ -n "$app" ] && [ -d "$app" ] || return 1
+  printf '%s\n' "$app"
+}
+
+# Any process executing from inside the bundle (main binary or helper) counts.
+# Fixed-string prefix match on the executable path, never a regex.
+app_bundle_running() {
+  local app="${1%/}"
+  [ -n "$app" ] && [ -d "$app" ] || return 1
+  ps -axww -o comm= 2>/dev/null | AIUP_APP_PREFIX="$app/Contents/" awk 'index($0, ENVIRON["AIUP_APP_PREFIX"]) == 1 {found=1; exit} END {exit !found}'
+}
+
+# The installed version users actually run: a self-updated bundle newer than
+# Homebrew's record wins; otherwise the record. Catalog casks are always
+# eligible, so they work without the installed-cask table.
+cask_effective_version() {
+  local tool="$1" record="$3" row eligible t_record bundle app rel_record t_bundle
+  if [ "${AIUP_CASK_BUNDLES_READY:-0}" = 1 ]; then
+    row="$(cask_bundle_row "$2")" || { printf '%s\n' "$record"; return 0; }
+    IFS=$'\t' read -r _ eligible t_record _ t_bundle app _ rel_record _ <<< "$row"
+    [ "$eligible" = 1 ] || { printf '%s\n' "$record"; return 0; }
+  else
+    case "$tool" in bc:*) printf '%s\n' "$record"; return 0 ;; esac
+    app="$(catalog_app_path "$tool")"; t_record=''; t_bundle=''; rel_record=''
+  fi
+  bundle=''
+  [ -z "$app" ] || [ ! -d "$app" ] || bundle="$(app_bundle_version "$app" 2>/dev/null || true)"
+  if [ -z "$bundle" ] || [ "$bundle" = "${record%%,*}" ]; then printf '%s\n' "$record"; return 0; fi
+  # Reuse the table relation unless the bundle or record changed since it was read.
+  if [ "$bundle" != "$t_bundle" ] || [ "$record" != "$t_record" ]; then rel_record="$(bundle_relation "$bundle" '' "$record")"; fi
+  if [ "$rel_record" = newer ]; then printf '%s\n' "$bundle"; else printf '%s\n' "$record"; fi
+}
+
+# Gate every Homebrew upgrade of an installed app cask. Returns 0 when the
+# upgrade must not run: the app already updated itself to Homebrew's version or
+# newer (never install an older build over it), or the app is open (never
+# replace a running bundle; Homebrew would otherwise quit it). Returns 1 to let
+# Homebrew upgrade as the backstop.
+cask_update_gate() {
+  local tool="$1" cask="$2" raw row='' eligible='' record latest='' bundle='' app='' rel_latest='' name target
+  if [ "$DRY_RUN" -eq 1 ] && row="$(cask_bundle_row "$cask")"; then :
+  else
+    row=''
+    ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || true
+    if raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.cask-gate.XXXXXX" 2>/dev/null)"; then
+      if bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --cask "$cask"; then
+        row="$(cask_bundle_rows "$raw" | awk -F '\t' -v name="${cask##*/}" '$1==name {print; exit}')"
+      fi
+      rm -f "$raw"
+    fi
+  fi
+  if [ -n "$row" ]; then
+    IFS=$'\t' read -r _ eligible record latest bundle app rel_latest _ _ <<< "$row"
+    [ "$latest" != - ] || latest=''
+    target="${latest%%,*}"
+    if [ "$eligible" = 1 ] && { [ "$rel_latest" = newer ] || { [ "$rel_latest" = same ] && [ "$AIUP_FORCE" -eq 0 ]; }; }; then
+      update_status_set self-updated
+      if [ "$rel_latest" = newer ]; then
+        UPDATE_REPORT_NOTE="Current (self-updated): app $bundle is newer than Homebrew's $target; skipped the Homebrew download, no downgrade."
+      else
+        UPDATE_REPORT_NOTE="Current (self-updated): app already runs Homebrew's $target; skipped the Homebrew download."
+      fi
+      info "$tool: $UPDATE_REPORT_NOTE"
+      return 0
+    fi
+  else
+    app="$(cask_app_path "$tool" || true)"
+  fi
+  if [ -n "$app" ] && [ "$app" != - ] && app_bundle_running "$app"; then
+    name="$(basename "$app" .app)"
+    update_status_set deferred
+    UPDATE_REPORT_NOTE="Deferred: $name is open. Quit $name, then run aiup resume${target:+ to update to $target}."
+    info "$tool: $UPDATE_REPORT_NOTE"
+    return 0
+  fi
+  return 1
 }
 
 # One authoritative post-refresh snapshot avoids a no-op upgrade per package.
@@ -2934,6 +3148,7 @@ brew_cask_adopt() {
   command_exists brew || { error "Homebrew required"; return 1; }
   brew_ensure_target_tap "" "$name" cask || return 1
   if brew_cask_installed "$name"; then
+    cask_update_gate "bc:$name" "$name" && return 0
     run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"
     return $?
   fi
@@ -2953,6 +3168,12 @@ brew_cask_adopt() {
     return 0
   fi
   warn "Homebrew could not adopt the existing copy (usually a version mismatch)."
+  if [ -n "$app" ] && app_bundle_running "$app"; then
+    update_status_set deferred
+    UPDATE_REPORT_NOTE="Deferred: $(basename "$app" .app) is open. Quit it before Homebrew replaces the app bundle."
+    info "$name: $UPDATE_REPORT_NOTE"
+    return 0
+  fi
   warn "Next step asks Homebrew to replace the app bundle without --zap; vendor-specific installer behavior may vary."
   if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
     if ! confirm_tty "Replace the $name app bundle via Homebrew without --zap? [y/N] "; then
@@ -3009,7 +3230,9 @@ apply_brew_extras() {
           update)
             if brew_cask_installed "$name"; then
               brew_ensure_target_tap "" "$name" cask || return 1
-              if run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"; then
+              if cask_update_gate "$id" "$name"; then
+                result_record "$AIUP_LAST_UPDATE_STATUS" "$id"
+              elif run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name"; then
                 result_record completed "$id"
               else
                 append_failure "$id"; failures=$((failures + 1))
@@ -3021,7 +3244,7 @@ apply_brew_extras() {
             ;;
           *)
             if brew_cask_installed "$name"; then
-              run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
+              cask_update_gate "$id" "$name" || run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$name" || true
             elif app="$(app_path_for_cask "$name")"; then
               brew_cask_adopt "$name" "$app" || true
             else
@@ -3166,8 +3389,12 @@ version_of_path() {
 
 app_bundle_version() {
   local app="$1"
+  local version
   [ -f "$app/Contents/Info.plist" ] || return 1
-  /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null | first_line
+  version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null | first_line)"
+  [ -n "$version" ] || version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist" 2>/dev/null | first_line)"
+  [ -n "$version" ] || return 1
+  printf '%s\n' "$version"
 }
 
 version_of_tool() {
@@ -3191,7 +3418,7 @@ version_of_tool() {
   if [ "$kind" = 'brew-cask' ]; then
     cask="$(catalog_brew_cask "$tool")"
     if [ -n "$cask" ] && brew_cask_installed "$cask"; then
-      printf '%s\n' "$AIUP_BREW_CASK_VERSIONS" | awk -v name="$cask" '$1==name {$1=""; sub(/^ /, ""); print; exit}'
+      cask_effective_version "$tool" "$cask" "$(cask_record_version "$cask")"
       return 0
     fi
     app="$(catalog_app_path "$tool")"
@@ -3375,8 +3602,9 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 if not isinstance(items, list) or len(items) != 1: raise ValueError("invalid cask metadata")
 item = items[0]
 if not isinstance(item.get("outdated"), bool): raise ValueError("missing outdated status")
-if item.get("outdated"):
-    print(item.get("version", ""))
+version = item.get("version", "")
+if item.get("outdated") or item.get("auto_updates") is True and version != "latest" and item.get("installed") not in (None, version):
+    print(version)
 PY
     rc=$?; latest="$(sed -n '1p' "$parsed" 2>/dev/null)"; rm -f "$raw" "$parsed"
     [ "$rc" -eq 0 ] || return 1
@@ -6572,17 +6800,20 @@ update_cursor() {
 }
 
 version_is_greater() {
-  python3 - "$1" "$2" <<'PY'
-import re
+  python3 -c "$AIUP_VERSION_PY"'
 import sys
+a, b = sys.argv[1], sys.argv[2]
+newer = version_cmp(a, b) > 0
+# A different cask build of the same version (",hash" suffix) is an update.
+if not newer and version_cmp(a, b) == 0 and "," in a and "," in b and a != b: newer = True
+print("yes" if newer else "no")' "$1" "$2"
+}
 
-def parts(value):
-    return tuple(int(part) for part in re.findall(r"\d+", value or ""))
-
-left, right = parts(sys.argv[1]), parts(sys.argv[2])
-width = max(len(left), len(right))
-print("yes" if left + (0,) * (width - len(left)) > right + (0,) * (width - len(right)) else "no")
-PY
+# Relation of an app bundle version to a cask version: newer, same, older, or unknown.
+bundle_relation() {
+  python3 -c "$AIUP_VERSION_PY"'
+import sys
+print(bundle_relation(*sys.argv[1:4]))' "$1" "$2" "$3"
 }
 
 screenpipe_detach_mount() {
@@ -6752,14 +6983,14 @@ update_screenpipe() {
   rm -rf "$mountpoint" "$dmg"
 
   running=0
-  if pgrep -f "$app/Contents/MacOS/" >/dev/null 2>&1; then
+  if app_bundle_running "$app"; then
     running=1
     osascript -e 'tell application id "screenpi.pe" to quit' >/dev/null 2>&1 || true
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-      pgrep -f "$app/Contents/MacOS/" >/dev/null 2>&1 || break
+      app_bundle_running "$app" || break
       sleep 1
     done
-    if pgrep -f "$app/Contents/MacOS/" >/dev/null 2>&1; then
+    if app_bundle_running "$app"; then
       error "Screenpipe is still running; refusing to replace its app bundle"
       rm -rf "$staged_dir"
       return 1
@@ -6783,6 +7014,12 @@ update_screenpipe() {
     return 1
   fi
   rm -rf "$staged_dir"
+  # Owner policy: after successful activation, keep no redownloadable code backup.
+  if [ -n "$backup_app" ]; then
+    case "$backup_app" in
+      "$STATE_DIR/backups/screenpipe/"*.app) rm -rf "$backup_app" ;;
+    esac
+  fi
   if [ "$running" -eq 1 ]; then
     open "$app" >/dev/null 2>&1 || warn "Screenpipe updated but could not be relaunched"
   fi
@@ -6835,6 +7072,7 @@ update_by_kind() {
           info "$tool is current; no Homebrew upgrade needed"
           return 0
         fi
+        cask_update_gate "$tool" "$cask" && return 0
         run_with_heartbeat "brew upgrade --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --yes "$cask" || return 1
       else
         local app
@@ -6846,6 +7084,7 @@ update_by_kind() {
             return 0
           fi
           brew_cask_adopt "$cask" "$app" || return 1
+          [ "$AIUP_LAST_UPDATE_STATUS" != deferred ] || return 0
         else
           run_with_heartbeat "brew install --cask $cask" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask --yes "$cask" || return 1
         fi
@@ -7219,7 +7458,7 @@ if logs.is_dir() and not logs.is_symlink():
     if candidates:latest=read(candidates[0],{})
 if latest:
     for r in latest.get('tools',[]):
-        if r.get('result') in ('failed','unverified','pending') or r.get('warning'):
+        if r.get('result') in ('failed','unverified','pending','deferred') or r.get('warning'):
             card(r['tool']+' · '+r.get('result','needs review'),r.get('note','')+' · aiup logs '+r['tool']+'; use aiup resume when the run is no longer active.');count+=1
 if duplicates:card(str(len(duplicates))+' commands have multiple installations','Review active paths and other copies: aiup duplicates. Nothing is removed automatically.');count+=1
 unsupported=[r for r in items if r['id'].startswith('di:path:') and (r['owner'] in ('PATH executable','unknown','Unknown') or 'no reviewed' in r['guidance'])]
@@ -7340,7 +7579,7 @@ if action in ("retry", "resume"):
     if alive: raise SystemExit("Latest run is still active; wait for it to finish")
     if not data: raise SystemExit("Latest run has no structured results; inspect aiup logs")
     for row in data['tools']:
-        if row.get('result') in (('failed','pending') if action=='resume' else ('failed',)): print(row['tool'])
+        if row.get('result') in (('failed','pending','deferred') if action=='resume' else ('failed','deferred')): print(row['tool'])
     raise SystemExit(0)
 if action == "cleanup":
     print(ink("\naiup · cleanup history"))
@@ -7477,7 +7716,10 @@ update_report_record() {
   done
   after='not installed'
   if tool_is_present "$tool"; then after="$(version_of_tool "$tool")"; fi
-  if [ "$DRY_RUN" -eq 1 ]; then status=planned; UPDATE_REPORT_WARNING=0; fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    case "$status" in self-updated|deferred) ;; *) status=planned ;; esac
+    UPDATE_REPORT_WARNING=0
+  fi
   before="$(printf '%s' "$before" | tr '\t\r\n' '   ')"
   after="$(printf '%s' "$after" | tr '\t\r\n' '   ')"
   UPDATE_REPORT_NOTE="$(printf '%s' "$UPDATE_REPORT_NOTE" | tr '\t\r\n' '   ')"
@@ -7521,10 +7763,10 @@ run_tool_update() {
   profile_mark "update $tool"
   update_report_warnings
   UPDATE_REPORT_WARNINGS=$((UPDATE_REPORT_WARNINGS + UPDATE_REPORT_WARNING))
-  if [ "$rc" -ne 0 ] || [ "$AIUP_LAST_UPDATE_STATUS" != current ]; then
-    brew_cache_invalidate
-    brew_cache_load
-  fi
+  case "$rc:$AIUP_LAST_UPDATE_STATUS" in
+    0:current|0:self-updated|0:deferred) ;;
+    *) brew_cache_invalidate; brew_cache_load ;;
+  esac
   if [ "$rc" -eq 0 ]; then
     update_report_record "$tool" "$AIUP_LAST_UPDATE_STATUS"
   else
@@ -7600,7 +7842,7 @@ if width >= 76:
 for tool, (status, versions, category, note, before, after, start, end, warning, duration) in visible.items():
     code = "38;2;57;255;20" if status in ("updated", "installed", "update", "cleaned") else "38;5;245"
     if status in ("failed", "unverified"): code = "38;5;203"
-    elif status in ("skipped", "planned"): code = "38;5;220"
+    elif status in ("skipped", "planned", "deferred"): code = "38;5;220"
     if mode == "update": versions += " · " + str(duration) + "s"
     if warning: status += " !"
     name_code = category if re.fullmatch(r"[0-9;]+", category) else "38;5;250"
@@ -7707,7 +7949,7 @@ run_tool_update_impl() {
     if "update_$tool"; then
       result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
       case "$result_kind" in
-        current|skipped) result_record "$result_kind" "$tool" ;;
+        current|skipped|self-updated|deferred) result_record "$result_kind" "$tool" ;;
         *) result_record completed "$tool" ;;
       esac
       info "========== TOOL DONE: $tool =========="
@@ -7717,7 +7959,7 @@ run_tool_update_impl() {
   elif update_by_kind "$tool"; then
     result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
     case "$result_kind" in
-      current|skipped) result_record "$result_kind" "$tool" ;;
+      current|skipped|self-updated|deferred) result_record "$result_kind" "$tool" ;;
       *) result_record completed "$tool" ;;
     esac
     info "========== TOOL DONE: $tool =========="
@@ -9361,6 +9603,24 @@ check_tool_status() {
       failure) CHECK_NOTE='Provider unavailable, unsupported, or returned invalid metadata; not confirmed current.' ;;
     esac
   fi
+  check_cask_context "$tool" "$current"
+}
+
+# Self-updated apps report as current (the update run skips Homebrew for them
+# too); open apps explain why their update will be deferred.
+check_cask_context() {
+  local tool="$1" current="$2" cask record row action='' app
+  cask="$(cask_token_of "$tool")" || return 0
+  record="$(cask_record_version "$cask")"
+  if row="$(cask_bundle_row "$cask")"; then IFS=$'\t' read -r _ _ _ _ _ _ _ _ action <<< "$row"; fi
+  if { [ "$CHECK_STATUS" = update ] && [ "$action" = self-updated ]; } ||
+    { [ "$CHECK_STATUS" = current ] && [ -n "$record" ] && [ "$current" != "$record" ]; }; then
+    CHECK_STATUS=self-updated
+    CHECK_AVAILABLE="$current"
+    CHECK_NOTE="Current (self-updated): app $current; Homebrew record ${record%%,*}. No Homebrew download needed."
+  elif [ "$CHECK_STATUS" = update ] && app="$(cask_app_path "$tool")" && app_bundle_running "$app"; then
+    CHECK_NOTE="$(basename "$app" .app) is open; aiup defers this update until you quit it."
+  fi
 }
 
 # One provider snapshot feeds all selected Homebrew tools. Invalid/missing
@@ -9398,11 +9658,15 @@ for line in Path(sys.argv[2]).read_text().splitlines():
     if not r or not isinstance(r.get('outdated'),bool): continue
     version=(r.get('versions') or {}).get('stable') if kind=='brew-formula' else r.get('version')
     if not isinstance(version,str) or not version: continue
-    print(tool,current,'newer' if r['outdated'] else 'current',version if r['outdated'] else '',sep='\t')
+    # Match the update run: auto-updating casks are candidates whenever the tap
+    # moved; the installed (possibly self-updated) version decides below.
+    outdated=r['outdated'] or kind=='brew-cask' and r.get('auto_updates') is True and version!='latest' and r.get('installed') not in (None,version)
+    print(tool,current,'newer' if outdated else 'current',version if outdated else '',sep='\t')
 PYBREWCHECK
     if [ $? -eq 0 ]; then
       while IFS=$'\t' read -r tool current state available; do
-        if [ "$state" = newer ] && [ "$(version_is_greater "$available" "$current")" != yes ]; then continue; fi
+        # A self-updated app can already be at or past Homebrew's newer cask.
+        if [ "$state" = newer ] && [ "$(version_is_greater "$available" "$current")" != yes ]; then state=current; available=''; fi
         available_cache_write "$tool" "$current" "$state" "$available"
         CHECK_BREW_REFRESHED="${CHECK_BREW_REFRESHED}${tool}|"
       done < "${raw}.parsed"
@@ -9707,6 +9971,7 @@ update_installed_brew_extra() {
       run_with_heartbeat "brew upgrade $name" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew upgrade --formula --yes "$name" ;;
     bc:*)
       if brew_target_current cask "$name"; then update_status_set current; return 0; fi
+      cask_update_gate "$tool" "$name" && return 0
       brew_ensure_target_tap "" "$name" cask || return 1
       run_with_heartbeat "brew upgrade --cask $name" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew upgrade --cask --greedy --yes "$name" ;;
   esac

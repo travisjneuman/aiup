@@ -290,3 +290,8 @@ AIUP remembers bundle identities observed at their installed locations, scans co
 ## 📜 License
 
 [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)
+
+Owner storage policy (September 29, 2026): Screenpipe official-DMG updates retain
+the prior code bundle only through activation. A failed activation restores it;
+a successful activation deletes the redownloadable code backup. Recordings,
+settings and user data are not part of this backup or cleanup.
