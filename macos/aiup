@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.09.04-10"
+AIUP_VERSION="2026.09.29-01"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -3563,8 +3563,9 @@ available_version_uncached() {
     bc:*) kind='brew-cask'; cask="${tool#bc:}" ;;
     *) kind="$(catalog_kind "$tool")" ;;
   esac
-  pkg="$(catalog_npm_pkg "$tool")"
-  if { [ "$kind" = 'aiup-npm' ] || [ -n "$pkg" ]; } && [ -n "$pkg" ] && command_exists npm; then
+  # Homebrew and uv package targets share the manifest column; never ask npm.
+  case "$kind" in brew-formula|brew-cask|uv-tool) pkg='' ;; *) pkg="$(catalog_npm_pkg "$tool")" ;; esac
+  if [ -n "$pkg" ] && command_exists npm; then
     bounded_provider_capture "$raw" "$AVAILABLE_VERSION_PROVIDER_TIMEOUT" env npm view "$pkg" version --fetch-retries=0 --fetch-timeout=3000 || { rm -f "$raw"; return 1; }
     latest="$(cat "$raw")"; rm -f "$raw"
     printf '%s' "$latest" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' || return 1
@@ -3606,7 +3607,10 @@ version = item.get("version", "")
 if item.get("outdated") or item.get("auto_updates") is True and version != "latest" and item.get("installed") not in (None, version):
     print(version)
 PY
-    rc=$?; latest="$(sed -n '1p' "$parsed" 2>/dev/null)"; rm -f "$raw" "$parsed"
+    rc=$?; latest="$(sed -n '1p' "$parsed" 2>/dev/null)"
+    # Same decision as the update gate: a self-updated app is current.
+    if [ "$rc" -eq 0 ] && [ -n "$latest" ] && [ "$(cask_bundle_rows "$raw" | awk -F '\t' 'NR==1 && $2==1 {print $9}')" = self-updated ]; then latest=''; fi
+    rm -f "$raw" "$parsed"
     [ "$rc" -eq 0 ] || return 1
     available_candidate_result "$current" "$latest"
     return $?
@@ -5471,12 +5475,14 @@ scan_versions_index() {
     brew_cask_versions="${VERSIONS_INDEX}.brew-cask.$$"
     env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew list --formula --versions > "$brew_formula_versions" 2>/dev/null || : > "$brew_formula_versions"
     env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew list --cask --versions > "$brew_cask_versions" 2>/dev/null || : > "$brew_cask_versions"
+    # Self-updated app bundles newer than Homebrew's record show their real version.
+    printf '%s\n' "${AIUP_CASK_BUNDLES:-}" | awk -F '\t' '$2==1 && $8=="newer" {print "bc:" $1 " " $5}' >> "$brew_cask_versions"
     awk -F '\t' -v formulae="$brew_formula_versions" -v casks="$brew_cask_versions" -v existing="$next" '
       BEGIN {
         while ((getline line < existing) > 0) { split(line, e, "\t"); if (e[1]) seen[e[1]]=1 }
         close(existing)
         while ((getline line < formulae) > 0) { split(line, f, /[[:space:]]+/); if (f[1] && f[2]) versions["bf:" f[1]]=f[2] }
-        while ((getline line < casks) > 0) { split(line, f, /[[:space:]]+/); if (f[1] && f[2]) versions["bc:" f[1]]=f[2] }
+        while ((getline line < casks) > 0) { split(line, f, /[[:space:]]+/); if (f[1] && f[2]) versions[(f[1] ~ /^bc:/ ? "" : "bc:") f[1]]=f[2] }
         close(formulae); close(casks)
       }
       ($2 == "installed") && !seen[$3] && versions[$3] { print $3 "\t" versions[$3] }
@@ -7346,12 +7352,29 @@ cmd_welcome() {
   } | ui_cards 'getting started'
 }
 
+# Plan wording for app casks: self-updated apps skip Homebrew; open apps wait.
+cask_plan_line() {
+  local tool="$1" cask row app action name
+  cask="$(cask_token_of "$tool")" || return 1
+  row="$(cask_bundle_row "$cask")" || return 1
+  IFS=$'\t' read -r _ _ _ _ _ app _ _ action <<< "$row"
+  case "$action" in
+    self-updated)
+      printf '%s · current (self-updated)\t%s\n' "$tool" "The app updated itself to Homebrew's version or newer. aiup skips the Homebrew download and never installs an older build over it." ;;
+    upgrade)
+      app_bundle_running "$app" || return 1
+      name="$(basename "$app" .app)"
+      printf '%s · quit %s to update\t%s is open. aiup never replaces a running app; after you quit it, aiup resume finishes the update.\n' "$tool" "$name" "$name" ;;
+    *) return 1 ;;
+  esac
+}
+
 cmd_plan() {
   brew_cache_load; ensure_system_npm_prefix; brew_missing_apps_load
   local tool policy path mode
   mode="$(preferences setting cleanup)" || return 1
   {
-    printf 'Preview only · no packages will change\tThis is an action plan, not a promise that every tool needs an update. Exact download sizes and app restarts depend on each updater. Use aiup check for available-version checks.\n'
+    printf 'Preview only · no packages will change\tThis is an action plan, not a promise that every tool needs an update. Exact download sizes depend on each updater; aiup never replaces an open app. Use aiup check for available-version checks.\n'
     while IFS= read -r tool; do
       [ -n "$tool" ] || continue
       policy="$(policy_reason "$tool")" || return 1
@@ -7359,17 +7382,19 @@ cmd_plan() {
       elif path="$(brew_moved_app_for_tool "$tool")"; then printf '%s · review location\t%s; no cleanup or reinstall.\n' "$tool" "$path"
       elif path="$(brew_missing_app_for_tool "$tool")"; then
         printf '%s · %s cleanup\tApp already removed: %s. Homebrew uninstall hooks run only in auto mode during aiup; no preference purge.\n' "$tool" "$mode" "$path"
+      elif path="$(cask_plan_line "$tool")"; then printf '%s\n' "$path"
       else printf '%s · check and update if needed\t%s. Downloads may be required; save work in desktop apps before updating.\n' "$tool" "$(install_method_of "$tool" | sed -e 's/^brew-formula$/Homebrew command-line tools/' -e 's/^brew-cask$/Homebrew apps/' -e 's/^homebrew-node$/Node and npm through Homebrew/' -e 's/^aiup-npm$/AIUP-managed JavaScript tools/' -e 's/^installer$/Official installer or updater/' -e 's/^manual$/Original installation method/')"
       fi
     done < <(installed_update_tools)
   } | python3 -c '
 import sys,collections
-mode=sys.argv[1]; groups=collections.defaultdict(list)
+mode=sys.argv[1]; groups=collections.OrderedDict()
 for line in sys.stdin:
     title,_,body=line.rstrip("\n").partition("\t")
-    if " · check and update if needed" in title and mode!="--all":groups[body].append(title.split(" · ")[0])
+    name,_,label=title.partition(" · ")
+    if label in ("check and update if needed","current (self-updated)") and mode!="--all":groups.setdefault((label,body),[]).append(name)
     else:print(title+"\t"+body)
-for body,names in groups.items():print(str(len(names))+(" tool" if len(names)==1 else " tools")+" · check and update if needed\t"+body+" Examples: "+", ".join(names[:5])+".")
+for (label,body),names in groups.items():print(str(len(names))+(" tool" if len(names)==1 else " tools")+" · "+label+"\t"+body+" Examples: "+", ".join(names[:5])+".")
 if groups:print("See each tool\taiup plan --all lists the complete selection.")
 ' "${1:-}" | ui_cards 'maintenance plan'
 }
@@ -9609,12 +9634,15 @@ check_tool_status() {
 # Self-updated apps report as current (the update run skips Homebrew for them
 # too); open apps explain why their update will be deferred.
 check_cask_context() {
-  local tool="$1" current="$2" cask record row action='' app
+  local tool="$1" current="$2" cask record row='' action='' app
   cask="$(cask_token_of "$tool")" || return 0
   record="$(cask_record_version "$cask")"
   if row="$(cask_bundle_row "$cask")"; then IFS=$'\t' read -r _ _ _ _ _ _ _ _ action <<< "$row"; fi
+  # Without the installed-cask table, a version that differs from the record
+  # can only come from a newer self-updated bundle (cask_effective_version).
   if { [ "$CHECK_STATUS" = update ] && [ "$action" = self-updated ]; } ||
-    { [ "$CHECK_STATUS" = current ] && [ -n "$record" ] && [ "$current" != "$record" ]; }; then
+    { [ "$CHECK_STATUS" = current ] && [ -n "$record" ] && [ "$current" != "$record" ] &&
+      { [ -z "$row" ] || [ "$action" = self-updated ]; }; }; then
     CHECK_STATUS=self-updated
     CHECK_AVAILABLE="$current"
     CHECK_NOTE="Current (self-updated): app $current; Homebrew record ${record%%,*}. No Homebrew download needed."
@@ -9721,7 +9749,7 @@ cmd_check() {
 }
 
 cmd_explain() {
-  local tool="$1" resolved state method current location pkg shade='' reset=''
+  local tool="$1" resolved state method current location pkg shade='' reset='' cask record app next
   brew_cache_load
   ensure_system_npm_prefix
   case "$tool" in
@@ -9738,6 +9766,7 @@ cmd_explain() {
     return 1
   }
   tool="$resolved"
+  if cask="$(cask_token_of "$tool")" && brew_cask_installed "$cask"; then brew_missing_apps_load; else cask=''; fi
   state="$(catalog_state_for_tool "$tool")"
   method="$(install_method_of "$tool")"
   current="$(version_of_tool "$tool")"
@@ -9745,14 +9774,23 @@ cmd_explain() {
   pkg="$(catalog_npm_pkg "$tool")"
   if [ "$location" = n/a ]; then
     location="$(catalog_app_path "$tool")"
+    [ -z "$cask" ] || location="$(cask_app_path "$tool" || printf '%s' "$location")"
     if [ -n "$pkg" ] && aiup_npm_pkg_installed "$pkg"; then location="$AIUP_NPM_NODE_MODULES/$pkg"; fi
   fi
   [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && { shade="$(catalog_ansi "$(catalog_category "$tool")")"; reset=$'\033[0m'; }
   printf '\n%s%s%s\n' "$shade" "$(catalog_label "$tool")" "$reset"
   printf '  %-12s %s\n' 'State' "$state" 'Version' "$current" 'Manager' "$method" 'Location' "${location:-not found}"
   [ -z "$pkg" ] || printf '  %-12s %s\n' 'Package' "$pkg"
+  if [ -n "$cask" ]; then
+    record="$(cask_record_version "$cask")"
+    [ -z "$record" ] || [ "$record" = "$current" ] || printf '  %-12s %s\n' 'Homebrew' "record $record · the app updated itself"
+    if app="$(cask_app_path "$tool")" && app_bundle_running "$app"; then
+      printf '  %-12s %s\n' 'Running' "yes · aiup defers replacing it until you quit $(basename "$app" .app)"
+    fi
+  fi
   check_tool_status "$tool" "$current"
-  printf '  %-12s %s\n' 'Next action' "$CHECK_STATUS" 'Reason' "$CHECK_NOTE" 'Docs' "$(catalog_docs_url "$tool")"
+  next="$CHECK_STATUS"; [ "$next" != self-updated ] || next='current (self-updated)'
+  printf '  %-12s %s\n' 'Next action' "$next" 'Reason' "$CHECK_NOTE" 'Docs' "$(catalog_docs_url "$tool")"
   if [ "$CHECK_STATUS" = skipped ]; then printf '\n  aiup only %s offers an explicit manager switch.\n' "$tool"; fi
   printf '\n  Recent run details: aiup history %s · aiup logs %s\n' "$tool" "$tool"
 }
@@ -9783,12 +9821,12 @@ Usage:
   aiup plan                 Preview maintenance actions without changing packages
   aiup owners               Installation ownership and update guidance
   aiup duplicates           Active commands and other copies (review only)
-  aiup resume               Retry pending/failed tools from the last inactive run
+  aiup resume               Retry pending, deferred (app was open) or failed tools from the last inactive run
   aiup settings cleanup auto|review  Choose automatic cleanup or review first
   aiup cleanup history      Show cleaned records from retained run history
   aiup coverage             Managed coverage and detected-only gaps
   aiup doctor [--details]   Installation conflicts; --details retains full inventory
-  aiup retry                Retry failures in the latest inactive run
+  aiup retry                Retry failed or deferred tools in the latest inactive run
   aiup --timings check      Show discovery and provider timings
   aiup preferences          Show exclusions, holds, and named groups
   aiup exclude|include TOOL Exclude or restore a catalog tool
