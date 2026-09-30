@@ -49,6 +49,19 @@ For command-line tools already on PATH:
 
 Uninstall from aiup only removes Homebrew-managed installs. A drag-installed app is left for you to remove in Finder.
 
+## Apps that update themselves
+
+Many apps (Homebrew marks them `auto_updates`) update in place, so the app bundle moves ahead of the version Homebrew recorded at install time. For these casks and for catalog app casks, aiup reads the installed bundle's `CFBundleShortVersionString` (or `CFBundleVersion`) and compares it with the cask version:
+
+- **App at or past Homebrew's version:** reported as `current (self-updated)` with the app's own version. aiup skips the Homebrew download and never installs an older build over a newer one.
+- **App older than Homebrew's version:** Homebrew upgrades it as the backstop.
+
+Homebrew keeps the Caskroom record at the version it installed and offers no supported way to reconcile that record without reinstalling, so aiup leaves it unchanged; `aiup explain <tool>` shows both the app version and the record.
+
+## Open apps are never replaced
+
+`brew upgrade` quits a running app before replacing it. aiup checks for any process running from inside the app bundle first and, if the app is open, reports the update as `deferred`: quit the app, then run `aiup resume` (or `aiup retry`). `aiup check`, `aiup plan` and `aiup explain` say when an open app is holding an update.
+
 ## What a scan reads
 
 - `brew list --cask` / `brew list --formula`

@@ -1,8 +1,8 @@
 # Scope, completion, and next work
 
-Status date: **2026-08-27**
+Status date: **2026-09-29**
 
-Current version: **2026.08.27-02**
+Current version: **2026.09.29-01**
 
 ## Current product scope
 
@@ -22,6 +22,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - coalesce and negatively cache bounded remote metadata reads, then prefetch installed managed items only with two read-only workers after the picker becomes interactive;
 - avoid passing `--zap` or directly deleting `~/Library` when an existing app is handed to Homebrew, without claiming universal vendor behavior;
 - check official desktop-app metadata before downloading a replacement and validate the replacement before activation;
+- report self-updating Homebrew apps that are already at or past Homebrew's version as `current (self-updated)` and skip the Homebrew download, never installing an older build over a newer one;
+- defer, never replace, an app bundle that is running, and retry deferred tools through `aiup resume`/`aiup retry`;
 - keep generated catalog documentation synchronized with the manifest;
 - install publicly without probing a maintainer checkout or personal path;
 - refresh and validate the public runtime plus its matching catalog manifest before atomically activating one immutable generation;

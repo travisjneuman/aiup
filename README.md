@@ -93,7 +93,7 @@ aiup unhold remotion
 aiup group set video remotion ffmpeg macwhisper
 aiup group check video
 aiup group run video               # update installed members; honor preferences
-aiup retry                         # retry failures from the latest inactive run
+aiup retry                         # retry failed or deferred tools from the latest inactive run
 aiup project /path/to/project       # read declared npm dependency ranges only
 ```
 
@@ -269,15 +269,15 @@ The current macOS tool, public repository, minimal site, and six-state media are
 |---|---|
 | `aiup welcome` | First-run guide with cleanup choices and readable command examples |
 | `aiup attention` | Missing/moved apps, last-run problems, duplicate commands and ownership gaps with next steps |
-| `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes, download sizes and restart requirements remain updater-dependent |
+| `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes. Shows self-updated apps and apps that must be quit first; download sizes remain updater-dependent |
 | `aiup owners` | Local installation ownership, paths and maintenance guidance; observations persist locally |
 | `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
-| `aiup resume` | Retries pending and failed tools from the latest inactive saved run, rechecking current state |
+| `aiup resume` | Retries pending, deferred (app was open) and failed tools from the latest inactive saved run, rechecking current state |
 | `aiup settings cleanup auto` / `review` | Automatic cleanup or review-first mode; exclusions also accept `bc:`/`bf:` IDs |
 | `aiup cleanup history` | Cleanup results from retained structured run history |
 | `aiup --plain welcome` | Colorless guidance; statuses remain readable without color |
 
-Normal terminal runs show the guide once, numbered progress and elapsed time. Interrupted runs retain completed results and pending selections; resume reruns unfinished actions, rather than resuming a download at a byte offset. Existing provider updaters determine download/restart behavior. Guidance wraps to the terminal width, using the picker palette when colors are enabled.
+Normal terminal runs show the guide once, numbered progress and elapsed time. Interrupted runs retain completed results and pending selections; resume reruns unfinished actions, rather than resuming a download at a byte offset. Existing provider updaters determine download behavior. aiup never replaces an open app: it defers that update until you quit the app, then `aiup resume` finishes it. Apps that update themselves (Claude, ChatGPT and other `auto_updates` casks) report `current (self-updated)` when they are already at or past Homebrew's version, and aiup skips the Homebrew download. Guidance wraps to the terminal width, using the picker palette when colors are enabled.
 
 ## Apps removed with AppCleaner
 

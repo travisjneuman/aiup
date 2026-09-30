@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.09.29-01
+
+- Self-updating Homebrew apps: for `auto_updates` casks and catalog app casks, aiup compares the installed app bundle (`CFBundleShortVersionString`, falling back to `CFBundleVersion`) with the cask version. When the app is already at or past Homebrew's version, aiup reports `current (self-updated)`, shows the real app version, and skips the Homebrew download, so an older build is never installed over a newer one. An older bundle still gets the Homebrew upgrade as the backstop.
+- Never replace a running app bundle: when an app cask upgrade (including the adopt/replace path) would touch an open app, aiup reports `deferred` with "quit NAME" guidance instead of letting Homebrew quit it. `aiup resume` and `aiup retry` include deferred tools; `aiup attention` lists them. The Screenpipe updater uses the same exact-path running check.
+- One shared version comparison handles different segment counts, pre-release and nightly tags, `_N` revisions and numeric cask `,build` suffixes. It is used by update checks, the Homebrew snapshot and the new cask gate.
+- `aiup check`, `aiup plan`, `aiup explain`, list versions and the run report show self-updated and deferred states. `explain` shows Homebrew's install-time record and whether the app is open.
+- Fix: available-version checks no longer ask npm about Homebrew or uv package names (for example `npm view claude` for the Claude app cask).
+- Homebrew keeps an auto-updating cask's record at the version it installed; there is no supported command that reconciles the record without reinstalling. aiup leaves the record alone, displays the app's own version, and does not force a same-or-older reinstall.
+- Screenpipe: after a successful activation, the previous code backup is discarded (it is redownloadable).
+
 ## 2026.09.04-10
 
 - Add needs-attention, compact/full planning, ownership, duplicate review and first-run guidance commands with a shared responsive terminal presentation.
