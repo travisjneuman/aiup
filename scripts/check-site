@@ -175,7 +175,7 @@ def validate_metadata(document: Document) -> dict[str, object]:
     require(meta_value(document, "og:image:height", property_name=True) == "630", "Open Graph height drifted")
     og_alt = meta_value(document, "og:image:alt", property_name=True)
     require(og_alt == meta_value(document, "twitter:image:alt"), "social image alt text drifted")
-    require("aiup terminal mark" in og_alt and "81 managed entries" in og_alt, "social image alt is inaccurate")
+    require("aiup terminal mark" in og_alt and "131 managed entries" in og_alt, "social image alt is inaccurate")
     for key, property_name in (("og:image", True), ("og:image:secure_url", True), ("twitter:image", False)):
         value = meta_value(document, key, property_name=property_name)
         require(value.startswith(PRODUCTION), f"{key} must use an absolute production URL")
@@ -439,7 +439,7 @@ def main() -> int:
     validate_images(index_document)
 
     error_text, error_document = parse_html(SITE / "404.html")
-    require(error_document.title == "Page not found — aiup", "404 title drifted")
+    require(error_document.title == "Page not found | aiup", "404 title drifted")
     require(error_document.headings == ["h1"], "404 must contain exactly one h1")
     require("noindex" in meta_value(error_document, "robots"), "404 must be noindex")
     require(error_document.landmarks["main"] == 1 and error_document.landmarks["footer"] == 1, "404 landmarks drifted")

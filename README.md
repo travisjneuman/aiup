@@ -140,7 +140,7 @@ aiup does not invoke `sudo` directly. Its user-prefix installs keep Node CLIs in
 <td>
 
 ### 🍺 Homebrew, honestly
-Child lists are **your Mac**, plus a short recommended set — not all of Homebrew.
+Child lists are **your Mac**, plus a short recommended set. Not all of Homebrew.
 
 </td>
 <td>
@@ -193,7 +193,7 @@ For Homebrew extras outside the managed catalog, use `aiup list --category homeb
 
 Installed rows use **mint green**. Each category has a color bar. Categories start collapsed.
 
-## 🍺 Already installed — just not via Homebrew?
+## 🍺 Already installed, just not via Homebrew?
 
 Same app. Not a second copy.
 
@@ -259,7 +259,7 @@ The current macOS tool, public repository, minimal site, and six-state media are
 
 | Surface | Status |
 |---|---|
-| 🍎 macOS | Current daily-use implementation — `macos/aiup` |
+| 🍎 macOS | Current daily-use implementation (`macos/aiup`) |
 | 🌐 Site | Live; desktop browser review passed, true 375px review remains unverified |
 | 🐧 Linux | Not implemented |
 | 🪟 Windows | Not implemented |

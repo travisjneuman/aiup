@@ -1,4 +1,4 @@
-# Media catalog expansion — 2026-09-04
+# Media catalog expansion: 2026-09-04
 
 Runtime/catalog `2026.09.04-05`: **101 managed entries**, including **22 media tools**, plus five recognized manual-update media apps when installed. This is intentional catalog growth around AI-assisted creation and its supporting desktop/CLI tools. No applications, models, subscriptions, or account entitlements were installed or purchased by this work.
 

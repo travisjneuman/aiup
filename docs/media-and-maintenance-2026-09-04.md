@@ -1,4 +1,4 @@
-# Media, categories, and maintenance — 2026-09-04
+# Media, categories, and maintenance: 2026-09-04
 
 Runtime/catalog: `2026.09.04-04`. This extends the [previous efficiency review](maintenance-and-performance-2026-09-04.md).
 

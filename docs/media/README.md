@@ -50,12 +50,12 @@ one-third preview.
 
 The six-frame 10.78-second GIF contains a broader real-product narrative:
 
-1. collapsed catalog overview — 1,040 ms;
-2. Gemini search with installed/update lifecycle details — 2,070 ms;
-3. expanded Homebrew hierarchy with reviewed recommendations — 1,800 ms;
-4. Raycast on-disk / switch-to-Homebrew context — 2,070 ms;
-5. the safe `[y/N]` pre-action confirmation, answered `n` — 2,300 ms; and
-6. a stable final catalog overview — 1,500 ms.
+1. collapsed catalog overview (1,040 ms);
+2. Gemini search with installed/update lifecycle details (2,070 ms);
+3. expanded Homebrew hierarchy with reviewed recommendations (1,800 ms);
+4. Raycast on-disk / switch-to-Homebrew context (2,070 ms);
+5. the safe `[y/N]` pre-action confirmation, answered `n` (2,300 ms); and
+6. a stable final catalog overview (1,500 ms).
 
 The prior four-frame GIF used 900, 1,800, 900, and 1,300 ms dwells (4,900 ms
 total). Retained overview, Gemini, and closing dwells were retimed from those

@@ -1,4 +1,4 @@
-# Maintenance commands and efficiency review — 2026-09-04
+# Maintenance commands and efficiency review: 2026-09-04
 
 Runtime/catalog: `2026.09.04-03`.
 

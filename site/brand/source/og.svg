@@ -4,5 +4,5 @@
   <g transform="translate(80 68) scale(.82)"><path d="M168 64h176c58 0 104 46 104 104v60M448 300v44c0 58-46 104-104 104H168C110 448 64 402 64 344V168C64 110 110 64 168 64" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round"/><circle cx="132" cy="142" r="13" fill="#ff6ba9"/><circle cx="180" cy="142" r="13" fill="#4de0ff"/><circle cx="228" cy="142" r="13" fill="#ffbd4a"/><path d="m150 218 58 42-58 42M254 310h92" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/></g>
   <text x="520" y="270" fill="#f7f7ff" font-family="JetBrains Mono, Menlo, monospace" font-size="112" font-weight="700" letter-spacing="-8">aiup</text>
   <text x="526" y="344" fill="#e8e9ff" font-family="JetBrains Mono, Menlo, monospace" font-size="32">Your tool stack. One list.</text>
-  <text x="526" y="402" fill="#9aa0d4" font-family="JetBrains Mono, Menlo, monospace" font-size="24">81 managed entries · local inventory</text>
+  <text x="526" y="402" fill="#9aa0d4" font-family="JetBrains Mono, Menlo, monospace" font-size="24">131 managed entries · local inventory</text>
 </svg>

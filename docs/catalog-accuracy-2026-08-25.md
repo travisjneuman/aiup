@@ -1,4 +1,4 @@
-# Catalog accuracy audit — 2026-08-25
+# Catalog accuracy audit: 2026-08-25
 
 This is the dated accuracy record for all **83 entries in aiup 2026.08.25-01**. The resulting 2026.08.25-02 managed catalog contains **81 entries**.
 

@@ -4,5 +4,5 @@
   <g transform="translate(92 64) scale(.86)"><path d="M168 64h176c58 0 104 46 104 104v60M448 300v44c0 58-46 104-104 104H168C110 448 64 402 64 344V168C64 110 110 64 168 64" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round"/><circle cx="132" cy="142" r="13" fill="#ff6ba9"/><circle cx="180" cy="142" r="13" fill="#4de0ff"/><circle cx="228" cy="142" r="13" fill="#ffbd4a"/><path d="m150 218 58 42-58 42M254 310h92" fill="none" stroke="url(#frame)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/></g>
   <text x="560" y="272" fill="#f7f7ff" font-family="JetBrains Mono, Menlo, monospace" font-size="124" font-weight="700" letter-spacing="-9">aiup</text>
   <text x="566" y="356" fill="#e8e9ff" font-family="JetBrains Mono, Menlo, monospace" font-size="34">Scan locally. Maintain deliberately.</text>
-  <text x="566" y="418" fill="#9aa0d4" font-family="JetBrains Mono, Menlo, monospace" font-size="24">macOS · 81 managed entries · MIT</text>
+  <text x="566" y="418" fill="#9aa0d4" font-family="JetBrains Mono, Menlo, monospace" font-size="24">macOS · 131 managed entries · MIT</text>
 </svg>

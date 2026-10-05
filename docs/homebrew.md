@@ -47,7 +47,7 @@ On an **on disk** row, press enter.
 For apps:
 
 1. Confirm.
-2. `brew install --cask --adopt` — Homebrew tracks the existing `.app` when it matches.
+2. `brew install --cask --adopt`: Homebrew tracks the existing `.app` when it matches.
 3. If versions differ, aiup asks Homebrew to replace the app bundle with `brew install --cask --force` and does not pass `--zap` or directly delete `~/Library`. Homebrew and vendor installer behavior can still be app-specific, so this is not a universal guarantee about every product's settings.
 
 For command-line tools already on PATH:
