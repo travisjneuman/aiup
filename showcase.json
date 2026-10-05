@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/travisjneuman/travisjneuman/main/showcase/schema/showcase-v1.json",
+  "id": "aiup",
+  "name": "aiup",
+  "status": "active",
+  "statusNote": null,
+  "summary": "Local-first macOS tool manager with an fzf catalog for reviewing, installing, updating, and removing AI and developer tools.",
+  "visibility": "public",
+  "links": {
+    "live": "https://aiup.neuman.dev",
+    "repo": "https://github.com/travisjneuman/aiup"
+  },
+  "stack": [
+    "Bash",
+    "fzf",
+    "Homebrew",
+    "macOS"
+  ],
+  "metrics": [
+    {
+      "value": "131",
+      "label": "Catalog tools",
+      "source": "grep -vcE '^\\s*(#|$)' macos/catalog/manifest.tsv",
+      "round": "exact",
+      "asOf": "2026-10-05"
+    },
+    {
+      "value": "14+",
+      "label": "macOS",
+      "source": "manual: README support baseline table",
+      "round": "exact",
+      "asOf": "2026-10-05"
+    },
+    {
+      "value": "0",
+      "label": "Daemons",
+      "source": "grep -rliE 'launchctl|LaunchAgents' . returns nothing (no background service)",
+      "round": "exact",
+      "asOf": "2026-10-05"
+    }
+  ],
+  "updated": "2026-10-05"
+}
