@@ -11,22 +11,19 @@ aiup accepts focused fixes, documentation improvements, and evidence-backed cata
 5. Preserve exact-path, preview-first, confirmation-gated, Trash-recoverable behavior for app-bundle cleanup.
 6. Do not silently add or trust a new Homebrew tap. An already installed tap represents prior user approval; a missing required tap must prompt before addition.
 
-## Validate the change
+## Refresh facts and review the change
 
-Run the narrowest relevant checks and report exactly what ran:
+For a catalog source change, perform the real text refresh and review its diff:
 
 ```bash
-scripts/sync-public-docs
-scripts/check-catalog-contracts
-scripts/check-site
-scripts/capture-media --check
-scripts/build-brand-assets --check
-scripts/test-aiup-launcher
-scripts/test-aiup
-git diff --check
+scripts/sync-public-docs --skip-media
+git diff
 ```
 
-Run `scripts/sync-public-docs` twice when generated catalog facts change and confirm the second run is clean. Do not regenerate accepted media or brand assets unless the issue explicitly requires and reviews that work.
+This writes public outputs. It is not a check, test, or dry run. Report what
+actually ran and keep evidence separate from source-review conclusions.
+
+When catalog producer inputs change, run `scripts/sync-public-docs --skip-media` once after edits finish and include its generated outputs, especially `showcase.json`, in the same commit. Review the diff instead of running another export just to check it. The default invocation also copies accepted canonical media; neither invocation generates media. Count-bearing social images need a separately authorized media task. See [public catalog facts](docs/public-catalog-facts.md). Run tests/checks only when the owner explicitly asks for them; a source refresh is not a test gate.
 
 ## Pull requests
 

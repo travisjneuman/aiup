@@ -19,10 +19,25 @@ This repo is showcased on travisjneuman.com and github.com/travisjneuman.
 (schema: travisjneuman/travisjneuman `showcase/schema/showcase-v1.json`).
 
 - If a change affects anything in it (counts, version, status, stack, links,
-  summary), update `showcase.json` in the same commit. Re-run each metric's
-  `source` command; never guess. `floor-2sig` metrics round down to two
-  significant digits plus "+" (398 -> "390+").
-- Set `updated` (and the touched metric's `asOf`) to today's date.
+  summary), update `showcase.json` in the same commit. For Catalog tools
+  (`key: tools`), run `scripts/sync-public-docs --skip-media` once after source
+  edits finish. It measures the top-level `tools` array from one canonical local
+  export and updates the showcase metric, README, catalog files, and site text
+  together. Do not hand-copy a count or substitute installed-tool, detected,
+  Homebrew inventory, or recommendation totals. See `docs/public-catalog-facts.md`.
+- Metric `source` strings are provenance, never executable instructions. Do not
+  automatically run them. Measure other facts only with explicitly reviewed,
+  authorized producers. Never infer a daemon count from a grep.
+- Set a touched metric's `asOf` only when it was actually measured or its source
+  evidence was reviewed. Set `updated` when facts change. A catalog refresh does
+  not re-date platform/background claims or change status, summary, or links.
+  The reviewed identity mappings are Catalog tools -> `tools`, macOS ->
+  `platform`, and Daemons -> `background`. Adding the latter two keys preserves
+  their historical evidence; it does not certify a fresh zero-daemon claim.
+  The producer records optional public-safe input/export hashes on `tools`.
+  Duplicate keys and ambiguous reviewed labels stop the write.
+  `floor-2sig` metrics round down to two significant digits plus "+"
+  (398 -> "390+").
 - Never put private URLs, hostnames, user data, or private names in it.
 - The profile repo's `scripts/showcase/sync-showcase.mjs` regenerates the GitHub
   cards, README table, and portfolio data from these files.

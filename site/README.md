@@ -9,7 +9,8 @@ Do not publish it directly with Wrangler.
 The homepage is deliberately a minimal GitHub-first stage:
 
 - `index.html` presents the aiup lockup, the continuously looping TUI animation, its
-  reduced-motion poster, and one GitHub repository destination;
+  reduced-motion poster, one GitHub repository destination, and an exported
+  curated-catalog total;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;
 - `catalog.json` remains generated from `macos/aiup` for machine-readable
@@ -23,9 +24,12 @@ The homepage is deliberately a minimal GitHub-first stage:
 
 `README.md` is the public explanatory destination for installation, product
 behavior, catalog scope, lifecycle, and safety. `scripts/sync-public-docs`
-continues to generate README/catalog documentation, `site/catalog.json`, and
-the canonical media mirror; it does not inject marketing or catalog markup
-into `site/index.html`.
+generates README/catalog documentation, `site/catalog.json`, the Catalog tools
+metric in `showcase.json`, and site JSON-LD, social alt catalog context, `llms.txt`,
+and the small visible catalog total from one local JSON export. It does not add
+a catalog table or marketing sections. The default also mirrors accepted media;
+`--skip-media` leaves all media untouched. No invocation regenerates images.
+See [public catalog facts](../docs/public-catalog-facts.md).
 
 The page has no JavaScript. The default GIF, reduced-motion picture source, and
 GitHub destination therefore remain useful without a runtime behavior layer.
@@ -34,16 +38,21 @@ narrative continuously. Because its expanded narrative lasts longer than five se
 playback control is present by owner direction, the page has a known WCAG 2.2.2
 limitation and does not claim complete WCAG conformance.
 
-## Validate
+## Refresh public facts
 
-From the repository root:
+From the repository root, after catalog source edits finish:
 
 ```bash
-scripts/sync-public-docs
-scripts/check-site
-scripts/capture-media --check
-scripts/build-brand-assets --check
+scripts/sync-public-docs --skip-media
 ```
+
+This is a real write, not a check or dry run. Include its outputs in the same
+commit as the source change. Use `scripts/sync-public-docs` without the flag only
+when the accepted canonical media should also be copied to `site/media`.
+
+## Validation (only when explicitly requested)
+
+Do not run tests, media checks, or brand generation as an automatic refresh gate.
 
 `scripts/check-site` uses Python's standard library. It validates the minimal
 visible contract, metadata and JSON-LD, absence of animation controls and

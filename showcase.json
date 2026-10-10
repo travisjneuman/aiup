@@ -20,24 +20,36 @@
     {
       "value": "131",
       "label": "Catalog tools",
-      "source": "grep -vcE '^\\s*(#|$)' macos/catalog/manifest.tsv",
+      "source": "local export: macos/aiup catalog --json; length of top-level tools (curated manifest entries). Refresh: scripts/sync-public-docs --skip-media",
       "round": "exact",
-      "asOf": "2026-10-05"
+      "asOf": "2026-10-10",
+      "key": "tools",
+      "provenance": {
+        "producer": "scripts/sync-public-docs",
+        "catalogCommand": "macos/aiup catalog --json",
+        "population": "top-level tools: curated manifest entries",
+        "runtimeVersion": "2026.09.29-06",
+        "runtimeSha256": "c13d285070887da4b07b519e6d5099020e33e91e1441c6eb92f2cc5971021f37",
+        "manifestSha256": "4aa6c98e9999c647e48c2940ad3f63461dbaa2d06e980b0c5a738596376eaf43",
+        "exportSha256": "dccd9250691e768cb28b89a5221b8e50aea302f8f256e7fc546a6e595890281b"
+      }
     },
     {
       "value": "14+",
       "label": "macOS",
       "source": "manual: README support baseline table",
       "round": "exact",
-      "asOf": "2026-10-05"
+      "asOf": "2026-10-05",
+      "key": "platform"
     },
     {
       "value": "0",
       "label": "Daemons",
       "source": "grep -rliE 'launchctl|LaunchAgents' . returns nothing (no background service)",
       "round": "exact",
-      "asOf": "2026-10-05"
+      "asOf": "2026-10-05",
+      "key": "background"
     }
   ],
-  "updated": "2026-10-05"
+  "updated": "2026-10-10"
 }

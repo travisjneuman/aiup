@@ -1,6 +1,6 @@
 # Catalog (2026.09.29-06)
 
-Generated from `macos/aiup` via `aiup catalog --markdown`.
+Generated from `macos/aiup` via `scripts/sync-public-docs` (one `catalog --json` export).
 
 ## ⚙️ infra
 

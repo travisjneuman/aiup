@@ -1,90 +1,316 @@
 #!/usr/bin/env bash
-# Rebuild public catalog files and canonical media mirrors from macos/aiup.
+# Refresh public text from one local catalog export; optionally mirror accepted media.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-AIUP="$ROOT/macos/aiup"
-[ -x "$AIUP" ] || { echo "missing $AIUP" >&2; exit 1; }
-
-mkdir -p "$ROOT/site" "$ROOT/docs"
-"$AIUP" catalog --json > "$ROOT/site/catalog.json"
-"$AIUP" catalog --markdown > "$ROOT/docs/catalog.md"
-
-python3 - "$ROOT" <<'PY'
+case "${1:-}" in
+  '') [ "$#" -eq 0 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; MEDIA=copy ;;
+  --skip-media) [ "$#" -eq 1 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; MEDIA=skip ;;
+  -h|--help) [ "$#" -eq 1 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; printf '%s\n' 'Usage: scripts/sync-public-docs [--skip-media]' 'Writes catalog JSON/Markdown, README catalog block, showcase Catalog tools, and site text metadata/count.' 'Default: also copies accepted docs/media assets to site/media. --skip-media: no media reads or writes.' 'Uses one local macos/aiup catalog --json export. No launcher, inventory scan, install, update, or network.'; exit 0 ;;
+  *) echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2 ;;
+esac
+command -v python3 >/dev/null || { echo 'python3 is required for scripts/sync-public-docs' >&2; exit 1; }
+python3 - "$ROOT" "$MEDIA" <<'PY'
+import datetime
+import hashlib
+import html
 import json
+import os
 import pathlib
 import re
+import subprocess
 import sys
+import tempfile
 
 root = pathlib.Path(sys.argv[1])
-data = json.loads((root / "site" / "catalog.json").read_text())
-body = []
-for category in data["categories"]:
-    if category["id"].startswith("homebrew/"):
-        continue
-    tools = category.get("tools") or []
-    count = len(tools)
-    if category["id"] == "homebrew":
-        size = "your Mac + recommended"
-    elif count == 1:
-        size = "1 tool"
-    else:
-        size = f"{count} tools"
-    body.append(
-        f"| {category.get('emoji', '')} | **{category['id']}** | "
-        f"{category.get('blurb', '')} | {size} |"
-    )
+copy_media = sys.argv[2] == 'copy'
 
-table = "\n".join([
-    "",
-    f"_**{data['version']}** · **{len(data['tools'])}** tools in the main catalog. "
-    "Generated from " + chr(96) + "macos/aiup" + chr(96) + "._",
-    "",
-    "| | Category | What | Size |",
-    "|---|---|---|---|",
-    *body,
-    "",
-])
-readme_path = root / "README.md"
-readme = readme_path.read_text()
-if "<!-- CATALOG:START -->" not in readme or "<!-- CATALOG:END -->" not in readme:
-    raise SystemExit("README.md missing CATALOG markers")
-readme = re.sub(
-    r"<!-- CATALOG:START -->.*?<!-- CATALOG:END -->",
-    "<!-- CATALOG:START -->" + table + "<!-- CATALOG:END -->",
-    readme,
-    count=1,
-    flags=re.S,
+
+def fail(message):
+    raise SystemExit(f'sync-public-docs: {message}')
+
+
+def read_text(relative):
+    path = root / relative
+    if path.is_symlink() or not path.is_file():
+        fail(f'missing regular source file: {relative}; restore it before refreshing')
+    try:
+        return path.read_bytes().decode('utf-8')
+    except (OSError, UnicodeError):
+        fail(f'cannot read UTF-8 source: {relative}; restore access and encoding before refreshing')
+
+
+def load_json(text, source):
+    def unique_fields(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                fail(f'{source}: duplicate JSON field; resolve ambiguous input before refreshing')
+            result[key] = value
+        return result
+
+    try:
+        data = json.loads(text, object_pairs_hook=unique_fields)
+    except json.JSONDecodeError:
+        fail(f'{source}: invalid JSON; repair the source before refreshing. No public files were written.')
+    if not isinstance(data, dict):
+        fail(f'{source}: expected a JSON object')
+    return data
+
+
+def replace_once(text, pattern, replacement, source):
+    matches = list(re.finditer(pattern, text, flags=re.S))
+    if len(matches) != 1:
+        fail(f'{source}: expected exactly one {pattern!r}; restore the export template before refreshing')
+    match = matches[0]
+    value = replacement(match) if callable(replacement) else replacement
+    return text[:match.start()] + value + text[match.end():]
+
+
+# Load every source and preflight every destination before invoking the producer.
+# No public output is truncated if an input, marker, or export is missing/invalid.
+inputs = {name: read_text(name) for name in (
+    'macos/aiup', 'macos/catalog/manifest.tsv', 'README.md', 'showcase.json',
+    'site/index.html', 'site/llms.txt',
+)}
+outputs = ('site/catalog.json', 'docs/catalog.md', 'README.md', 'showcase.json',
+           'site/index.html', 'site/llms.txt')
+media_names = (
+    'aiup-list.gif', 'aiup-list-poster.png', 'aiup-list-collapsed.png',
+    'aiup-list-homebrew.png', 'aiup-list-adopt.png', 'aiup-list-search.png',
 )
-if readme_path.read_text() != readme:
-    readme_path.write_text(readme)
-site_path = root / "site" / "index.html"
-site_html = site_path.read_text()
-updated_html = re.sub(r'("softwareVersion":\s*)"[^"]*"', lambda m: m[1] + json.dumps(data["version"]), site_html)
-if updated_html != site_html:
-    site_path.write_text(updated_html)
-print(f"synced catalog {data['version']} ({len(data['tools'])} tools)")
-PY
+media = {}
+if copy_media:
+    for name in media_names:
+        source = root / 'docs/media' / name
+        if source.is_symlink() or not source.is_file():
+            fail(f'missing canonical media asset: docs/media/{name}; restore it or use --skip-media for text only')
+        media[f'site/media/{name}'] = source.read_bytes()
+for name in (*outputs, *media):
+    path = root / name
+    if path.is_symlink() or (path.exists() and not path.is_file()):
+        fail(f'output is not a regular file: {name}')
+    if path.parent.is_symlink() or not path.parent.is_dir():
+        fail(f'missing regular output directory: {path.parent.relative_to(root)}; restore it before refreshing')
+    if not os.access(path.parent, os.W_OK):
+        fail(f'output directory is not writable: {path.parent.relative_to(root)}')
 
-python3 - "$ROOT" <<'PY'
-import pathlib
-import shutil
-import filecmp
-import sys
+showcase = load_json(inputs['showcase.json'], 'showcase.json')
+metrics = showcase.get('metrics', [])
+if not isinstance(metrics, list) or not all(isinstance(m, dict) for m in metrics):
+    fail('showcase.json metrics must be an array of objects')
+seen_keys = set()
+for m in metrics:
+    for field in ('value', 'label', 'source', 'asOf'):
+        if not isinstance(m.get(field), str) or not m[field].strip():
+            fail(f'showcase.json metrics need nonempty string {field} fields')
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', m['asOf']):
+        fail('showcase.json metric asOf must use YYYY-MM-DD')
+    try:
+        datetime.date.fromisoformat(m['asOf'])
+    except ValueError:
+        fail('showcase.json metric asOf must be a valid ISO date')
+    if m.get('round') not in ('exact', 'floor-2sig'):
+        fail('showcase.json metric round must be exact or floor-2sig')
+    if 'provenance' in m and not isinstance(m['provenance'], dict):
+        fail('showcase.json metric provenance must be an object')
+    if 'key' in m:
+        key = m['key']
+        if not isinstance(key, str) or not re.fullmatch(r'[a-z][a-z0-9-]*', key):
+            fail('showcase.json metric key must be a stable lowercase identity')
+        if key in seen_keys:
+            fail('showcase.json has duplicate metric keys; resolve ambiguous metrics first')
+        seen_keys.add(key)
+# These are reviewed identity mappings, not fresh platform/background evidence.
+# Require both key and label to agree; never silently steal a different metric.
+owned_metrics = {}
+for label, key in (('Catalog tools', 'tools'), ('macOS', 'platform'), ('Daemons', 'background')):
+    matching = [m for m in metrics if m.get('key') == key or m['label'] == label]
+    if len(matching) != 1 or matching[0]['label'] != label or matching[0].get('key', key) != key:
+        fail(f'showcase.json needs exactly one {label} metric (key: {key}); resolve ambiguous metrics first')
+    owned_metrics[key] = matching[0]
+metric = owned_metrics['tools']
+# Validate owned text slots now as well as while rendering them below.
+readme_pattern = r'<!-- CATALOG:START -->.*?<!-- CATALOG:END -->'
+visible_pattern = r'<!-- CATALOG-COUNT:START -->.*?<!-- CATALOG-COUNT:END -->'
+json_ld_pattern = r'(<script type="application/ld\+json">\s*)(.*?)(\s*</script>)'
+llms_pattern = r'Version [^\s]+ contains \d+ reviewed entries\.'
+alt_patterns = [rf'(<meta {attr}="{key}" content=")[^"]*("\s*/>)'
+                for attr, key in (('property', 'og:image:alt'), ('name', 'twitter:image:alt'))]
+for name, pattern in [('README.md', readme_pattern), ('site/index.html', visible_pattern),
+                      ('site/index.html', json_ld_pattern), ('site/llms.txt', llms_pattern),
+                      *(('site/index.html', p) for p in alt_patterns)]:
+    replace_once(inputs[name], pattern, lambda m: m[0], name)
+structured = load_json(re.search(json_ld_pattern, inputs['site/index.html'], re.S)[2], 'site/index.html JSON-LD')
+graph = structured.get('@graph', [])
+if not isinstance(graph, list) or not all(isinstance(entry, dict) for entry in graph):
+    fail('site/index.html JSON-LD @graph must be an array of objects')
+software = [entry for entry in graph if entry.get('@type') == 'SoftwareApplication']
+if len(software) != 1:
+    fail('site/index.html needs exactly one SoftwareApplication JSON-LD entry')
 
-root = pathlib.Path(sys.argv[1])
-source = root / "docs" / "media"
-destination = root / "site" / "media"
-destination.mkdir(parents=True, exist_ok=True)
-names = [
-    "aiup-list.gif", "aiup-list-poster.png", "aiup-list-collapsed.png",
-    "aiup-list-homebrew.png", "aiup-list-adopt.png", "aiup-list-search.png",
-]
-for name in names:
-    source_path = source / name
-    if not source_path.is_file():
-        raise SystemExit(f"missing canonical media asset: {source_path}")
-    target = destination / name
-    if not target.is_file() or not filecmp.cmp(source_path, target, shallow=False):
-        shutil.copyfile(source_path, target)
-print(f"synced {len(names)} canonical media assets")
+# Pin the canonical manifest and ignore inherited runtime/test/session overrides.
+# Never interpret showcase metric source strings as commands.
+env = {k: v for k, v in os.environ.items()
+       if not k.startswith('AIUP_') and k not in ('BASH_ENV', 'ENV', 'SHELLOPTS', 'BASHOPTS')}
+env['AIUP_CATALOG_MANIFEST'] = str(root / 'macos/catalog/manifest.tsv')
+aiup = root / 'macos/aiup'
+if not os.access(aiup, os.X_OK):
+    fail('macos/aiup is not executable; restore its executable permission')
+try:
+    exported = subprocess.run([str(aiup), 'catalog', '--json'], cwd=root, env=env,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                              encoding='utf-8', check=True)
+except (subprocess.CalledProcessError, OSError, UnicodeError):
+    fail('local macos/aiup catalog --json failed; review the runtime/manifest version pair and macOS 14+/Bash 3+/Python 3/curl prerequisites. No public files were written.')
+data = load_json(exported.stdout, 'local catalog export')
+if data.get('name') != 'aiup' or not isinstance(data.get('version'), str) or not data['version']:
+    fail('local export is missing the aiup name/version')
+if not isinstance(data.get('tools'), list) or not data['tools']:
+    fail('local export needs a nonempty top-level tools array')
+if not isinstance(data.get('categories'), list) or not data['categories'] or not isinstance(data.get('recommended'), list):
+    fail('local export needs a nonempty categories array and a recommended array')
+
+
+def require_records(records, fields, source):
+    if not isinstance(records, list):
+        fail(f'{source}: expected an array of objects')
+    for record in records:
+        if not isinstance(record, dict):
+            fail(f'{source}: expected an array of objects')
+        for field in fields:
+            if not isinstance(record.get(field), str) or not record[field].strip():
+                fail(f'{source}: each record needs a nonempty string {field}')
+
+
+require_records(data['tools'], ('id', 'category', 'kind', 'lifecycle', 'docs', 'label'), 'local export tools')
+require_records(data['categories'], ('id',), 'local export categories')
+require_records(data['recommended'], ('id', 'kind', 'label'), 'local export recommended')
+category_ids = set()
+for category in data['categories']:
+    if category['id'] in category_ids:
+        fail('local export has duplicate category identities')
+    category_ids.add(category['id'])
+    for field in ('emoji', 'blurb'):
+        if not isinstance(category.get(field), str):
+            fail(f'local export categories need string {field} fields')
+    require_records(category.get('tools'), ('id', 'label'), 'local export category tools')
+    expected = [tool for tool in data['tools'] if tool['category'] == category['id']]
+    if category['tools'] != expected:
+        fail('local export category tools disagree with the top-level curated tools')
+if 'homebrew' not in category_ids or any(tool['category'] not in category_ids for tool in data['tools']):
+    fail('local export is missing a required category')
+recommendation_ids = [(rec['kind'], rec['id']) for rec in data['recommended']]
+if len(set(recommendation_ids)) != len(recommendation_ids):
+    fail('local export has duplicate recommendation identities')
+# The population is ONLY top-level curated manifest entries. Recommendations,
+# Homebrew inventory, detected-only rows and installed-state counts are separate.
+manifest_ids = [line.split('\t', 1)[0] for line in inputs['macos/catalog/manifest.tsv'].splitlines()
+                if line and not line.startswith('#')]
+ids = [tool['id'] for tool in data['tools']]
+if ids != manifest_ids or len(set(ids)) != len(ids):
+    fail('top-level exported tools do not match unique canonical manifest entries')
+count = len(data['tools'])
+version = data['version']
+
+body = []
+markdown = [f'# Catalog ({version})', '',
+            'Generated from `macos/aiup` via `scripts/sync-public-docs` (one `catalog --json` export).', '']
+for category in data['categories']:
+    if category['id'].startswith('homebrew/'):
+        continue
+    tools = category.get('tools') or []
+    size = 'your Mac + recommended' if category['id'] == 'homebrew' else f'{len(tools)} tool' + ('' if len(tools) == 1 else 's')
+    body.append(f"| {category.get('emoji', '')} | **{category['id']}** | {category.get('blurb', '')} | {size} |")
+    markdown.extend([f"## {category.get('emoji', '')} {category['id']}", '', category.get('blurb', ''), ''])
+    if category['id'] == 'homebrew':
+        markdown.extend(['| Child | What |', '|---|---|'])
+        for child in data['categories']:
+            if child['id'].startswith('homebrew/'):
+                markdown.append(f"| `{child['id'].split('/', 1)[1]}` | {child.get('blurb', '')} |")
+        markdown.extend(['', 'Recommended extras:', '', '| Type | Id | Label |', '|---|---|---|'])
+        for rec in data['recommended']:
+            markdown.append(f"| {rec['kind']} | `{rec['id']}` | {rec['label']} |")
+    else:
+        markdown.extend(['| Id | Label |', '|---|---|'])
+        for tool in tools:
+            markdown.append(f"| `{tool['id']}` | {tool['label']} |")
+    markdown.append('')
+
+table = '\n'.join(['', f'_**{version}** · **{count}** tools in the main catalog. Generated from `macos/aiup`._', '',
+                   '| | Category | What | Size |', '|---|---|---|---|', *body, ''])
+readme = replace_once(inputs['README.md'], readme_pattern,
+                      '<!-- CATALOG:START -->' + table + '<!-- CATALOG:END -->', 'README.md')
+
+# This call actually measured the curated population today. Only identity keys
+# are added to the other reviewed records; their evidence stays historical.
+old_metrics = json.dumps(metrics, sort_keys=True, ensure_ascii=False)
+for key, owned in owned_metrics.items():
+    owned['key'] = key
+provenance = dict(metric.get('provenance', {}))
+provenance.update(
+    producer='scripts/sync-public-docs',
+    catalogCommand='macos/aiup catalog --json',
+    population='top-level tools: curated manifest entries',
+    runtimeVersion=version,
+    runtimeSha256=hashlib.sha256(inputs['macos/aiup'].encode('utf-8')).hexdigest(),
+    manifestSha256=hashlib.sha256(inputs['macos/catalog/manifest.tsv'].encode('utf-8')).hexdigest(),
+    exportSha256=hashlib.sha256(exported.stdout.encode('utf-8')).hexdigest(),
+)
+metric.update(value=str(count), label='Catalog tools', round='exact',
+              source='local export: macos/aiup catalog --json; length of top-level tools (curated manifest entries). Refresh: scripts/sync-public-docs --skip-media',
+              asOf=datetime.date.today().isoformat(), provenance=provenance)
+if json.dumps(metrics, sort_keys=True, ensure_ascii=False) != old_metrics:
+    showcase['updated'] = metric['asOf']
+
+software[0]['softwareVersion'] = version
+properties = software[0].get('additionalProperty', [])
+if not isinstance(properties, list) or not all(isinstance(p, dict) for p in properties):
+    fail('SoftwareApplication additionalProperty must be an array of objects')
+properties = [p for p in properties if p.get('propertyID') != 'catalog-tools']
+properties.append({'@type': 'PropertyValue', 'propertyID': 'catalog-tools',
+                   'name': 'Catalog tools', 'value': count, 'description': 'Curated manifest entries; not installed tools or Homebrew recommendations.'})
+software[0]['additionalProperty'] = properties
+site = replace_once(inputs['site/index.html'], json_ld_pattern,
+                    lambda m: m[1] + json.dumps(structured, indent=2, ensure_ascii=False) + m[3], 'site/index.html')
+site = replace_once(site, visible_pattern,
+                    f'<!-- CATALOG-COUNT:START --><span class="catalog-count" data-catalog-tools="{count}">{count} curated catalog tools</span><!-- CATALOG-COUNT:END -->',
+                    'site/index.html')
+# Catalog context in alt text is generated; it does not certify a rendered
+# social image's embedded text. Count-bearing image artwork is a separate task.
+alt = html.escape(f'aiup terminal mark with the words Your tool stack. One list. Catalog: {count} curated tools.', quote=True)
+for pattern in alt_patterns:
+    site = replace_once(site, pattern, lambda m: m[1] + alt + m[2], 'site/index.html')
+llms = replace_once(inputs['site/llms.txt'], llms_pattern,
+                    f'Version {version} contains {count} reviewed entries.', 'site/llms.txt')
+texts = {'site/catalog.json': json.dumps(data, indent=2, ensure_ascii=False) + '\n',
+         'docs/catalog.md': '\n'.join(markdown) + '\n', 'README.md': readme,
+         'showcase.json': json.dumps(showcase, indent=2, ensure_ascii=False) + '\n',
+         'site/index.html': site, 'site/llms.txt': llms}
+# Refuse a producer/input edit during the export before staging any output.
+for name, original in inputs.items():
+    if read_text(name) != original:
+        fail(f'{name} changed during export; rerun after source edits finish')
+intended = {name: text.encode('utf-8') for name, text in texts.items()}
+intended.update(media)
+changed = {name: content for name, content in intended.items()
+           if not (root / name).is_file() or (root / name).read_bytes() != content}
+# Precompute everything, then stage all files beside their destinations. A source
+# or staging failure leaves public outputs untouched. Each replacement is atomic;
+# an OS failure during replacement is not a multi-file transaction.
+staged = []
+try:
+    for name, content in changed.items():
+        path = root / name
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f'.{path.name}.sync-', delete=False) as handle:
+            temporary = pathlib.Path(handle.name)
+            staged.append((temporary, path))
+            handle.write(content)
+        os.chmod(temporary, (path.stat().st_mode & 0o777) if path.exists() else 0o644)
+    for temporary, path in staged:
+        os.replace(temporary, path)
+finally:
+    for temporary, _ in staged:
+        temporary.unlink(missing_ok=True)
+print(f'synced catalog {version} ({count} curated tools); {len(changed)} files changed')
+print('media copies skipped; no media regenerated' if not copy_media else f'mirrored {len(media_names)} accepted canonical media assets; no media regenerated')
 PY

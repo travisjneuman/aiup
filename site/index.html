@@ -32,63 +32,76 @@
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="aiup terminal mark with the words Your tool stack. One list. and 131 managed entries" />
+  <meta property="og:image:alt" content="aiup terminal mark with the words Your tool stack. One list. Catalog: 131 curated tools." />
   <link rel="image_src" href="https://aiup.neuman.dev/brand/derived/og.png?v=20260826-03" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="aiup | macOS AI and developer tool manager" />
   <meta name="twitter:description" content="aiup is a local-first macOS terminal interface for scanning, updating, installing, removing, and browsing reviewed AI and developer tools." />
   <meta name="twitter:image" content="https://aiup.neuman.dev/brand/derived/og.png?v=20260826-03" />
-  <meta name="twitter:image:alt" content="aiup terminal mark with the words Your tool stack. One list. and 131 managed entries" />
+  <meta name="twitter:image:alt" content="aiup terminal mark with the words Your tool stack. One list. Catalog: 131 curated tools." />
 
   <link rel="stylesheet" href="/styles.css?v=20260826-03" />
 
   <script type="application/ld+json">
   {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebSite",
-        "@id": "https://aiup.neuman.dev/#website",
-        "url": "https://aiup.neuman.dev/",
-        "name": "aiup",
-        "description": "aiup is a local-first macOS terminal interface for scanning, updating, installing, removing, and browsing reviewed AI and developer tools.",
-        "inLanguage": "en-US",
-        "author": { "@id": "https://aiup.neuman.dev/#author" }
-      },
-      {
-        "@type": "SoftwareApplication",
-        "@id": "https://aiup.neuman.dev/#software",
-        "name": "aiup",
-        "url": "https://aiup.neuman.dev/",
-        "image": "https://aiup.neuman.dev/brand/derived/og.png?v=20260826-03",
-        "logo": "https://aiup.neuman.dev/brand/derived/icon-512.png?v=20260826-03",
-        "description": "A local-first macOS terminal interface for scanning, maintaining, installing, removing, and browsing reviewed AI and developer tools.",
-        "softwareVersion": "2026.09.29-06",
-        "applicationCategory": "DeveloperApplication",
-        "applicationSubCategory": "Software management",
-        "operatingSystem": "macOS 14 or later",
-        "requirements": "macOS 14+, Bash 3+, Python 3, and curl. Homebrew manages the required fzf interface.",
-        "isAccessibleForFree": true,
-        "license": "https://github.com/travisjneuman/aiup/blob/main/LICENSE",
-        "codeRepository": "https://github.com/travisjneuman/aiup",
-        "downloadUrl": "https://github.com/travisjneuman/aiup",
-        "softwareHelp": "https://github.com/travisjneuman/aiup#readme",
-        "author": { "@id": "https://aiup.neuman.dev/#author" },
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
-      },
-      {
-        "@type": "Person",
-        "@id": "https://aiup.neuman.dev/#author",
-        "name": "Travis J. Neuman",
-        "url": "https://github.com/travisjneuman"
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://aiup.neuman.dev/#website",
+      "url": "https://aiup.neuman.dev/",
+      "name": "aiup",
+      "description": "aiup is a local-first macOS terminal interface for scanning, updating, installing, removing, and browsing reviewed AI and developer tools.",
+      "inLanguage": "en-US",
+      "author": {
+        "@id": "https://aiup.neuman.dev/#author"
       }
-    ]
-  }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://aiup.neuman.dev/#software",
+      "name": "aiup",
+      "url": "https://aiup.neuman.dev/",
+      "image": "https://aiup.neuman.dev/brand/derived/og.png?v=20260826-03",
+      "logo": "https://aiup.neuman.dev/brand/derived/icon-512.png?v=20260826-03",
+      "description": "A local-first macOS terminal interface for scanning, maintaining, installing, removing, and browsing reviewed AI and developer tools.",
+      "softwareVersion": "2026.09.29-06",
+      "applicationCategory": "DeveloperApplication",
+      "applicationSubCategory": "Software management",
+      "operatingSystem": "macOS 14 or later",
+      "requirements": "macOS 14+, Bash 3+, Python 3, and curl. Homebrew manages the required fzf interface.",
+      "isAccessibleForFree": true,
+      "license": "https://github.com/travisjneuman/aiup/blob/main/LICENSE",
+      "codeRepository": "https://github.com/travisjneuman/aiup",
+      "downloadUrl": "https://github.com/travisjneuman/aiup",
+      "softwareHelp": "https://github.com/travisjneuman/aiup#readme",
+      "author": {
+        "@id": "https://aiup.neuman.dev/#author"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "additionalProperty": [
+        {
+          "@type": "PropertyValue",
+          "propertyID": "catalog-tools",
+          "name": "Catalog tools",
+          "value": 131,
+          "description": "Curated manifest entries; not installed tools or Homebrew recommendations."
+        }
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://aiup.neuman.dev/#author",
+      "name": "Travis J. Neuman",
+      "url": "https://github.com/travisjneuman"
+    }
+  ]
+}
   </script>
 </head>
 <body>
@@ -114,6 +127,7 @@
       <img src="/brand/derived/mark.svg?v=20260826-03" width="512" height="512" alt="" aria-hidden="true" />
       <span>travisjneuman/aiup</span>
     </a>
+    <!-- CATALOG-COUNT:START --><span class="catalog-count" data-catalog-tools="131">131 curated catalog tools</span><!-- CATALOG-COUNT:END -->
   </footer>
 </body>
 </html>
