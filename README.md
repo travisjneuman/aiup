@@ -290,6 +290,19 @@ In the default automatic cleanup mode, a normal `aiup` run finishes Homebrew uni
 
 AIUP remembers bundle identities observed at their installed locations, scans common app folders, and checks Spotlight for known identities before considering a missing app removed. A matching moved/renamed app is left for review, not cleaned or reinstalled. Unindexed locations, inaccessible folders and apps removed before their identity was ever observed limit what can be established; use review mode when automatic cleanup is unsuitable. These checks do not establish that every copy anywhere on disk has been found.
 
+## Documentation map
+
+| Need / keywords | Open |
+|---|---|
+| Every doc, dated reviews | [docs/README.md](docs/README.md) |
+| Install, PATH, offline, uninstall | [docs/install.md](docs/install.md) |
+| Catalog entries and counts | [docs/catalog.md](docs/catalog.md) · [public catalog facts](docs/public-catalog-facts.md) |
+| Homebrew, taps, adoption | [docs/homebrew.md](docs/homebrew.md) |
+| Privacy and network boundaries | [docs/privacy.md](docs/privacy.md) |
+| Scope, version, next work | [docs/status.md](docs/status.md) |
+| Contribute, report a bug, security | [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md) |
+| Release history | [CHANGELOG.md](CHANGELOG.md) |
+
 ## 📜 License
 
 [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)

@@ -41,7 +41,7 @@ Registered npm sibling commands are read from package.json for managed npm/dedic
 
 ## Evidence and boundaries
 
-Public official Homebrew metadata and Apple/vendor pages were read on TJNMPM through built-in web/API and bounded HTTPS requests. No authenticated source or browser lane was needed; no external mutation occurred. Python HTTPS initially failed local certificate verification; normal curl HTTPS succeeded without weakening TLS or changing certificates. Unresolved candidate package routes (ComfyUI/Aiko) were not converted into guessed installers. Speech generation and additional model-heavy environments remain candidates for a separately verified packaging path.
+Public official Homebrew metadata and Apple/vendor pages were read on the maintainer's Mac through built-in web/API and bounded HTTPS requests. No authenticated source or browser lane was needed; no external mutation occurred. Python HTTPS initially failed local certificate verification; normal curl HTTPS succeeded without weakening TLS or changing certificates. Unresolved candidate package routes (ComfyUI/Aiko) were not converted into guessed installers. Speech generation and additional model-heavy environments remain candidates for a separately verified packaging path.
 
 The catalog contract check passed. Focused fixtures passed bundle identity/receipt routing, manual inspect-only rows, unique identities, managed-view exclusion, protected preview materialization, exclusion from remote update checks, and sibling-path matching that preserves unrelated executables. Live read-only coverage and the media plain list recognized the five installed manual apps. No real vendor install/update/render, broad suite, or benchmark campaign was used. Owner visual acceptance remains separate.
 

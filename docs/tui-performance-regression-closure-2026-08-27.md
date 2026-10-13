@@ -126,7 +126,7 @@ Final task-owned state passed:
 
 ## Remaining limitations
 
-- The required private `_meta.notes` closure record could not be added or published. Its canonical repository was one commit behind `origin/master` with three unrelated untracked paths, and the established `repo-sync pull-safe` preflight returned `blocked-dirty`. Those paths were preserved unchanged.
+- The required private maintainer-notes closure record could not be added or published. That private notes repository was one commit behind `origin/master` with three unrelated untracked paths, and the established safe-pull preflight returned `blocked-dirty`. Those paths were preserved unchanged.
 - Cold authoritative inventory/session creation is intentionally slower than warm list readiness.
 - The full interactive picker includes immutable session and Updates validation; on this run both current and historical sessions exceeded the approximate 1 s investigation threshold, while warm managed/full list readiness passed it.
 - Provider availability and performance outside deterministic fixtures vary by network and upstream service.
@@ -138,4 +138,4 @@ Revert the Prompt 4 source-bearing commit and its subsequent closure-status docu
 
 ## Final decision
 
-**PARTIAL.** Confirmed cache/parser, provider-bound, session-integrity, warm-picker hashing, reload-coalescing, and PTY-harness defects were corrected through the existing architecture, regression-tested, committed, pushed, and published through the established GitHub-connected path. All public source, runtime, performance, command, PTY, media, site, and provider-readback gates passed. The required private `_meta.notes` commit remains blocked by the preserved dirty/behind canonical checkout, so Prompt 4 and the Prompt 1–4 TUI performance workstream are not yet complete.
+**PARTIAL.** Confirmed cache/parser, provider-bound, session-integrity, warm-picker hashing, reload-coalescing, and PTY-harness defects were corrected through the existing architecture, regression-tested, committed, pushed, and published through the established GitHub-connected path. All public source, runtime, performance, command, PTY, media, site, and provider-readback gates passed. The required private maintainer-notes commit remains blocked by the preserved dirty/behind checkout of that private notes repository, so Prompt 4 and the Prompt 1–4 TUI performance workstream are not yet complete.

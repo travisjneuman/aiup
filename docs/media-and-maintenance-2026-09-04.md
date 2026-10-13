@@ -35,7 +35,7 @@ Remotion itself is React video tooling, not an AI model. Media intentionally acc
 
 ## Source evidence
 
-Public official Homebrew pages read through built-in web/API on TJNMPM, 2026-09-04. Capture succeeded; no authenticated read, browser, fallback, or external mutation. This verifies packaging/documentation, not an actual vendor install/render or owner acceptance.
+Public official Homebrew pages read through built-in web/API on the maintainer's Mac, 2026-09-04. Capture succeeded; no authenticated read, browser, fallback, or external mutation. This verifies packaging/documentation, not an actual vendor install/render or owner acceptance.
 
 - [DiffusionBee](https://formulae.brew.sh/cask/diffusionbee): cask `diffusionbee`, `/Applications/DiffusionBee.app`.
 - [Upscayl](https://formulae.brew.sh/cask/upscayl): cask `upscayl`, `/Applications/Upscayl.app`.
