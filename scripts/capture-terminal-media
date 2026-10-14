@@ -1,0 +1,629 @@
+#!/usr/bin/env bash
+# Capture `aiup list` from a real Terminal window, then build the published media set.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PROG='scripts/capture-terminal-media'
+FIXTURE="$ROOT/scripts/fixtures/capture"
+MEDIA="$ROOT/docs/media"
+
+# Catppuccin fzf colors, the same values the 2026-08-26 manifest recorded as
+# fzf_palette. The current manifest says they were replayed through
+# FZF_DEFAULT_OPTS.
+FZF_COLORS='bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8,fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc,marker:#a6e3a1,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8'
+CAPTURE_FZF_OPTS="--height=45% --layout=reverse --border=rounded --color=$FZF_COLORS"
+TERMINAL_PROFILE='Homebrew'
+TERMINAL_COLS=100
+TERMINAL_ROWS=30
+STATES='collapsed search homebrew-hierarchy homebrew adopt'
+
+KEY_DELAY="${AIUP_CAPTURE_KEY_DELAY:-0.7}"
+NAV_DELAY="${AIUP_CAPTURE_NAV_DELAY:-0.2}"
+SETTLE="${AIUP_CAPTURE_SETTLE:-2}"
+START_WAIT="${AIUP_CAPTURE_START_WAIT:-10}"
+PROMPT_WAIT="${AIUP_CAPTURE_PROMPT_WAIT:-5}"
+RETURN_WAIT="${AIUP_CAPTURE_RETURN_WAIT:-12}"
+
+# macOS key codes used with System Events.
+KEY_RETURN=36
+KEY_ESCAPE=53
+KEY_RIGHT=124
+KEY_DOWN=125
+KEY_UP=126
+
+WORK=''
+WID=''
+OUT=''
+CONFIRM=0
+
+usage() {
+  cat <<'EOF'
+Usage: scripts/capture-terminal-media capture OUTDIR [--confirm]
+       scripts/capture-terminal-media assemble SHOTSDIR
+       scripts/capture-terminal-media --help
+
+capture OUTDIR
+  macOS only. Opens a Terminal.app window with the Homebrew profile at 100x30
+  cells and runs macos/aiup list from this checkout against the public capture
+  fixture (scripts/fixtures/capture). The fixture brew and date come first on
+  PATH, FZF_DEFAULT_OPTS holds the Catppuccin palette, and HOME, TMPDIR and the
+  aiup state folder point into a throwaway folder under
+  ~/Library/Caches/aiup-capture-<date>-<time>/. The environment is cleared
+  first, so nothing else from your shell reaches aiup.
+
+  It sends keys to that window and saves each state with
+  screencapture -x -o -l<window id> as OUTDIR/<state>.png:
+
+    collapsed            no keys; the overview as it opens
+    search               ctrl-u, then g e m i n i one key at a time
+    homebrew-hierarchy   ctrl-u, Down until the last row (Detected), Up twice
+                         to Suggestions, Right to expand it (this also
+                         expands Homebrew)
+    homebrew             Down once, to Raycast
+    adopt                Return on Raycast, then wait for the [y/N] prompt
+
+  After the adopt shot it answers n, waits for the picker to return, presses
+  Escape, closes the window, and deletes the throwaway folder. It also writes
+  OUTDIR/capture.txt (the capture date) and OUTDIR/commands.log (every command
+  the fixture brew saw). The GIF's last frame reuses the collapsed shot, so
+  there is no separate final capture.
+
+  Leave the keyboard and mouse alone while it runs. OUTDIR must not be under
+  /tmp or the system temp folder, and it must not already hold these PNGs.
+  A folder outside the repo is best, because the shots are not committed.
+
+  --confirm  Before each shot, wait until you press Return in the shell that
+             runs this script. Use it to check each state by eye.
+
+  Permissions for the app that runs this script (Terminal, iTerm, and so on):
+    Accessibility   System Events keystrokes. Without it, osascript reports it
+                    is not allowed to send keystrokes, and this script stops.
+    Automation      control of Terminal and System Events (macOS asks once).
+    Screen Recording
+                    screencapture of the window. Without it the PNGs show only
+                    the desktop, so look at them before you assemble.
+
+  Timing, in seconds (raise them on a slow Mac; fzf drops characters when keys
+  arrive faster than its reloads):
+    AIUP_CAPTURE_START_WAIT   wait after aiup starts            (default 10)
+    AIUP_CAPTURE_KEY_DELAY    pause after each typed character  (default 0.7)
+    AIUP_CAPTURE_NAV_DELAY    pause after each arrow key        (default 0.2)
+    AIUP_CAPTURE_SETTLE       wait before each shot             (default 2)
+    AIUP_CAPTURE_PROMPT_WAIT  wait for the adoption prompt      (default 5)
+    AIUP_CAPTURE_RETURN_WAIT  wait for the picker after n       (default 12)
+
+assemble SHOTSDIR
+  Reads collapsed, search, homebrew-hierarchy, homebrew and adopt PNGs from
+  SHOTSDIR and writes the six published files into docs/media: the GIF (six
+  frames, 10,780 ms, endless loop) and the five stills (the poster is the
+  search shot). It then updates docs/media/capture-manifest.json: asset hashes,
+  sizes and dimensions, the GIF fields, output_pixels and the captured date.
+  Every other manifest key stays as it is. It writes nothing if the shots
+  differ in size or the GIF is larger than 5 MiB. Needs python3 with Pillow.
+
+  It does not touch site/media. Run scripts/sync-public-docs afterwards to
+  mirror docs/media there, and update the Files table in docs/media/README.md.
+EOF
+}
+
+die() {
+  printf '%s: %s\n' "$PROG" "$*" >&2
+  exit 1
+}
+
+usage_error() {
+  printf '%s: %s\n' "$PROG" "$*" >&2
+  printf 'Usage: %s capture OUTDIR [--confirm] | assemble SHOTSDIR | --help\n' "$PROG" >&2
+  exit 2
+}
+
+check_seconds() {
+  case "$2" in
+    ''|*[!0-9.]*|*.*.*|.*|*.) die "$1 must be a number of seconds, got '$2'" ;;
+  esac
+}
+
+absolute_path() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$PWD" "$1" ;;
+  esac
+}
+
+refuse_temp_path() {
+  local path="$1" label="$2" tmp
+  case "$path" in
+    /tmp|/tmp/*|/private/tmp|/private/tmp/*|/var/folders/*|/private/var/folders/*)
+      die "$label must not be under /tmp or the system temp folder: $path"
+      ;;
+  esac
+  tmp="${TMPDIR:-}"
+  tmp="${tmp%/}"
+  if [ -n "$tmp" ]; then
+    case "$path" in
+      "$tmp"|"$tmp"/*) die "$label must not be under TMPDIR: $path" ;;
+    esac
+  fi
+}
+
+permission_message() {
+  printf '%s\n' "macOS did not let osascript send keystrokes. Give ${TERM_PROGRAM:-the app that runs this script} Accessibility permission in System Settings > Privacy & Security > Accessibility, allow it to control Terminal and System Events under Automation, then run this again."
+}
+
+# Bring the capture window to the front so keys and the active window frame
+# belong to it.
+front_window() {
+  osascript \
+    -e 'on run argv' \
+    -e 'tell application "Terminal"' \
+    -e 'activate' \
+    -e 'set index of window id ((item 1 of argv) as integer) to 1' \
+    -e 'end tell' \
+    -e 'end run' \
+    "$WID" >/dev/null || die "could not bring the capture window to the front"
+}
+
+# Send System Events commands (one per argument) to the capture window.
+send_keys() {
+  local label="$1" file err
+  shift
+  file="$WORK/keys.applescript"
+  {
+    printf 'on run argv\n'
+    printf '  tell application "Terminal"\n'
+    printf '    activate\n'
+    printf '    set index of window id ((item 1 of argv) as integer) to 1\n'
+    printf '  end tell\n'
+    printf '  delay 0.4\n'
+    printf '  tell application "System Events"\n'
+    printf '    %s\n' "$@"
+    printf '  end tell\n'
+    printf 'end run\n'
+  } > "$file"
+  if ! err="$(osascript "$file" "$WID" 2>&1 >/dev/null)"; then
+    case "$err" in
+      *1002*|*-1719*|*-1743*|*'not allowed'*|*'Not authorized'*|*'not authorised'*)
+        die "$(permission_message) ($err)"
+        ;;
+    esac
+    die "sending keys for $label failed: $err"
+  fi
+}
+
+# One character at a time: fzf reloads the list on every change and drops
+# characters that arrive during a reload.
+type_lines() {
+  local text="$1" i
+  TYPE_LINES=()
+  i=0
+  while [ "$i" -lt "${#text}" ]; do
+    TYPE_LINES+=("keystroke \"${text:$i:1}\"" "delay $KEY_DELAY")
+    i=$((i + 1))
+  done
+}
+
+shot() {
+  local state="$1" path
+  path="$OUT/$state.png"
+  if [ "$CONFIRM" -eq 1 ]; then
+    printf 'Check that the capture window shows the %s state, then press Return here. ' "$state" >&2
+    read -r _ </dev/tty || die "no answer on the controlling terminal"
+    front_window
+    sleep 1
+  fi
+  if ! screencapture -x -o -l"$WID" "$path"; then
+    die "screencapture failed for $state. Give ${TERM_PROGRAM:-the app that runs this script} Screen Recording permission in System Settings > Privacy & Security."
+  fi
+  [ -s "$path" ] || die "screencapture wrote nothing for $state"
+  printf 'saved %s\n' "$path"
+}
+
+cleanup() {
+  local status=$? pid
+  set +e
+  if [ -n "$WORK" ] && [ -f "$WORK/pid" ]; then
+    pid="$(sed -n '1p' "$WORK/pid")"
+    case "$pid" in
+      ''|*[!0-9]*) ;;
+      *)
+        if kill -0 "$pid" 2>/dev/null; then
+          kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+          sleep 1
+        fi
+        ;;
+    esac
+  fi
+  if [ -n "$WID" ]; then
+    osascript \
+      -e 'on run argv' \
+      -e 'tell application "Terminal" to close (every window whose id is ((item 1 of argv) as integer))' \
+      -e 'end run' \
+      "$WID" >/dev/null 2>&1
+  fi
+  if [ -n "$WORK" ] && [ -d "$WORK" ]; then
+    case "$WORK" in
+      "$HOME"/Library/Caches/aiup-capture-*) rm -rf "$WORK" ;;
+    esac
+  fi
+  exit "$status"
+}
+
+write_launcher() {
+  local launcher="$1" path_value
+  path_value="$FIXTURE/bin:$ROOT/macos:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+  {
+    printf '#!/bin/bash\n'
+    printf '# Written by %s for one capture run and deleted afterwards.\n' "$PROG"
+    printf 'work=%q\n' "$WORK"
+    printf 'root=%q\n' "$ROOT"
+    cat <<'SH'
+printf '%s\n' "$$" > "$work/pid"
+waited=0
+while [ ! -e "$work/ready" ]; do
+  waited=$((waited + 1))
+  if [ "$waited" -gt 300 ]; then
+    printf 'capture launcher: no start signal\n' >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+cd "$root" || exit 1
+# Tell Terminal the working folder, so the title shows the repo folder name.
+printf '\033]7;file://localhost%s\a' "${root// /%20}"
+clear
+SH
+    printf 'exec /usr/bin/env -i'
+    printf ' %q' \
+      "HOME=$WORK/home" \
+      "TMPDIR=$WORK/tmp" \
+      "AIUP_STATE_DIR=$WORK/state" \
+      "AIUP_CAPTURE_FIXTURE_DIR=$FIXTURE" \
+      "AIUP_CAPTURE_COMMAND_LOG=$WORK/commands.log" \
+      "FZF_DEFAULT_OPTS=$CAPTURE_FZF_OPTS" \
+      "PATH=$path_value" \
+      'LANG=en_US.UTF-8' \
+      'LC_ALL=en_US.UTF-8'
+    printf ' "TERM=${TERM:-xterm-256color}"'
+    printf ' %q list\n' "$ROOT/macos/aiup"
+  } > "$launcher"
+  chmod 700 "$launcher"
+}
+
+open_window() {
+  local launcher="$1" script result
+  script="$WORK/open-window.applescript"
+  cat > "$script" <<'APPLESCRIPT'
+on run argv
+  set launcher to item 1 of argv
+  set colCount to (item 2 of argv) as integer
+  set rowCount to (item 3 of argv) as integer
+  set profileName to item 4 of argv
+  tell application "Terminal"
+    activate
+    set captureTab to do script "exec /bin/bash " & quoted form of launcher
+    set current settings of captureTab to settings set profileName
+    set number of columns of captureTab to colCount
+    set number of rows of captureTab to rowCount
+    delay 0.5
+    set wid to missing value
+    try
+      repeat with candidate in windows
+        if (tabs of candidate) contains captureTab then set wid to id of candidate
+      end repeat
+    end try
+    if wid is missing value then set wid to id of front window
+    return wid
+  end tell
+end run
+APPLESCRIPT
+  if ! result="$(osascript "$script" "$launcher" "$TERMINAL_COLS" "$TERMINAL_ROWS" "$TERMINAL_PROFILE" 2>&1)"; then
+    case "$result" in
+      *-1743*|*'Not authorized'*|*'not allowed'*) die "$(permission_message) ($result)" ;;
+    esac
+    die "could not open the Terminal window with the $TERMINAL_PROFILE profile: $result"
+  fi
+  case "$result" in
+    ''|*[!0-9]*) die "Terminal returned an unexpected window id: $result" ;;
+  esac
+  WID="$result"
+}
+
+find_fzf() {
+  local dir
+  for dir in /opt/homebrew/bin /usr/local/bin /usr/bin /bin; do
+    [ -x "$dir/fzf" ] && return 0
+  done
+  return 1
+}
+
+cmd_capture() {
+  local arg state launcher stamp
+  for arg in "$@"; do
+    case "$arg" in
+      --confirm) CONFIRM=1 ;;
+      -*) usage_error "unknown capture option: $arg" ;;
+      *)
+        [ -z "$OUT" ] || usage_error "capture takes one OUTDIR"
+        OUT="$arg"
+        ;;
+    esac
+  done
+  [ -n "$OUT" ] || usage_error "capture needs an OUTDIR"
+  [ "$(uname -s)" = Darwin ] || die "capture needs macOS (Terminal.app, osascript and screencapture)"
+  for arg in osascript screencapture; do
+    command -v "$arg" >/dev/null || die "capture needs $arg"
+  done
+  find_fzf || die "capture needs fzf in /opt/homebrew/bin, /usr/local/bin, /usr/bin or /bin"
+  [ -x "$ROOT/macos/aiup" ] || die "missing executable macos/aiup in this checkout"
+  [ -f "$FIXTURE/PUBLIC-SAFE" ] && [ -x "$FIXTURE/bin/brew" ] || die "missing public capture fixture: scripts/fixtures/capture"
+  for arg in KEY_DELAY NAV_DELAY SETTLE START_WAIT PROMPT_WAIT RETURN_WAIT; do
+    check_seconds "AIUP_CAPTURE_$arg" "${!arg}"
+  done
+
+  OUT="$(absolute_path "$OUT")"
+  refuse_temp_path "$OUT" OUTDIR
+  mkdir -p "$OUT"
+  OUT="$(cd "$OUT" && pwd -P)"
+  refuse_temp_path "$OUT" OUTDIR
+  case "$OUT" in
+    "$MEDIA"|"$MEDIA"/*|"$ROOT/site/media"|"$ROOT/site/media"/*) die "OUTDIR must be a separate folder; assemble writes docs/media" ;;
+  esac
+  for state in $STATES; do
+    [ ! -e "$OUT/$state.png" ] || die "$OUT/$state.png already exists; use an empty folder"
+  done
+
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  WORK="$HOME/Library/Caches/aiup-capture-$stamp"
+  refuse_temp_path "$WORK" 'the work folder'
+  mkdir -p "$HOME/Library/Caches"
+  trap cleanup EXIT
+  trap 'exit 130' INT TERM
+  mkdir "$WORK" || { WORK=''; die "work folder already exists: $HOME/Library/Caches/aiup-capture-$stamp"; }
+  mkdir "$WORK/home" "$WORK/tmp" "$WORK/state"
+
+  launcher="$WORK/launch.command"
+  write_launcher "$launcher"
+  open_window "$launcher"
+  printf 'capture window id %s\n' "$WID"
+  : > "$WORK/ready"
+  sleep "$START_WAIT"
+
+  # 1. Collapsed overview as it opens.
+  front_window
+  sleep "$SETTLE"
+  shot collapsed
+
+  # 2. Gemini search. ctrl-u first clears any restored query.
+  type_lines gemini
+  send_keys search 'keystroke "u" using control down' "delay $KEY_DELAY" "${TYPE_LINES[@]}"
+  sleep "$SETTLE"
+  shot search
+
+  # 3. Clear the search, go to the last row (Detected), then Up twice:
+  #    More packages, then Suggestions. Right expands Suggestions and its
+  #    parent Homebrew; --track keeps the cursor on Suggestions.
+  send_keys 'clear search' 'keystroke "u" using control down'
+  sleep "$SETTLE"
+  send_keys 'homebrew hierarchy' \
+    'repeat 40 times' "key code $KEY_DOWN" "delay $NAV_DELAY" 'end repeat' \
+    "key code $KEY_UP" "delay $NAV_DELAY" \
+    "key code $KEY_UP" "delay $NAV_DELAY" \
+    "key code $KEY_RIGHT"
+  sleep "$SETTLE"
+  shot homebrew-hierarchy
+
+  # 4. Raycast is the first row under Suggestions (on-disk rows come before
+  #    absent ones).
+  send_keys raycast "key code $KEY_DOWN"
+  sleep "$SETTLE"
+  shot homebrew
+
+  # 5. Return on Raycast starts the switch to Homebrew, which stops at the
+  #    [y/N] prompt before anything runs.
+  send_keys adopt "key code $KEY_RETURN"
+  sleep "$PROMPT_WAIT"
+  front_window
+  sleep "$SETTLE"
+  shot adopt
+
+  # Answer n, wait for the picker to come back, and close it.
+  send_keys 'answer n' 'keystroke "n"' "delay $KEY_DELAY" "key code $KEY_RETURN"
+  sleep "$RETURN_WAIT"
+  send_keys close "key code $KEY_ESCAPE"
+  sleep 3
+
+  printf 'captured=%s\n' "$(date +%Y-%m-%d)" > "$OUT/capture.txt"
+  if [ -f "$WORK/commands.log" ]; then
+    cp "$WORK/commands.log" "$OUT/commands.log"
+  else
+    : > "$OUT/commands.log"
+  fi
+  printf 'Commands the fixture brew saw:\n'
+  sed 's/^/  /' "$OUT/commands.log"
+  if grep -Eq '^brew (install|upgrade|uninstall|trust)( |$)|^brew tap .' "$OUT/commands.log"; then
+    die "the fixture brew saw a mutating command (it refused it). Check the key steps before you use these shots."
+  fi
+  printf 'Look at the PNGs in %s, then run: %s assemble %s\n' "$OUT" "$PROG" "$OUT"
+}
+
+cmd_assemble() {
+  [ "$#" -eq 1 ] || usage_error "assemble takes one SHOTSDIR"
+  local shots
+  shots="$(absolute_path "$1")"
+  [ -d "$shots" ] || die "no such folder: $shots"
+  [ -f "$MEDIA/capture-manifest.json" ] || die "missing docs/media/capture-manifest.json"
+  command -v python3 >/dev/null || die "assemble needs python3"
+  python3 -c 'import PIL.Image' 2>/dev/null || die "assemble needs Pillow for python3 (python3 -m pip install --user Pillow)"
+  python3 - "$ROOT" "$shots" <<'PY'
+import datetime
+import hashlib
+import io
+import json
+import os
+import pathlib
+import re
+import sys
+
+from PIL import Image
+
+root = pathlib.Path(sys.argv[1])
+shots = pathlib.Path(sys.argv[2])
+media = root / "docs" / "media"
+manifest_path = media / "capture-manifest.json"
+GIF_LIMIT = 5 * 1024 * 1024
+SHOT_NAMES = ("collapsed", "search", "homebrew-hierarchy", "homebrew", "adopt")
+STILLS = (
+    ("collapsed", "collapsed"),
+    ("search", "search"),
+    ("search", "poster"),
+    ("homebrew", "homebrew"),
+    ("adopt", "adopt"),
+)
+# (manifest state, shot, duration in ms)
+SEQUENCE = (
+    ("collapsed-overview", "collapsed", 1040),
+    ("gemini-search-update", "search", 2070),
+    ("homebrew-reviewed-hierarchy", "homebrew-hierarchy", 1800),
+    ("raycast-switch-context", "homebrew", 2070),
+    ("safe-confirmation-cancelled", "adopt", 2300),
+    ("stable-final-overview", "final", 1500),
+)
+ASSET_NAMES = (
+    "aiup-list.gif", "aiup-list-collapsed.png", "aiup-list-search.png",
+    "aiup-list-poster.png", "aiup-list-homebrew.png", "aiup-list-adopt.png",
+)
+
+
+def fail(message):
+    raise SystemExit(f"scripts/capture-terminal-media: {message}")
+
+
+if not hasattr(Image, "Quantize") or not hasattr(Image, "Dither"):
+    fail("assemble needs Pillow 9.1 or newer")
+
+
+def unique_fields(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            fail(f"capture-manifest.json has a duplicate key: {key}")
+        result[key] = value
+    return result
+
+
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"), object_pairs_hook=unique_fields)
+except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    fail(f"cannot read docs/media/capture-manifest.json: {error}")
+if not isinstance(manifest, dict) or manifest.get("schema") != 4:
+    fail("docs/media/capture-manifest.json is not the schema 4 manifest this script updates")
+for key in ("assets", "captured", "gif_duration_ms", "gif_frames", "gif_sequence", "output_pixels"):
+    if key not in manifest:
+        fail(f"docs/media/capture-manifest.json has no {key} key")
+if not isinstance(manifest["assets"], dict):
+    fail("docs/media/capture-manifest.json assets is not an object")
+
+captured = datetime.date.today().isoformat()
+info = shots / "capture.txt"
+if info.is_file():
+    match = re.search(r"^captured=(\d{4}-\d{2}-\d{2})$", info.read_text(encoding="utf-8"), flags=re.M)
+    if not match:
+        fail(f"{info} has no captured=YYYY-MM-DD line")
+    captured = match.group(1)
+
+
+def load(name):
+    path = shots / f"{name}.png"
+    if path.is_symlink() or not path.is_file():
+        fail(f"missing screenshot: {path}")
+    with Image.open(path) as image:
+        image.load()
+        return image.convert("RGBA")
+
+
+states = {name: load(name) for name in SHOT_NAMES}
+sizes = {name: image.size for name, image in states.items()}
+if len(set(sizes.values())) != 1:
+    listed = ", ".join(f"{name} {w}x{h}" for name, (w, h) in sizes.items())
+    fail(f"the screenshots are not all the same size ({listed}); nothing was written")
+states["final"] = states["collapsed"]
+
+outputs = {}
+for src, dst in STILLS:
+    buffer = io.BytesIO()
+    states[src].save(buffer, format="PNG", optimize=True)
+    outputs[f"aiup-list-{dst}.png"] = buffer.getvalue()
+
+frames = []
+for _, name, _ in SEQUENCE:
+    rgba = states[name]
+    flat = Image.new("RGB", rgba.size, (0, 0, 0))
+    flat.paste(rgba, mask=rgba.getchannel("A"))
+    p = flat.quantize(colors=255, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE)
+    pal = p.getpalette()[:255 * 3]
+    pal += [0] * (255 * 3 - len(pal)) + [0, 0, 0]
+    p.putpalette(pal)
+    # Index 255 is transparent: it marks the rounded window corners.
+    p.paste(255, mask=rgba.getchannel("A").point(lambda a: 255 if a < 128 else 0))
+    frames.append(p)
+buffer = io.BytesIO()
+frames[0].save(
+    buffer, format="GIF", save_all=True, append_images=frames[1:],
+    duration=[duration for _, _, duration in SEQUENCE], disposal=2,
+    optimize=False, loop=0, transparency=255, include_color_table=True,
+)
+outputs["aiup-list.gif"] = buffer.getvalue()
+if len(outputs["aiup-list.gif"]) > GIF_LIMIT:
+    fail(f"aiup-list.gif would be {len(outputs['aiup-list.gif']):,} bytes, over the 5 MiB limit; nothing was written")
+
+dimensions = {}
+for name, payload in outputs.items():
+    with Image.open(io.BytesIO(payload)) as image:
+        dimensions[name] = list(image.size)
+if len({tuple(size) for size in dimensions.values()}) != 1:
+    fail(f"the built files are not all the same size ({dimensions}); nothing was written")
+if set(outputs) != set(ASSET_NAMES):
+    fail("internal error: the built file names do not match the published set")
+width, height = dimensions["aiup-list.gif"]
+
+for name in ASSET_NAMES:
+    payload = outputs[name]
+    entry = manifest["assets"].setdefault(name, {})
+    entry["bytes"] = len(payload)
+    entry["dimensions"] = [width, height]
+    entry["sha256"] = hashlib.sha256(payload).hexdigest()
+manifest["captured"] = captured
+manifest["gif_frames"] = len(SEQUENCE)
+manifest["gif_duration_ms"] = sum(duration for _, _, duration in SEQUENCE)
+manifest["gif_sequence"] = [
+    {"duration_ms": duration, "state": state} for state, _, duration in SEQUENCE
+]
+manifest["output_pixels"] = [width, height]
+
+
+def replace(path, payload):
+    temp = path.with_name(f".{path.name}.next.{os.getpid()}")
+    temp.write_bytes(payload)
+    os.replace(temp, path)
+
+
+for name in ASSET_NAMES:
+    replace(media / name, outputs[name])
+replace(manifest_path, (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"))
+
+print(f"wrote docs/media ({width}x{height}, captured {captured}):")
+for name in ASSET_NAMES:
+    entry = manifest["assets"][name]
+    print(f"  {name}  {entry['bytes']:,} bytes  {entry['sha256']}")
+print("updated docs/media/capture-manifest.json")
+print("site/media was not touched. Next: update the Files table in docs/media/README.md,")
+print("then run scripts/sync-public-docs to mirror docs/media into site/media.")
+PY
+}
+
+case "${1:-}" in
+  capture) shift; cmd_capture "$@" ;;
+  assemble) shift; cmd_assemble "$@" ;;
+  -h|--help|help) [ "$#" -eq 1 ] || usage_error "--help takes no arguments"; usage ;;
+  '') usage_error "missing subcommand" ;;
+  *) usage_error "unknown subcommand: $1" ;;
+esac

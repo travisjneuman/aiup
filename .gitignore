@@ -7,3 +7,7 @@
 __pycache__/
 .aiup-test.*
 .aiup-launcher-test.*
+# The website video is published from the repo, so it is kept despite
+# global media ignores.
+!docs/media/aiup-brag.mp4
+!site/media/aiup-brag.mp4

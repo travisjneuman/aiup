@@ -60,13 +60,13 @@
       "sha256": "074d59cc9a48ab631f39fa8a972095913586b5bd52f1681d32be30c8c3c0d821"
     },
     "github-social-preview.png": {
-      "bytes": 311884,
+      "bytes": 320903,
       "dimensions": [
         1280,
         640
       ],
       "mode": "RGB",
-      "sha256": "d1c351994521ee91d95166bb57b42de1518c5772158e4367de5b1dcbfe24fbb6"
+      "sha256": "ce0b63a1bc551e4d7134dd78260b33f95bc36ee352caf8b381cf2a019a14af46"
     },
     "icon-192.png": {
       "bytes": 14258,
@@ -131,13 +131,13 @@
       "sha256": "675fcee94c01f6b152b3c5d369e47f241f5d52b4f8e784d9640bd4b4829423e8"
     },
     "og.png": {
-      "bytes": 203770,
+      "bytes": 256843,
       "dimensions": [
         1200,
         630
       ],
       "mode": "RGB",
-      "sha256": "56e67768e2adad282e89aebaf22493944c397964455cacf09f0ce0b2a79a7bbd"
+      "sha256": "be49dff870937947c82b08220ab04a082bb9a196f2b261d7fe5e3987f9b912a4"
     },
     "wordmark.png": {
       "bytes": 44937,
@@ -156,11 +156,9 @@
   "canonical_sources": [
     "app-icon.svg",
     "favicon.svg",
-    "github-social-preview.svg",
     "lockup.svg",
     "mark.svg",
     "maskable-icon.svg",
-    "og.svg",
     "wordmark.svg"
   ],
   "maskable_safe_zone": "visible mark remains within the central 60 percent of each square canvas",
@@ -173,6 +171,6 @@
     "pink": "#ff6ba9",
     "purple": "#c084fc"
   },
-  "renderer": "macOS sips SVG rendering plus Pillow PNG normalization",
+  "renderer": "macOS sips SVG rendering plus Pillow PNG normalization; social cards composed by scripts/build-social-cards",
   "schema": 1
 }

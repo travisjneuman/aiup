@@ -34,8 +34,12 @@ PNG_SPECS = {
     "icon-512.png": ("app-icon.svg", (512, 512), "RGB"),
     "maskable-192.png": ("maskable-icon.svg", (192, 192), "RGB"),
     "maskable-512.png": ("maskable-icon.svg", (512, 512), "RGB"),
-    "og.png": ("og.svg", (1200, 630), "RGB"),
-    "github-social-preview.png": ("github-social-preview.svg", (1280, 640), "RGB"),
+}
+# scripts/build-social-cards composes these from the lockup and a real screenshot.
+# This script only checks them; it never renders them.
+SOCIAL_CARDS = {
+    "og.png": ((1200, 630), "RGB"),
+    "github-social-preview.png": ((1280, 640), "RGB"),
 }
 ROOT_MIRRORS = {
     "favicon.ico": "favicon.ico",
@@ -97,7 +101,7 @@ def write_manifest() -> None:
         "schema": 1,
         "canonical_sources": sorted(path.name for path in SOURCE.glob("*.svg")),
         "archived_original_sha256": ORIGINAL_SHA256,
-        "renderer": "macOS sips SVG rendering plus Pillow PNG normalization",
+        "renderer": "macOS sips SVG rendering plus Pillow PNG normalization; social cards composed by scripts/build-social-cards",
         "palette": {
             "navy": "#0b0c23", "mist": "#e8e9ff", "cyan": "#4de0ff",
             "mint": "#4ef0c4", "purple": "#c084fc", "pink": "#ff6ba9", "amber": "#ffbd4a",
@@ -127,6 +131,13 @@ def validate() -> None:
                 alpha_min, alpha_max = image.getchannel("A").getextrema()
                 if alpha_min != 0 or alpha_max != 255:
                     raise RuntimeError(f"transparent asset lacks expected alpha range: {name}")
+    for name, (size, mode) in SOCIAL_CARDS.items():
+        path = DERIVED / name
+        if not path.is_file():
+            raise RuntimeError(f"missing social card: {name}; run scripts/build-social-cards")
+        with Image.open(path) as image:
+            if image.size != size or image.mode != mode:
+                raise RuntimeError(f"wrong size or mode for {name}: {image.size} {image.mode}")
     with Image.open(DERIVED / "favicon.ico") as icon:
         sizes = set(icon.ico.sizes())
         if sizes != {(16, 16), (32, 32), (48, 48)}:

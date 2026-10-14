@@ -101,6 +101,8 @@ Cached and uncached picker medians are equivalent, proving provider independence
 
 ## PTY and media results
 
+Note (2026-10-14): `scripts/capture-media` now lives at `scripts/archive/capture-media`. This record describes it as it was on 2026-08-27.
+
 `scripts/capture-media --check-layout` passed at 60×18, 80×24, 100×30, 128×40, and 167×47. Updates remained first; 11, 11, 12, 14, and 14 useful catalog rows were visible respectively. Preview was hidden by default only at 60×18 and toggled successfully; other sizes retained a usable preview. Three consecutive matrix runs, each including the 167×47 → 60×18 → 100×30 live resize, passed after reload coalescing and deterministic child-side PTY sizing. Terminal dimensions were respected without resizing, maximizing, or repositioning Terminal. `scripts/capture-media --check` passed without replacing accepted media bytes.
 
 This is automated PTY evidence only. No new visual, physical-device, Safari, actual reduced-motion, screen-reader, assistive-technology, social-preview, or owner acceptance was performed.

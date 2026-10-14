@@ -14,6 +14,14 @@ The owner keeps the canonical copy of this rule; keep this copy word-for-word in
 - No meta talk about the project's public positioning. If something is private, say so once, plainly.
 - Only verified facts and numbers. Employers stay anonymized; named clients need Travis's OK.
 
+## Release after every change (owner rule, 2026-10-14)
+
+Installed launchers run the commit named in `macos/release`, so work left under
+CHANGELOG Unreleased never reaches anyone. After each change: bump `AIUP_VERSION`
+in `macos/aiup` and `# aiup-runtime-version:` in `macos/catalog/manifest.tsv`,
+move Unreleased under the new version, commit and push, run
+`scripts/publish-release`, then commit and push `macos/release`.
+
 ## Showcase facts contract
 
 This repo is showcased on travisjneuman.com and github.com/travisjneuman.

@@ -10,8 +10,9 @@ Do not publish it directly with Wrangler.
 
 The homepage is intentionally minimal and points to GitHub:
 
-- `index.html` presents the aiup lockup, the continuously looping TUI animation, its
-  reduced-motion poster, one GitHub repository destination, and an exported
+- `index.html` presents the aiup lockup, a short video about aiup (only its
+  poster loads until you press play; no autoplay), the continuously looping TUI
+  animation, its reduced-motion poster, one GitHub repository destination, and an exported
   curated-catalog total;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;

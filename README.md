@@ -36,8 +36,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png?v=20261014-01" />
-    <img src="docs/media/aiup-list.gif?v=20261014-01" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1020" height="618" />
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png?v=20261014-02" />
+    <img src="docs/media/aiup-list.gif?v=20261014-02" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1020" height="618" />
   </picture>
 </p>
 
@@ -246,7 +246,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.29-06** · **261** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.10.14-01** · **261** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|

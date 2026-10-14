@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""Compose aiup's Open Graph and GitHub social preview cards from real product media.
+
+Each card puts the brand lockup and tagline next to the real collapsed catalog
+screenshot from docs/media. The cards carry no counts, so they do not go stale
+when the catalog grows.
+
+Usage:
+  scripts/build-social-cards [--assets DIR] [--out DIR] [--font-bold PATH] [--font-regular PATH]
+
+--assets must hold lockup.png and aiup-list-collapsed.png (default: read them
+from this repo). --out defaults to site/brand/derived. After a render, refresh
+site/brand/brand-manifest.json so its hashes match the new files.
+"""
+
+from __future__ import annotations
+
+import argparse
+import pathlib
+
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+NAVY = (11, 12, 35)
+NAVY_HIGH = (22, 24, 62)
+MIST = (232, 233, 255)
+MUTED = (154, 160, 212)
+CYAN = (77, 224, 255)
+PURPLE = (192, 132, 252)
+TAGLINE = ("Your tool stack.", "One list.")
+SUBLINE = "macOS AI and developer tool manager"
+# name: (size, bytes limit or None)
+CARDS = {
+    "og.png": ((1200, 630), None),
+    "github-social-preview.png": ((1280, 640), 1024 * 1024),
+}
+BOLD_CANDIDATES = (
+    "C:/Windows/Fonts/segoeuib.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+)
+REGULAR_CANDIDATES = (
+    "C:/Windows/Fonts/segoeui.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+)
+
+
+def pick_font(explicit: str | None, candidates: tuple[str, ...]) -> str:
+    if explicit:
+        return explicit
+    for candidate in candidates:
+        if pathlib.Path(candidate).is_file():
+            return candidate
+    raise RuntimeError("no usable font found; pass --font-bold and --font-regular")
+
+
+def background(size: tuple[int, int]) -> Image.Image:
+    width, height = size
+    base = Image.new("RGB", size, NAVY)
+    # Vertical lift toward the bottom, then two soft brand glows behind the window.
+    ramp = Image.linear_gradient("L").resize(size)
+    base = Image.composite(Image.new("RGB", size, NAVY_HIGH), base, ramp.point(lambda v: v // 2))
+    glow = Image.new("RGB", size, (0, 0, 0))
+    draw = ImageDraw.Draw(glow)
+    draw.ellipse((int(width * 0.52), int(height * 0.05), int(width * 1.02), int(height * 0.75)), fill=(30, 70, 110))
+    draw.ellipse((int(width * 0.62), int(height * 0.35), int(width * 1.10), int(height * 1.05)), fill=(70, 40, 110))
+    glow = glow.filter(ImageFilter.GaussianBlur(int(height * 0.16)))
+    return ImageChops.add(base, glow)
+
+
+def shadowed(window: Image.Image, blur: int, offset: int) -> tuple[Image.Image, int]:
+    """Return the window on a transparent canvas with a soft drop shadow, plus the padding used."""
+    pad = blur * 3
+    canvas = Image.new("RGBA", (window.width + pad * 2, window.height + pad * 2), (0, 0, 0, 0))
+    alpha = window.getchannel("A") if window.mode == "RGBA" else Image.new("L", window.size, 255)
+    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    shadow_mask = Image.new("L", canvas.size, 0)
+    shadow_mask.paste(alpha.point(lambda v: v * 150 // 255), (pad, pad + offset))
+    shadow_mask = shadow_mask.filter(ImageFilter.GaussianBlur(blur))
+    shadow.putalpha(shadow_mask)
+    canvas = Image.alpha_composite(canvas, shadow)
+    canvas.alpha_composite(window.convert("RGBA"), (pad, pad))
+    return canvas, pad
+
+
+def compose(size: tuple[int, int], lockup: Image.Image, shot: Image.Image, bold: str, regular: str) -> Image.Image:
+    width, height = size
+    card = background(size).convert("RGBA")
+    margin = round(width * 0.055)
+
+    # Real product window on the right, vertically centered.
+    shot_width = round(width * 0.51)
+    shot_height = round(shot.height * shot_width / shot.width)
+    window = shot.convert("RGBA").resize((shot_width, shot_height), Image.Resampling.LANCZOS)
+    framed, pad = shadowed(window, blur=round(height * 0.03), offset=round(height * 0.02))
+    shot_x = width - margin - shot_width
+    shot_y = (height - shot_height) // 2
+    card.alpha_composite(framed, (shot_x - pad, shot_y - pad))
+
+    # Lockup, tagline, and subline on the left.
+    column = shot_x - margin * 2 + round(width * 0.02)
+    lockup = lockup.convert("RGBA")
+    lockup = lockup.crop(lockup.getchannel("A").getbbox())
+    lockup_width = min(column, round(width * 0.32))
+    lockup_height = round(lockup.height * lockup_width / lockup.width)
+    mark = lockup.resize((lockup_width, lockup_height), Image.Resampling.LANCZOS)
+    draw = ImageDraw.Draw(card)
+    title_font = ImageFont.truetype(bold, round(height * 0.078))
+    sub_font = ImageFont.truetype(regular, round(height * 0.036))
+    line_gap = round(height * 0.012)
+    title_heights = [draw.textbbox((0, 0), line, font=title_font)[3] for line in TAGLINE]
+    sub_height = draw.textbbox((0, 0), SUBLINE, font=sub_font)[3]
+    block = lockup_height + round(height * 0.04) + sum(title_heights) + line_gap + round(height * 0.035) + sub_height
+    y = (height - block) // 2
+    card.alpha_composite(mark, (margin, y))
+    y += lockup_height + round(height * 0.04)
+    for line, line_height in zip(TAGLINE, title_heights):
+        draw.text((margin, y), line, font=title_font, fill=MIST)
+        y += line_height + line_gap
+    y += round(height * 0.035) - line_gap
+    draw.text((margin, y), SUBLINE, font=sub_font, fill=MUTED)
+
+    # Thin brand rule along the bottom edge.
+    rule = Image.linear_gradient("L").rotate(90, expand=True).resize((width, 4))
+    stripe = Image.composite(Image.new("RGB", (width, 4), CYAN), Image.new("RGB", (width, 4), PURPLE), rule)
+    card.paste(stripe, (0, height - 4))
+    return card.convert("RGB")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--assets", type=pathlib.Path)
+    parser.add_argument("--out", type=pathlib.Path, default=ROOT / "site" / "brand" / "derived")
+    parser.add_argument("--font-bold")
+    parser.add_argument("--font-regular")
+    args = parser.parse_args()
+
+    if args.assets:
+        lockup_path = args.assets / "lockup.png"
+        shot_path = args.assets / "aiup-list-collapsed.png"
+    else:
+        lockup_path = ROOT / "site" / "brand" / "derived" / "lockup.png"
+        shot_path = ROOT / "docs" / "media" / "aiup-list-collapsed.png"
+    bold = pick_font(args.font_bold, BOLD_CANDIDATES)
+    regular = pick_font(args.font_regular, REGULAR_CANDIDATES)
+    args.out.mkdir(parents=True, exist_ok=True)
+
+    with Image.open(lockup_path) as lockup, Image.open(shot_path) as shot:
+        for name, (size, limit) in CARDS.items():
+            card = compose(size, lockup, shot, bold, regular)
+            destination = args.out / name
+            card.save(destination, format="PNG", optimize=True)
+            written = destination.stat().st_size
+            if limit is not None and written >= limit:
+                raise RuntimeError(f"{name} is {written} bytes; the limit is {limit}")
+            print(f"{name}: {size[0]}x{size[1]}, {written} bytes")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

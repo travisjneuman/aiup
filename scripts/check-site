@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 PRODUCTION = "https://aiup.neuman.dev/"
 REPOSITORY = "https://github.com/travisjneuman/aiup"
-CACHE_VERSION = "20261014-01"
+CACHE_VERSION = "20261014-02"
 GIF_SEQUENCE = [
     {"state": "collapsed-overview", "duration_ms": 1040},
     {"state": "gemini-search-update", "duration_ms": 2070},
@@ -80,7 +80,7 @@ class Document(HTMLParser):
         if tag == "script" and values.get("type") == "application/ld+json":
             self._json_ld = []
             self.json_ld_parts.append(self._json_ld)
-        for attribute in ("href", "src"):
+        for attribute in ("href", "src", "poster"):
             if values.get(attribute):
                 self.references.append((tag, attribute, values[attribute]))
         if values.get("srcset"):
@@ -175,7 +175,7 @@ def validate_metadata(document: Document) -> dict[str, object]:
     require(meta_value(document, "og:image:height", property_name=True) == "630", "Open Graph height drifted")
     og_alt = meta_value(document, "og:image:alt", property_name=True)
     require(og_alt == meta_value(document, "twitter:image:alt"), "social image alt text drifted")
-    require("aiup terminal mark" in og_alt and "131 managed entries" in og_alt, "social image alt is inaccurate")
+    require("aiup logo" in og_alt and "macOS Terminal" in og_alt, "social image alt is inaccurate")
     for key, property_name in (("og:image", True), ("og:image:secure_url", True), ("twitter:image", False)):
         value = meta_value(document, key, property_name=property_name)
         require(value.startswith(PRODUCTION), f"{key} must use an absolute production URL")
@@ -229,7 +229,16 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
         for _, _, url in document.references
         if urllib.parse.urlsplit(url).path.startswith("/media/")
     ]
-    require(media_refs == ["/media/aiup-list-poster.png", "/media/aiup-list.gif"], f"homepage media drifted: {media_refs}")
+    require(media_refs == [
+        "/media/aiup-brag-poster.jpg", "/media/aiup-brag.mp4",
+        "/media/aiup-list-poster.png", "/media/aiup-list.gif",
+    ], f"homepage media drifted: {media_refs}")
+    videos = elements(document, "video")
+    require(len(videos) == 1, "homepage must contain exactly one video")
+    video = videos[0]
+    require("controls" in video and video.get("preload") == "none", "video must show controls and preload nothing")
+    require("autoplay" not in video and "muted" not in video and "loop" not in video, "video must not autoplay or loop")
+    require(video.get("aria-label"), "video needs an aria-label")
     primary = [
         image for image in document.images
         if urllib.parse.urlsplit(image.get("src", "")).path == "/media/aiup-list.gif"
@@ -242,7 +251,7 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
     require((primary_image.get("width"), primary_image.get("height")) == ("1020", "618"), "primary GIF dimensions drifted")
     require(not any(key.startswith("data-") for key in primary_image), "obsolete animation data attributes remain")
 
-    sources = elements(document, "source")
+    sources = [source for source in elements(document, "source") if "srcset" in source]
     require(len(sources) == 1, "primary picture must contain one reduced-motion source")
     require(sources[0].get("media") == "(prefers-reduced-motion: reduce)", "reduced-motion media query drifted")
     require(urllib.parse.urlsplit(sources[0].get("srcset", "")).path == "/media/aiup-list-poster.png", "reduced-motion poster drifted")
@@ -351,7 +360,7 @@ def validate_cache_versions(text: str, error_text: str) -> None:
     require("v=20260825-" not in text + error_text, "stale cache-busting token remains")
     require("v=20260826-01" not in text + error_text, "superseded cache-busting token remains")
     versioned_paths = re.findall(
-        r"(?:https://aiup\.neuman\.dev)?(/[^\s\"']+\.(?:css|js|webmanifest|gif|png|svg|ico)\?v=([0-9-]+))",
+        r"(?:https://aiup\.neuman\.dev)?(/[^\s\"']+\.(?:css|js|webmanifest|gif|png|jpg|mp4|svg|ico)\?v=([0-9-]+))",
         text + error_text,
     )
     require(versioned_paths, "no cache-busted references found")
@@ -390,6 +399,12 @@ def validate_media_and_public_safety() -> None:
             sha256(SITE / "media" / name) == capture_manifest["assets"][name]["sha256"],
             f"canonical media hash drifted: {name}",
         )
+    for name in ("aiup-brag.mp4", "aiup-brag-poster.jpg"):
+        canonical = ROOT / "docs" / "media" / name
+        published = SITE / "media" / name
+        require(canonical.is_file() and published.is_file(), f"media asset is missing: {name}")
+        require(sha256(canonical) == sha256(published), f"docs/site media drift: {name}")
+        require(published.stat().st_size < 5 * 1024 * 1024, f"{name} is over 5 MiB")
     require(image_dimensions(SITE / "media" / "aiup-list.gif") == (1020, 618), "canonical GIF dimensions drifted")
     require(image_dimensions(SITE / "media" / "aiup-list-poster.png") == (1020, 618), "canonical poster dimensions drifted")
     require(

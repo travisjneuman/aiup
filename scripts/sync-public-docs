@@ -77,6 +77,7 @@ outputs = ('site/catalog.json', 'docs/catalog.md', 'README.md', 'showcase.json',
 media_names = (
     'aiup-list.gif', 'aiup-list-poster.png', 'aiup-list-collapsed.png',
     'aiup-list-homebrew.png', 'aiup-list-adopt.png', 'aiup-list-search.png',
+    'aiup-brag.mp4', 'aiup-brag-poster.jpg',
 )
 media = {}
 if copy_media:
@@ -276,9 +277,9 @@ site = replace_once(inputs['site/index.html'], json_ld_pattern,
 site = replace_once(site, visible_pattern,
                     f'<!-- CATALOG-COUNT:START --><span class="catalog-count" data-catalog-tools="{count}">{count} curated catalog tools</span><!-- CATALOG-COUNT:END -->',
                     'site/index.html')
-# Catalog context in alt text is generated; it does not certify a rendered
-# social image's embedded text. Count-bearing image artwork is a separate task.
-alt = html.escape(f'aiup terminal mark with the words Your tool stack. One list. Catalog: {count} curated tools.', quote=True)
+# The social alt describes the card scripts/build-social-cards makes. The card
+# carries no tool count, so the alt carries none either.
+alt = html.escape('aiup logo and the words Your tool stack. One list. next to the aiup catalog list in macOS Terminal.', quote=True)
 for pattern in alt_patterns:
     site = replace_once(site, pattern, lambda m: m[1] + alt + m[2], 'site/index.html')
 llms = replace_once(inputs['site/llms.txt'], llms_pattern,

@@ -99,6 +99,16 @@ a {
   height: auto;
 }
 
+.brag {
+  display: block;
+  width: min(100%, 25rem);
+  height: auto;
+  margin-top: clamp(1rem, 2.5vw, 2rem);
+  aspect-ratio: 16 / 9;
+  border-radius: 0.6rem;
+  background: #000;
+}
+
 .tui {
   margin: 0;
 }
@@ -202,7 +212,15 @@ a {
   }
 
   .identity {
+    width: 100%;
+  }
+
+  .lockup {
     width: min(64vw, 20rem);
+  }
+
+  .brag {
+    width: 100%;
   }
 
   .tui img {
