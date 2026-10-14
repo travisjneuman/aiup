@@ -164,6 +164,13 @@ UPDATE_REPORT_TOOLS=()
 UPDATE_REPORT_BEFORE=()
 UPDATE_REPORT_ROWS=()
 AIUP_VERBOSE=0
+AIUP_JSON=0
+# Parallel npm/uv lanes for one run (lanes_start); never read from the environment.
+AIUP_LANE=0
+AIUP_LANE_DIR=''
+AIUP_LANE_PIDS=''
+AIUP_LANE_TOOLS=''
+AIUP_LANE_RERUN=''
 AIUP_FORCE=0
 AIUP_RESUME_SWITCH=""
 AIUP_PATHS_READY=0
@@ -988,7 +995,7 @@ aiup_npm_pkg_installed() {
 }
 
 npm_install_aiup_latest() {
-  local pkg="$1" name current status
+  local pkg="$1" name current status latest
   ensure_managed_paths
   name="${pkg%@*}"
   # Only skip a healthy install in the target prefix, on a fresh exact match.
@@ -1011,15 +1018,128 @@ PYCODE
     if [ -n "$current" ]; then
       # The registry's small latest document, not npm view, which first
       # writes the package's whole history to npm's cache.
-      IFS=$'\t' read -r _ status _ <<< "$(printf '%s\t%s\tnpm\t%s\n' "$name" "$current" "$name" | live_source_run print 2>/dev/null)"
+      IFS=$'\t' read -r _ status latest <<< "$(printf '%s\t%s\tnpm\t%s\n' "$name" "$current" "$name" | live_source_run print 2>/dev/null)"
       if [ "$status" = current ]; then
         update_status_set current
         info "$name is current ($current); no reinstall needed"
         return 0
       fi
+      if [ "$status" = newer ] && [ -n "$latest" ]; then
+        npm_provenance_gate "$name" "$current" "$latest" || return 0
+      fi
     fi
   fi
-  run_with_heartbeat "npm install -g --prefix $AIUP_NPM_PREFIX $pkg" npm install -g --prefix "$AIUP_NPM_PREFIX" "$pkg"
+  local allow=''
+  allow="$(npm_allow_scripts_arg "$name")"
+  run_with_heartbeat "npm install -g --prefix $AIUP_NPM_PREFIX ${allow:+$allow }$pkg" npm install -g --prefix "$AIUP_NPM_PREFIX" ${allow:+"$allow"} "$pkg"
+}
+
+# npm provenance is a signed record, made by the build service that published
+# a release, that ties the release to the source code and build that made it.
+# When the installed version has one and the new version does not, someone
+# may have published the new version by hand, or from somewhere else (with a
+# stolen login, for example). It is often harmless, so aiup explains and asks
+# before installing it. Without a terminal to ask in, the update waits.
+# Returns 1 when the update should not go ahead (status already set).
+npm_provenance_gate() {
+  local name="$1" installed="$2" latest="$3" result old_user new_user
+  [ "${AIUP_NPM_PROVENANCE_CHECK:-1}" != 0 ] || return 0
+  capture_fixture_enabled && return 0
+  [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] || return 0
+  case "$installed" in ''|*[!0-9A-Za-z.+_-]*) return 0 ;; esac
+  case "$latest" in ''|*[!0-9A-Za-z.+_-]*) return 0 ;; esac
+  result="$(python3 - "$name" "$installed" "$latest" <<'PYPROV'
+import json, subprocess, sys, urllib.parse
+name, installed, latest = sys.argv[1:4]
+def doc(version):
+    # The registry's small document for one version, not the whole history.
+    url = "https://registry.npmjs.org/" + urllib.parse.quote(name, safe="@/") + "/" + urllib.parse.quote(version)
+    out = subprocess.run(["curl", "-fsS", "--proto", "=https", "--connect-timeout", "4", "--max-time", "10", url],
+                         capture_output=True, timeout=15, check=True).stdout
+    return json.loads(out[:8388608])
+def provenance(data):
+    return bool(((data.get("dist") or {}).get("attestations") or {}).get("provenance"))
+def publisher(data):
+    return str((data.get("_npmUser") or {}).get("name") or "unknown")
+try:
+    old, new = doc(installed), doc(latest)
+except (OSError, ValueError, subprocess.SubprocessError):
+    raise SystemExit(0)
+if provenance(old) and not provenance(new):
+    print(publisher(old) + "\t" + publisher(new))
+PYPROV
+)" || return 0
+  [ -n "$result" ] || return 0
+  IFS=$'\t' read -r old_user new_user <<< "$result"
+  warn "$name $latest has no provenance record; the installed $installed has one"
+  if [ "$AIUP_LANE" = 1 ]; then
+    # A parallel lane never prompts; the main sequence runs this tool again.
+    update_status_set foreground
+    return 1
+  fi
+  if [ "${AIUP_KEEP_UI:-0}" = 1 ] || tty_usable; then
+    {
+      printf '\r\033[2K\n  ! %s %s is missing its provenance record\n\n' "$name" "$latest"
+      printf '    What it is: npm releases can carry a signed record from the service\n'
+      printf '    that built them, showing which source code and build made the release.\n'
+      printf '    Your installed %s has one. The new %s does not.\n\n' "$installed" "$latest"
+      printf '    Why it matters: this often just means a maintainer published from their\n'
+      printf '    own computer this time. It can also mean someone else published it, for\n'
+      printf '    example with a stolen npm login.\n\n'
+      if [ "$old_user" = "$new_user" ]; then
+        printf '    Published by: %s (same account as before)\n' "$new_user"
+      else
+        printf '    Published by: %s (the installed version came from %s)\n' "$new_user" "$old_user"
+      fi
+      printf '    Release page: https://www.npmjs.com/package/%s/v/%s\n\n' "$name" "$latest"
+      printf '    If you are not sure, answer N. You keep %s and aiup asks again next time.\n\n' "$installed"
+    } >/dev/tty 2>/dev/null || true
+    if confirm_tty "  Install $name $latest anyway? [y/N] "; then
+      UPDATE_REPORT_NOTE="Installed after you confirmed: $latest has no provenance record."
+      return 0
+    fi
+    update_status_set cancelled
+    UPDATE_REPORT_NOTE="Kept $installed: $latest has no provenance record. aiup resume asks again."
+  else
+    update_status_set deferred
+    UPDATE_REPORT_NOTE="Kept $installed: $latest has no provenance record and needs your OK. Run aiup only $name in a terminal."
+  fi
+  info "$name stays at $installed"
+  return 1
+}
+
+# npm 11.19 and newer hold back the install scripts of a global install's
+# packages until they are allowed by name. These were reviewed one by one:
+# each one downloads or sets up the native program its tool needs, so the
+# tool works right after the update. Every other package's scripts stay
+# blocked, as npm intends.
+npm_allowed_install_scripts() {
+  case "$1" in
+    wrangler) printf 'esbuild,workerd\n' ;;
+    pnpm) printf 'pnpm\n' ;;
+    @remotion/cli) printf 'esbuild\n' ;;
+    @earendil-works/pi-coding-agent|@mariozechner/pi-coding-agent) printf 'esbuild\n' ;;
+    *) printf '\n' ;;
+  esac
+}
+
+# The --allow-scripts option for one package, or nothing when the package has
+# no reviewed list or npm is older than 11.19 (which runs scripts anyway and
+# would not know the option).
+npm_allow_scripts_arg() {
+  local list major minor
+  list="$(npm_allowed_install_scripts "$1")"
+  [ -n "$list" ] || return 0
+  if [ -z "${AIUP_NPM_ALLOW_SCRIPTS_OK:-}" ]; then
+    AIUP_NPM_ALLOW_SCRIPTS_OK=0
+    IFS=. read -r major minor _ <<< "$(npm --version 2>/dev/null)"
+    case "$major.$minor" in
+      *[!0-9.]*|.*|*.) ;;
+      *) if [ "$major" -gt 11 ] || { [ "$major" -eq 11 ] && [ "$minor" -ge 19 ]; }; then AIUP_NPM_ALLOW_SCRIPTS_OK=1; fi ;;
+    esac
+  fi
+  [ "$AIUP_NPM_ALLOW_SCRIPTS_OK" -eq 1 ] || return 0
+  printf -- '--allow-scripts=%s\n' "$list"
 }
 
 # Tools that moved from a Homebrew formula to the npm channel, which publishes
@@ -7688,6 +7808,22 @@ try:
             if not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,39}',name) or not args[1:] or any(t not in ids for t in args[1:]): raise ValueError('Use a simple group name and managed tool IDs')
             data['groups'][name]=list(dict.fromkeys(args[1:]))
         elif action=='group-remove': data['groups'].pop(args[0],None)
+        elif action=='merge':
+            # aiup import: add another Mac's preferences to these. Exclusions
+            # are added, a later hold date wins, a group of the same name is
+            # replaced, and the cleanup setting is taken from the file.
+            incoming=json.loads(args[0])
+            if not isinstance(incoming,dict): raise ValueError('Invalid imported preferences')
+            for tool in incoming.get('excluded') or []:
+                if isinstance(tool,str) and valid_id(tool) and tool not in data['excluded']: data['excluded'].append(tool)
+            data['excluded']=sorted(data['excluded'])
+            for tool,until in (incoming.get('holds') or {}).items():
+                until=datetime.date.fromisoformat(until).isoformat()
+                if valid_id(tool) and until>data['holds'].get(tool,''): data['holds'][tool]=until
+            for name,tools in (incoming.get('groups') or {}).items():
+                kept=[t for t in tools if t in ids] if isinstance(tools,list) else []
+                if re.fullmatch(r'[a-z0-9][a-z0-9-]{0,39}',name) and kept: data['groups'][name]=list(dict.fromkeys(kept))
+            if incoming.get('cleanup') in ('auto','review'): data['cleanup']=incoming['cleanup']
         else: raise ValueError('Unknown preference operation')
         temp=lock/'next.json'
         with temp.open('x') as handle:
@@ -7828,12 +7964,50 @@ cask_plan_line() {
   esac
 }
 
+# The update card for one tool, from cmd_plan's ready_tools/ready_cards.
+plan_ready_card() {
+  local i
+  for ((i=0; i<${#ready_tools[@]}; i++)); do
+    [ "${ready_tools[$i]}" = "$1" ] || continue
+    case "${ready_cards[$i]}" in *$'\t'*) printf '%s\n' "${ready_cards[$i]}" ;; *) printf '%s\tRelease notes were not found.\n' "${ready_cards[$i]}" ;; esac
+    return 0
+  done
+  return 1
+}
+
+# aiup plan: a read-only check first, so tools with an update get their own
+# card with what's new; the rest are grouped. Nothing is installed.
 cmd_plan() {
   inventory_load apps
-  local tool policy path mode
+  local tool policy path mode row status current latest text link i checked=0 up_to_date=''
+  local -a ready_tools=() ready_cards=()
   mode="$(preferences setting cleanup)" || return 1
+  AIUP_CHECK_SILENT=1
+  if cmd_check >/dev/null; then
+    checked=1
+    local ready=''
+    for row in ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"}; do
+      IFS=$'\t' read -r tool status current latest _ <<< "$row"
+      case "$status" in
+        update) ready_tools+=("$tool"); ready_cards+=("$tool · update $current → $latest"); ready="${ready}${tool}"$'\t'"${latest}"$'\n' ;;
+        current|self-updated) up_to_date="${up_to_date}|${tool}|" ;;
+      esac
+    done
+    while IFS=$'\t' read -r tool text link; do
+      for ((i=0; i<${#ready_tools[@]}; i++)); do
+        [ "${ready_tools[$i]}" = "$tool" ] || continue
+        ready_cards[$i]="${ready_cards[$i]}"$'\t'"${text:-Release notes}${link:+ · $link}"
+      done
+    done < <(printf '%s' "$ready" | release_notes_lookup)
+  fi
+  AIUP_CHECK_SILENT=0
   {
-    printf 'Preview only · no packages will change\tThis is an action plan, not a promise that every tool needs an update. Exact download sizes depend on each updater; aiup never replaces an open app. Use aiup check for available-version checks.\n'
+    if [ "$checked" -eq 1 ]; then
+      printf 'Preview only · no packages will change\t%s ready, from a read-only check. Exact download sizes depend on each updater; aiup never replaces an open app. Run aiup to install them.\n' \
+        "${#ready_tools[@]} $([ "${#ready_tools[@]}" -eq 1 ] && printf update || printf updates)"
+    else
+      printf 'Preview only · no packages will change\tThe version check could not run, so this lists what a run would check. Exact download sizes depend on each updater; aiup never replaces an open app.\n'
+    fi
     while IFS= read -r tool; do
       [ -n "$tool" ] || continue
       policy="$(policy_reason "$tool")" || return 1
@@ -7842,6 +8016,9 @@ cmd_plan() {
       elif path="$(brew_missing_app_for_tool "$tool")"; then
         printf '%s · %s cleanup\tApp already removed: %s. Homebrew uninstall hooks run only in auto mode during aiup; no preference purge.\n' "$tool" "$mode" "$path"
       elif path="$(cask_plan_line "$tool")"; then printf '%s\n' "$path"
+      elif row="$(plan_ready_card "$tool")"; then printf '%s\n' "$row"
+      elif case "$up_to_date" in *"|$tool|"*) true ;; *) false ;; esac; then
+        printf '%s · up to date\tNo newer version found. Nothing to download.\n' "$tool"
       else printf '%s · check and update if needed\t%s. Downloads may be required; save work in desktop apps before updating.\n' "$tool" "$(install_method_of "$tool" | sed -e 's/^brew-formula$/Homebrew command-line tools/' -e 's/^brew-cask$/Homebrew apps/' -e 's/^homebrew-node$/Node and npm through Homebrew/' -e 's/^aiup-npm$/AIUP-managed JavaScript tools/' -e 's/^installer$/Official installer or updater/' -e 's/^manual$/Original installation method/')"
       fi
     done < <(installed_update_tools)
@@ -7851,7 +8028,7 @@ mode=sys.argv[1]; groups=collections.OrderedDict()
 for line in sys.stdin:
     title,_,body=line.rstrip("\n").partition("\t")
     name,_,label=title.partition(" · ")
-    if label in ("check and update if needed","current (self-updated)") and mode!="--all":groups.setdefault((label,body),[]).append(name)
+    if label in ("check and update if needed","current (self-updated)","up to date") and mode!="--all":groups.setdefault((label,body),[]).append(name)
     else:print(title+"\t"+body)
 for (label,body),names in groups.items():print(str(len(names))+(" tool" if len(names)==1 else " tools")+" · "+label+"\t"+body+" Examples: "+", ".join(names[:5])+".")
 if groups:print("See each tool\taiup plan --all lists the complete selection.")
@@ -8089,18 +8266,23 @@ if action == "logs":
     if tool:
         row = next(r for r in data["tools"] if r.get("tool")==tool)
         start, end = int(row.get("start",0)), int(row.get("end",0))
-    print(ink("Run log: " + str(log)))
-    with log.open("rb") as handle:
-        handle.seek(max(0,start))
-        remaining = max(0,end-start)
-        while remaining:
-            raw = handle.read(min(65536,remaining))
-            if not raw: break
-            remaining -= len(raw)
-            # Display output as text, not terminal control sequences.
-            text = raw.decode("utf-8", "replace")
-            text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
-            print("".join(c for c in text if c in "\n\t" or (ord(c)>=32 and not 127<=ord(c)<=159)),end="")
+    try:
+        print(ink("Run log: " + str(log)))
+        with log.open("rb") as handle:
+            handle.seek(max(0,start))
+            remaining = max(0,end-start)
+            while remaining:
+                raw = handle.read(min(65536,remaining))
+                if not raw: break
+                remaining -= len(raw)
+                # Display output as text, not terminal control sequences.
+                text = raw.decode("utf-8", "replace")
+                text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+                print("".join(c for c in text if c in "\n\t" or (ord(c)>=32 and not 127<=ord(c)<=159)),end="")
+        sys.stdout.flush()
+    except BrokenPipeError:
+        # The pager was closed before the end of the log.
+        os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
     raise SystemExit(0)
 print(ink("\naiup · history\n"))
 if not selected: print("No matching saved runs.")
@@ -8134,13 +8316,22 @@ text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
 lines = [line.strip() for line in text.splitlines()
          if re.match(r"\s*(?:==>\s*)?(?:npm\s+)?(?:warn(?:ing)?\b|error\b|err!)", line, re.I)
          and not re.search(r"already installed|not upgrading|not linked because \S+ is already linked", line, re.I)]
+held, reviewed_only = [], False
 if lines:
     held = list(dict.fromkeys(re.findall(r"install-scripts\s+(@?[^@\s]+)@\S+\s+\(", text)))
+    # Reviewed scripts the tool does not need (a no-op preinstall, a version
+    # notice) stay blocked without a warning.
+    unneeded = [name for name in held if name in ("@google/genai", "protobufjs")]
+    held = [name for name in held if name not in unneeded]
+    if unneeded and not held:
+        reviewed_only = True
+        lines = [line for line in lines if "install-scripts" not in line]
+if lines:
     if held:
         # npm 11.19+ holds back dependency install scripts until allowed.
         print("npm held back install scripts for " + ", ".join(held[:4]) + (" and more" if len(held) > 4 else "") +
               " (its default protection); if " + sys.argv[4] + " misbehaves, aiup logs " + sys.argv[4] + " shows how to allow them.")
-    elif "install-scripts" in text or "blocked" in text.lower() and "script" in text.lower():
+    elif not reviewed_only and ("install-scripts" in text or "blocked" in text.lower() and "script" in text.lower()):
         print("Setup scripts need review; installation may be incomplete. Run aiup logs " + sys.argv[4] + " for details.")
     else:
         print("; ".join(dict.fromkeys(lines))[:400])
@@ -8178,7 +8369,8 @@ update_report_begin() {
   chmod 600 "$UPDATE_REPORT_LOG"
   printf '%s\n' "$$" > "${UPDATE_REPORT_LOG}.active"
   chmod 600 "${UPDATE_REPORT_LOG}.active"
-  exec 4>&1
+  # Progress goes to fd 4: the terminal normally, nowhere for aiup notify.
+  if [ "${AIUP_CHECK_SILENT:-0}" = 1 ]; then exec 4>/dev/null; else exec 4>&1; fi
   UPDATE_REPORT_ACTIVE=1
   UPDATE_REPORT_STARTED="$(date +%s)"
   if [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -8313,7 +8505,7 @@ print_update_report() {
 import sys, re, textwrap, json, os, time
 from pathlib import Path
 from collections import Counter
-color, width, seconds, logfile, mode, save_only, show_all = sys.argv[1:]
+color, width, seconds, logfile, mode, save_only, show_all, as_json, interrupted = sys.argv[1:]
 color = color == "1"
 width = max(30, min(int(width or 80), 140))
 def ink(text, code):
@@ -8359,6 +8551,17 @@ if mode == "update":
         json.dump(data, handle, indent=2)
     os.replace(temp, target)
 if save_only: raise SystemExit(0)
+if as_json == "1":
+    # --json: the results on fd 6 (the original stdout); progress went to stderr.
+    tools = [{"tool": tool, "result": row[0], "before" if mode == "update" else "installed": row[4],
+              "after" if mode == "update" else "latest": row[5], "note": row[3], "warning": bool(row[8]),
+              **({"duration": row[9]} if mode == "update" else {})} for tool, row in rows.items()]
+    doc = {"schema": "aiup-run-v1" if mode == "update" else "aiup-check-v1", "mode": mode,
+           "duration": int(seconds), "interrupted": interrupted == "1", "counts": counts, "tools": tools}
+    if mode == "update": doc["log"] = logfile
+    with os.fdopen(6, "w") as out:
+        json.dump(doc, out, indent=2); out.write("\n")
+    raise SystemExit(0)
 hidden = not_started = 0
 if mode == "update" and show_all != "1":
     # Current tools (self-updated apps included) and tools an interrupted run
@@ -8411,7 +8614,7 @@ if mode == "update":
     print(ink("  Run log: " + logfile, "38;5;245"))
 else:
     print(ink("  Read-only check · no tools changed", "38;5;245"))
-' "$color" "$width" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" "$UPDATE_REPORT_LOG" "$UPDATE_REPORT_MODE" "${1:-}" "${AIUP_SHOW_UNCHANGED:-0}"
+' "$color" "$width" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" "$UPDATE_REPORT_LOG" "$UPDATE_REPORT_MODE" "${1:-}" "${AIUP_SHOW_UNCHANGED:-0}" "$AIUP_JSON" "$AIUP_INTERRUPTED"
   [ -z "${1:-}" ] || return 0
   rm -f "${UPDATE_REPORT_LOG}.active"
   if [ "$UPDATE_REPORT_MODE" = check ]; then rm -f "$UPDATE_REPORT_LOG"; fi
@@ -9358,6 +9561,13 @@ remove_goose() {
 
 remove_cursor() {
   remove_file_if_exists "$LOCAL_BIN/cursor-agent"
+  # The installer also links "agent"; remove it only when it is Cursor's.
+  case "$(readlink "$LOCAL_BIN/agent" 2>/dev/null)" in
+    */.local/share/cursor-agent/*) remove_file_if_exists "$LOCAL_BIN/agent" ;;
+  esac
+  # The installer's program files (every downloaded version); settings in
+  # ~/.cursor stay.
+  remove_dir_if_exists "$HOME/.local/share/cursor-agent"
 }
 
 remove_qwen() {
@@ -9617,6 +9827,7 @@ confirm_tty() {
     [ -n "${AIUP_TUI_TEST_CONFIRM_LOG:-}" ] && printf '%s\n' "$prompt" >> "$AIUP_TUI_TEST_CONFIRM_LOG"
     case "$AIUP_TUI_TEST_CONFIRM_RESPONSE" in y|Y|yes|YES) return 0 ;; *) return 1 ;; esac
   fi
+  [ "$AIUP_LANE" != 1 ] || return 1
   tty_usable || return 1
   printf '%s' "$prompt" >/dev/tty
   read -r answer </dev/tty || return 1
@@ -10365,7 +10576,379 @@ cmd_check() {
     else UPDATE_REPORT_ROWS+=("$(printf '%s\tunverified\tunknown\tunknown\t38;5;203\tCheck worker did not finish' "${selected[$i]}")"); fi
   done
   profile_mark "parallel provider checks"
+  if [ "${AIUP_CHECK_SILENT:-0}" = 1 ]; then
+    # aiup notify and aiup plan read UPDATE_REPORT_ROWS; a check keeps no log.
+    rm -f "${UPDATE_REPORT_LOG}.active" "$UPDATE_REPORT_LOG"
+    return 0
+  fi
   print_update_report
+  [ "$AIUP_JSON" -eq 1 ] || print_release_notes
+}
+
+# What's new in each ready update. stdin: tool<TAB>new version lines. stdout:
+# tool<TAB>summary<TAB>link. The summary is the release title and its first
+# two lines, from the project's GitHub release when its docs (or its npm or
+# PyPI record) name a GitHub repository; otherwise there is only the link.
+# Answers are kept per version in release-notes/, so a version is looked up
+# once. GitHub is asked without a login (no account quota is used), at most
+# three requests per tool. AIUP_RELEASE_NOTES=0 turns lookups off.
+release_notes_lookup() {
+  local tool version input=''
+  while IFS=$'\t' read -r tool version; do
+    [ -n "$tool" ] && [ -n "$version" ] || continue
+    input="${input}${tool}"$'\t'"${version}"$'\t'"$(catalog_docs_url "$tool")"$'\t'"$(catalog_kind "$tool")"$'\t'"$(catalog_npm_pkg "$tool")"$'\t'"$(catalog_uv_pkg "$tool")"$'\n'
+  done
+  [ -n "$input" ] || return 0
+  if [ "${AIUP_RELEASE_NOTES:-1}" = 0 ] || capture_fixture_enabled || [ -n "${AIUP_FAKE_PROVIDER_COMMAND:-}" ]; then
+    printf '%s' "$input" | awk -F '\t' '{ print $1 "\t\t" $3 }'
+    return 0
+  fi
+  ensure_dir "$STATE_DIR/release-notes" || return 0
+  [ ! -L "$STATE_DIR/release-notes" ] || return 0
+  printf '%s' "$input" | python3 - "$STATE_DIR/release-notes" <<'PYNOTES'
+import json, os, re, subprocess, sys, time, urllib.parse
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+cache = Path(sys.argv[1])
+def clean(text):
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", str(text or ""))
+    return re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", text).strip()
+busy = set()
+def fetch(url):
+    # (HTTP status, parsed body); status 0 when the request failed.
+    try:
+        out = subprocess.run(["curl", "-sS", "--proto", "=https", "--connect-timeout", "4", "--max-time", "10",
+                              "-H", "Accept: application/vnd.github+json", "-w", "\n%{http_code}", url],
+                             capture_output=True, timeout=15)
+        body, _, code = out.stdout[:4194304].rpartition(b"\n")
+        status = int(code or 0) if out.returncode == 0 else 0
+        return status, (json.loads(body) if status == 200 else None)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0, None
+def get(url, tool):
+    status, data = fetch(url)
+    if status in (0, 403, 429) or status >= 500: busy.add(tool)
+    return data if isinstance(data, dict) else {}
+def github(url):
+    m = re.search(r"github\.com[/:]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?(?:[/#?]|$)", url or "")
+    return (m.group(1), m.group(2)) if m else None
+def repo_for(tool, version, docs, kind, npm, uv):
+    found = github(docs)
+    if found: return found
+    if npm and kind not in ("brew-formula", "brew-cask", "uv-tool"):
+        repo = get("https://registry.npmjs.org/" + urllib.parse.quote(npm, safe="@/") + "/" + urllib.parse.quote(version), tool).get("repository")
+        return github(repo.get("url", "") if isinstance(repo, dict) else str(repo or ""))
+    if uv:
+        info = get("https://pypi.org/pypi/" + urllib.parse.quote(uv) + "/json", tool).get("info") or {}
+        for link in list((info.get("project_urls") or {}).values()) + [info.get("home_page") or ""]:
+            if github(str(link)): return github(str(link))
+    return None
+def summary(release):
+    title = clean(release.get("name") or release.get("tag_name"))
+    lines = []
+    for raw in str(release.get("body") or "").splitlines():
+        line = clean(re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", raw))
+        line = re.sub(r"^(?:#+|[-*+]|\d+\.)\s*", "", line).strip(" *_`")
+        if line and line.lower() != title.lower() and not line.lower().startswith(("what's changed", "full changelog", "changelog")):
+            lines.append(line)
+        if len(lines) == 2: break
+    text = title + (": " + "; ".join(lines) if lines else "")
+    return text if len(text) <= 180 else text[:177].rstrip() + "..."
+def lookup(row):
+    tool, version, docs, kind, npm, uv = (row + [""] * 6)[:6]
+    found = re.search(r"\d+(?:\.\d+)+[^\s,;()]*", version)
+    if found: version = found.group(0)
+    key = cache / (re.sub(r"[^A-Za-z0-9_.@-]", "_", tool) + ".json")
+    try:
+        if not key.is_symlink():
+            old = json.loads(key.read_text())
+            # A found release never changes. A miss is asked again after a day,
+            # or after an hour when GitHub was busy or rate limited.
+            wait = 3600 if old.get("busy") else 86400
+            if old.get("version") == version and (old.get("summary") or time.time() - old.get("at", 0) < wait):
+                return tool, old.get("summary", ""), old.get("url") or docs
+    except (OSError, ValueError, AttributeError):
+        pass
+    text, link = "", docs
+    repo = repo_for(tool, version, docs, kind, npm, uv)
+    if repo:
+        base = "https://api.github.com/repos/" + repo[0] + "/" + repo[1] + "/releases/"
+        link = "https://github.com/" + repo[0] + "/" + repo[1] + "/releases"
+        bare = version.lstrip("v")
+        # The version must appear whole: 1.2.0 never matches v11.2.0 or 1.2.01.
+        same = re.compile(r"(?<![\d.])" + re.escape(bare) + r"(?![\d])")
+        for path in ("latest", "tags/v" + bare, "tags/" + bare):
+            status, release = fetch(base + path)
+            if status in (0, 403, 429) or status >= 500:
+                busy.add(tool)
+                break
+            # No latest release at all: the project does not publish releases.
+            if status == 404 and path == "latest": break
+            if not isinstance(release, dict): continue
+            if same.search(str(release.get("tag_name", "")) + " " + str(release.get("name", ""))):
+                text = summary(release)
+                page = str(release.get("html_url") or "")
+                if page.startswith("https://github.com/"): link = page
+                break
+    try:
+        if not key.is_symlink():
+            temp = key.with_suffix(".next")
+            temp.write_text(json.dumps({"version": version, "summary": text, "url": link, "at": time.time(),
+                                        "busy": tool in busy}))
+            os.replace(temp, key)
+    except OSError:
+        pass
+    return tool, text, link
+rows = [line.rstrip("\n").split("\t") for line in sys.stdin if line.strip()]
+with ThreadPoolExecutor(max_workers=6) as pool:
+    for tool, text, link in pool.map(lookup, rows):
+        print(tool, text.replace("\t", " "), clean(link), sep="\t")
+PYNOTES
+}
+
+# The "What's new" lines after aiup check, for tools with an update.
+print_release_notes() {
+  local ready='' row tool status current latest text link shade='' reset=''
+  for row in ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"}; do
+    IFS=$'\t' read -r tool status current latest _ <<< "$row"
+    [ "$status" = update ] && [ -n "$latest" ] || continue
+    ready="${ready}${tool}"$'\t'"${latest}"$'\n'
+  done
+  [ -n "$ready" ] || return 0
+  if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then shade=$'\033[38;5;81m'; reset=$'\033[0m'; fi
+  printf "\n  %sWhat's new%s\n" "$shade" "$reset"
+  while IFS=$'\t' read -r tool text link; do
+    [ -n "$tool" ] || continue
+    printf '  %s%s%s · %s\n' "$shade" "$tool" "$reset" "${text:-release notes}"
+    [ -z "$link" ] || printf '      %s\n' "$link"
+  done < <(printf '%s' "$ready" | release_notes_lookup)
+}
+
+# Cron and launchd start jobs with a short PATH (/usr/bin:/bin). Add the usual
+# Homebrew and per-user command folders so a scheduled aiup notify finds the
+# same tools your shell does.
+notify_path_setup() {
+  local dir
+  for dir in "$LOCAL_BIN" /usr/local/sbin /usr/local/bin /opt/homebrew/sbin /opt/homebrew/bin; do
+    [ -d "$dir" ] || continue
+    case ":$PATH:" in *":$dir:"*) ;; *) PATH="$dir:$PATH" ;; esac
+  done
+  export PATH
+}
+
+# aiup notify: the read-only check from aiup check, then a macOS notification
+# when updates are ready. It installs nothing and schedules nothing; run it
+# from your own cron job or launchd agent (docs/notify.md). It notifies only
+# when the list of ready updates changed since the last notification, unless
+# --always is given. Prints one summary line; exit 0 after a check, 1 when
+# the check could not run, 2 for a usage mistake.
+cmd_notify() {
+  local always=0 result key subtitle body line last="$STATE_DIR/notify-last.txt"
+  case "${1:-}" in
+    --always) always=1 ;;
+    '') ;;
+    *) usage_error "expected: aiup notify [--always]"; return 2 ;;
+  esac
+  AIUP_CHECK_SILENT=1
+  cmd_check || return 1
+  result="$(printf '%s\n' ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"} | python3 -c '
+import re, sys
+def version(text):
+    match = re.search(r"\d+\.\d+[^\s]*", text)
+    return match.group(0) if match else text.strip()
+ready = []
+for line in sys.stdin:
+    fields = line.rstrip("\n").split("\t")
+    if len(fields) >= 4 and fields[1] == "update":
+        ready.append((fields[0], version(fields[2]), version(fields[3])))
+ready.sort()
+key = " ".join(tool + "=" + new for tool, _, new in ready)
+names = [tool for tool, _, _ in ready]
+if not ready:
+    print("\x1f\x1f\x1faiup: everything is up to date.")
+    raise SystemExit(0)
+count = str(len(ready)) + (" update" if len(ready) == 1 else " updates") + " ready"
+shown = ", ".join(names[:3]) + (" and " + str(len(names) - 3) + " more" if len(names) > 3 else "")
+body = shown + ". Run aiup to install " + ("it." if len(ready) == 1 else "them.")
+line = "aiup: " + count + ": " + ", ".join(t + " " + o + " -> " + n for t, o, n in ready) + ". Run aiup to install " + ("it." if len(ready) == 1 else "them.")
+print(key, count, body, line, sep="\x1f")
+')" || return 1
+  # Unit separators: tabs are whitespace to read and would merge empty fields.
+  IFS=$'\x1f' read -r key subtitle body line <<< "$result"
+  printf '%s\n' "$line"
+  if [ -z "$key" ]; then
+    rm -f "$last" 2>/dev/null || true
+    return 0
+  fi
+  if [ "$always" -eq 0 ] && [ -f "$last" ] && [ ! -L "$last" ] && [ "$(cat "$last" 2>/dev/null)" = "$key" ]; then
+    return 0
+  fi
+  # The text goes to AppleScript as arguments, never as script source.
+  osascript -e 'on run argv' -e 'display notification (item 2 of argv) with title "aiup" subtitle (item 1 of argv)' -e 'end run' \
+    "$subtitle" "$body" >/dev/null 2>&1 || { printf 'aiup: could not show a notification (osascript failed)\n' >&2; return 0; }
+  ensure_dir "$STATE_DIR"
+  [ -L "$last" ] || printf '%s\n' "$key" > "$last" 2>/dev/null || true
+  return 0
+}
+
+# "1 tool", "3 tools"; a third argument names an irregular plural.
+plural_count() {
+  if [ "$1" -eq 1 ]; then printf '1 %s' "$2"; else printf '%s %s' "$1" "${3:-${2}s}"; fi
+}
+
+# aiup export [FILE]: the catalog tools, the Homebrew formulae you installed
+# yourself (not their dependencies), the Homebrew apps, and your preferences,
+# as JSON (schema aiup-export-v1). No paths, host names, or account details.
+# Without FILE it prints to stdout. An existing FILE is never overwritten.
+cmd_export() {
+  local target="${1:-}" tool name tools='' formulae='' casks=''
+  case "$target" in -*) usage_error "expected: aiup export [FILE]"; return 2 ;; esac
+  if [ -n "$target" ] && { [ -e "$target" ] || [ -L "$target" ]; }; then
+    error "$target already exists; choose a new file name"; return 1
+  fi
+  brew_cache_load
+  ensure_system_npm_prefix
+  for tool in "${TOOLS_CATALOG[@]}"; do tool_is_present "$tool" && tools="${tools}${tool}"$'\n'; done
+  if command_exists brew; then
+    catalog_brew_index_init
+    while IFS= read -r name; do
+      [ -n "$name" ] && [ "$name" != node ] || continue
+      catalog_covers_brew "${name##*/}" || formulae="${formulae}${name}"$'\n'
+    done < <(brew leaves --installed-on-request 2>/dev/null)
+    for name in $(printf '%s\n' "$AIUP_BREW_CASK_VERSIONS" | awk 'NF {print $1}'); do
+      catalog_covers_brew "$name" || casks="${casks}${name}"$'\n'
+    done
+  fi
+  AIUP_EXPORT_TOOLS="$tools" AIUP_EXPORT_FORMULAE="$formulae" AIUP_EXPORT_CASKS="$casks" \
+    python3 - "$STATE_DIR/preferences.json" "$AIUP_VERSION" "$target" <<'PYEXPORT'
+import datetime, json, os, sys
+from pathlib import Path
+prefs, version, target = sys.argv[1:]
+def names(key): return sorted({line.strip() for line in os.environ.get(key, "").splitlines() if line.strip()})
+data = {}
+path = Path(prefs)
+try:
+    if path.is_file() and not path.is_symlink() and path.stat().st_size <= 1048576:
+        data = json.loads(path.read_text())
+except (OSError, ValueError):
+    data = {}
+if not isinstance(data, dict): data = {}
+doc = {"schema": "aiup-export-v1", "exported": datetime.date.today().isoformat(), "aiup": version,
+       "tools": names("AIUP_EXPORT_TOOLS"),
+       "homebrew": {"formulae": names("AIUP_EXPORT_FORMULAE"), "casks": names("AIUP_EXPORT_CASKS")},
+       "preferences": {"excluded": data.get("excluded") or [], "holds": data.get("holds") or {},
+                       "groups": data.get("groups") or {}, "cleanup": data.get("cleanup", "auto")}}
+text = json.dumps(doc, indent=2) + "\n"
+if not target:
+    sys.stdout.write(text); raise SystemExit(0)
+try:
+    with open(target, "x") as handle:
+        os.chmod(target, 0o600); handle.write(text)
+except OSError as error:
+    raise SystemExit("aiup: could not write " + target + ": " + error.strerror)
+print("Saved " + str(len(doc["tools"])) + " tools, " + str(len(doc["homebrew"]["formulae"]) + len(doc["homebrew"]["casks"]))
+      + " Homebrew packages, and your preferences to " + target + ". On another Mac: aiup import " + target)
+PYEXPORT
+}
+
+# aiup import FILE: shows what the export adds on this Mac, asks once, then
+# installs the missing tools and adds the preferences. Tools already here
+# are left alone; a tool excluded in either place is not installed.
+# --dry-run shows the plan only.
+cmd_import() {
+  local file="${1:-}" plan kind value prefs='' tool shade='' reset='' count
+  local -a tools=() formulae=() casks=() unknown=() present=() selected=()
+  [ -n "$file" ] && [ "$#" -eq 1 ] && case "$file" in -*) false ;; *) true ;; esac || { usage_error "expected: aiup import FILE"; return 2; }
+  [ -f "$file" ] && [ ! -L "$file" ] || { error "Not a regular file: $file"; return 1; }
+  plan="$(python3 - "$file" "$CATALOG_MANIFEST" <<'PYIMPORT'
+import datetime, json, re, sys
+from pathlib import Path
+source, manifest = map(Path, sys.argv[1:])
+def fail(why): raise SystemExit("aiup: " + str(source) + " " + why)
+if source.stat().st_size > 1048576: fail("is larger than 1 MiB; it is not an aiup export")
+try: doc = json.loads(source.read_text())
+except (OSError, ValueError): fail("is not valid JSON")
+if not isinstance(doc, dict) or doc.get("schema") != "aiup-export-v1": fail("is not an aiup export (schema aiup-export-v1)")
+ids = {r.split("\t")[0] for r in manifest.read_text().splitlines() if r and not r.startswith("#")}
+brew_name = re.compile(r"[A-Za-z0-9][A-Za-z0-9@+._/-]*")
+def strings(value): return [v for v in value if isinstance(v, str)] if isinstance(value, list) else []
+for tool in strings(doc.get("tools")):
+    print(("tool\t" if tool in ids else "unknown\t") + re.sub(r"[\x00-\x1f\x7f]", "", tool))
+brew = doc.get("homebrew") if isinstance(doc.get("homebrew"), dict) else {}
+for kind in ("formulae", "casks"):
+    for name in strings(brew.get(kind)):
+        if brew_name.fullmatch(name) and ".." not in name: print(("formula\t" if kind == "formulae" else "cask\t") + name)
+prefs = doc.get("preferences") if isinstance(doc.get("preferences"), dict) else {}
+holds = {}
+for tool, until in (prefs.get("holds") or {}).items():
+    try: holds[tool] = datetime.date.fromisoformat(str(until)).isoformat()
+    except ValueError: pass
+clean = {"excluded": strings(prefs.get("excluded")), "holds": holds,
+         "groups": {k: strings(v) for k, v in (prefs.get("groups") or {}).items() if isinstance(k, str)},
+         "cleanup": prefs.get("cleanup") if prefs.get("cleanup") in ("auto", "review") else ""}
+print("prefs\t" + json.dumps(clean, separators=(",", ":")))
+for tool in clean["excluded"]: print("excluded\t" + tool)
+PYIMPORT
+)" || return 1
+  brew_cache_load
+  ensure_system_npm_prefix
+  local excluded='|'
+  while IFS=$'\t' read -r kind value; do
+    case "$kind" in prefs) prefs="$value" ;; excluded) excluded="${excluded}${value}|" ;; esac
+  done <<< "$plan"
+  while IFS=$'\t' read -r kind value; do
+    case "$kind" in
+      tool)
+        if tool_is_present "$value"; then present+=("$value")
+        elif case "$excluded" in *"|$value|"*) true ;; *) false ;; esac || [ -n "$(policy_reason "$value" 2>/dev/null)" ]; then :
+        else tools+=("$value"); fi ;;
+      formula)
+        if command_exists brew && ! brew_formula_installed "${value##*/}"; then formulae+=("$value"); fi ;;
+      cask)
+        if command_exists brew && ! brew_cask_installed "$value"; then casks+=("$value"); fi ;;
+      unknown) unknown+=("$value") ;;
+    esac
+  done <<< "$plan"
+  [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && { shade=$'\033[38;5;81m'; reset=$'\033[0m'; }
+  printf '\n  %saiup import%s · %s\n' "$shade" "$reset" "$file"
+  [ "${#tools[@]}" -eq 0 ] || printf '  Install %s: %s\n' "$(plural_count "${#tools[@]}" tool)" "${tools[*]}"
+  [ "${#formulae[@]}" -eq 0 ] || printf '  Install %s: %s\n' "$(plural_count "${#formulae[@]}" 'Homebrew formula' 'Homebrew formulae')" "${formulae[*]}"
+  [ "${#casks[@]}" -eq 0 ] || printf '  Install %s: %s\n' "$(plural_count "${#casks[@]}" 'Homebrew app')" "${casks[*]}"
+  for value in ${formulae[@]+"${formulae[@]}"}; do
+    case "$value" in */*/*) printf '    %s comes from the Homebrew tap %s, which is added and trusted.\n' "${value##*/}" "${value%/*}" ;; esac
+  done
+  printf '  Preferences: %s\n' "$(printf '%s' "$prefs" | python3 -c '
+import json,sys
+p=json.load(sys.stdin); parts=[]
+if p["excluded"]: parts.append("excluded "+", ".join(p["excluded"]))
+if p["holds"]: parts.append("held "+", ".join(t+" through "+d for t,d in p["holds"].items()))
+if p["groups"]: parts.append("groups "+", ".join(p["groups"]))
+if p["cleanup"]: parts.append("cleanup "+p["cleanup"])
+print("; ".join(parts) + " (added to yours)" if parts else "none")')"
+  [ "${#present[@]}" -eq 0 ] || printf '  Already here: %s\n' "$(plural_count "${#present[@]}" tool)"
+  [ "${#unknown[@]}" -eq 0 ] || printf '  Not in this version of aiup, skipped: %s\n' "${unknown[*]}"
+  count=$(( ${#tools[@]} + ${#formulae[@]} + ${#casks[@]} ))
+  if [ "$DRY_RUN" -eq 1 ]; then printf '\n  Dry run: nothing changed.\n'; return 0; fi
+  if [ "$count" -eq 0 ] && [ "$prefs" = '{"excluded":[],"holds":{},"groups":{},"cleanup":""}' ]; then
+    printf '\n  Nothing to import.\n'; return 0
+  fi
+  tty_usable || { error "aiup import asks before it installs anything; run it in a terminal"; return 1; }
+  printf '\n'
+  confirm_tty "  Install these and add the preferences? [y/N] " || { printf '  Nothing changed.\n'; return 0; }
+  preferences merge "$prefs" || return 1
+  for value in ${formulae[@]+"${formulae[@]}"}; do
+    [ "$AIUP_INTERRUPTED" -eq 0 ] || break
+    run_with_heartbeat "brew install $value" env HOMEBREW_NO_ENV_HINTS=1 brew install "$value" || append_failure "bf:${value##*/}"
+  done
+  for value in ${casks[@]+"${casks[@]}"}; do
+    [ "$AIUP_INTERRUPTED" -eq 0 ] || break
+    run_with_heartbeat "brew install --cask $value" env HOMEBREW_NO_ENV_HINTS=1 brew install --cask "$value" || append_failure "bc:$value"
+  done
+  [ "${#tools[@]}" -gt 0 ] || { [ "${#FAILED_TOOLS[@]}" -eq 0 ] || return 1; return 0; }
+  selected=("${tools[@]}")
+  NO_INSTALL=0
+  update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${selected[@]}" || return 1
+  main_update "${selected[@]}"
 }
 
 cmd_explain() {
@@ -10454,8 +11037,8 @@ aiup $AIUP_VERSION · keeps the AI and developer tools on this Mac current
 Everyday:
   aiup                     Update installed catalog tools and Homebrew packages (also: full, core)
   aiup list                Interactive catalog: browse, install, update, remove, docs (press ? for keys)
-  aiup check [tools...]    Compare installed and latest versions; changes nothing
-  aiup plan                Preview what a run would do
+  aiup check [tools...]    Compare installed and latest versions, with what's new; changes nothing
+  aiup plan                Preview what a run would do, with release notes for each update
   aiup only <tools...>     Update (or install, where supported) just these tools
   aiup install             Pick catalog tools to install
   aiup remove [tools...]   Pick installed tools to uninstall, or name them
@@ -10465,7 +11048,7 @@ After a run:
   aiup resume              Retry pending, deferred (app was open) or failed tools from the last inactive run
   aiup retry               Retry failed or deferred tools in the latest inactive run
   aiup history [tool]      Recent update results
-  aiup logs [tool]         The latest run log, optionally just one tool's part
+  aiup logs [tool]         The latest run log, optionally just one tool's part (in a pager)
 
 Understand a tool:
   aiup explain <tool>      Detection, manager, location, version and next action
@@ -10486,6 +11069,13 @@ Preferences:
   aiup group check|run NAME      Check or update a group's installed members
   aiup group remove NAME         Remove a group
   aiup settings cleanup auto|review  Clean removed-app records automatically, or review first
+
+Other Macs and schedules:
+  aiup export [FILE]       Save your tools, Homebrew packages and preferences as JSON
+  aiup import FILE         Show what an export adds here, ask, then install it
+  aiup notify [--always]   Check, then show a macOS notification when updates are ready.
+                           It schedules nothing; run it from your own cron job or
+                           launchd agent (github.com/travisjneuman/aiup, docs/notify.md)
 
 Cleanup:
   aiup cleanup homebrew                    Find apps removed outside Homebrew (preview)
@@ -10510,6 +11100,7 @@ Lists and data:
 
 Options:
   --dry-run                Print actions without executing them
+  --json                   With a run or aiup check: print the results as JSON on stdout
   --verbose                Stream updater output as well as the final report; longer list legends
   --show-unchanged         Include unchanged tools in the final report
   --force                  Run npm/Homebrew updates even when versions are current
@@ -10521,9 +11112,21 @@ Options:
   --view MODE              Limit list rows: overview, installed, managed, detected, available
   --sort MODE              Order list rows by id (default) or label within each category
 
+Exit status: 0 done, 1 something failed, 2 a mistyped command, 130 stopped
+with Ctrl-C.
+
+Settings (environment variables, set to 0 to turn off):
+  AIUP_CLEANUP_CACHES      Remove download caches and old versions after a run
+  AIUP_PARALLEL            Update npm and uv tools beside the Homebrew upgrades
+  AIUP_RELEASE_NOTES       Look up what's new for aiup check and aiup plan
+  AIUP_NPM_PROVENANCE_CHECK  Ask before an npm release that lost its provenance record
+  AIUP_BREW_ATTESTATIONS   Have Homebrew verify bottle attestations when gh is signed in
+  AIUP_NO_PAGER=1          Print aiup logs without a pager
+
 Scans are local (PATH, app bundles, Homebrew inventory); nothing about your Mac
 is uploaded. Update runs are unattended: Homebrew confirmations are accepted
-and updaters receive no terminal input. Runs keep required infrastructure
+and updaters receive no terminal input. The one question a run can ask is
+before an npm release that lost its provenance record. Runs keep required infrastructure
 (currently fzf) current, then update installed tools; missing tools are added
 only by \`aiup install\` or \`aiup only <tool>\`, dependencies first
 (brew, then npm/uv, then the tool). The initial Homebrew installer stays
@@ -10719,16 +11322,69 @@ cleanup_size_kb() {
   du -sk "${existing[@]}" 2>/dev/null | awk '{s += $1} END {print s + 0}'
 }
 
+# Some updaters keep the version they replaced: Claude Code and Cursor Agent
+# keep every release in a versions folder and point a link at the one in use,
+# and Antigravity leaves agy.*.old beside agy. Print each old copy that no
+# running program has open (an open Claude Code session keeps using its own
+# version until it restarts; the next run removes it).
+old_tool_versions() {
+  local link root real active entry
+  while IFS='|' read -r link root; do
+    [ -L "$link" ] && [ -d "$root" ] && [ ! -L "$root" ] || continue
+    real="$(realpath_safe "$root")"
+    active="$(realpath_safe "$link")"
+    case "$active" in "$real"/?*) ;; *) continue ;; esac
+    [ -e "$active" ] || continue
+    active="${active#"$real"/}"
+    active="$real/${active%%/*}"
+    for entry in "$real"/*; do
+      { [ -e "$entry" ] || [ -L "$entry" ]; } && [ "$entry" != "$active" ] || continue
+      if [ -d "$entry" ] && [ ! -L "$entry" ]; then
+        [ -z "$(lsof -t +D "$entry" 2>/dev/null)" ] || continue
+      else
+        [ -z "$(lsof -t -- "$entry" 2>/dev/null)" ] || continue
+      fi
+      printf '%s\n' "$entry"
+    done
+  done <<EOF
+$LOCAL_BIN/claude|$HOME/.local/share/claude/versions
+$LOCAL_BIN/cursor-agent|$HOME/.local/share/cursor-agent/versions
+EOF
+  for entry in "$LOCAL_BIN"/agy.*.old; do
+    [ -f "$entry" ] && [ -z "$(lsof -t -- "$entry" 2>/dev/null)" ] && printf '%s\n' "$entry"
+  done
+  return 0
+}
+
+# pnpm's store holds one copy of every package any project on this Mac has
+# installed with pnpm; each project's node_modules links to it. pnpm store
+# prune deletes only packages no project links to any more. It reads the whole
+# store, so aiup runs it at most once a day, and never while pnpm is running.
+pnpm_store_due() {
+  local stamp="$STATE_DIR/pnpm-store-prune.stamp" store
+  command_exists pnpm || return 1
+  [ -z "$(find "$stamp" -mmin -1440 2>/dev/null)" ] || return 1
+  pgrep -qx pnpm 2>/dev/null && return 1
+  pgrep -qf 'pnpm\.c?js' 2>/dev/null && return 1
+  store="$(cd "$HOME" && pnpm store path 2>/dev/null)" || return 1
+  cleanup_cache_dir "$store" >/dev/null
+}
+
 # After an update run, remove what updates leave behind: Homebrew's downloads,
-# old versions and logs, the npm download cache and logs, and the uv cache.
-# Installed tools, npx's package folder and aiup's run history stay. A cache
-# another running Homebrew, npm or uv process may be using is left alone.
+# old versions and logs, the npm download cache and logs, the uv cache, old
+# copies of tools that keep the version they replaced, and (once a day)
+# packages in pnpm's store that no project uses. Installed tools, npx's
+# package folder and aiup's run history stay. A cache another running
+# Homebrew, npm, uv or pnpm process may be using is left alone.
 # AIUP_CLEANUP_CACHES=0 turns this off. Sets AIUP_CLEANUP_FREED_KB.
 post_update_cleanup() {
   AIUP_CLEANUP_FREED_KB=0
   [ "${AIUP_CLEANUP_CACHES:-1}" != 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "$AIUP_INTERRUPTED" -eq 0 ] || return 0
-  local brew_cache='' brew_logs='' npm_cache='' uv_cache='' before after
-  local -a paths=()
+  local brew_cache='' brew_logs='' npm_cache='' uv_cache='' before after old pnpm_due=0
+  local -a paths=() olds=()
+  while IFS= read -r old; do [ -z "$old" ] || olds+=("$old"); done < <(old_tool_versions)
+  [ "${#olds[@]}" -eq 0 ] || paths+=("${olds[@]}")
+  pnpm_store_due && pnpm_due=1
   if command_exists brew && ! pgrep -qf 'Library/Homebrew/brew\.rb' 2>/dev/null; then
     brew_cache="$(cleanup_cache_dir "$(env HOMEBREW_NO_ENV_HINTS=1 brew --cache 2>/dev/null)")" || brew_cache=''
     [ -z "$brew_cache" ] || [ ! -L "$brew_cache/downloads" ] || brew_cache=''
@@ -10744,9 +11400,9 @@ post_update_cleanup() {
     uv_cache="$(cleanup_cache_dir "$(uv cache dir 2>/dev/null)")" || uv_cache=''
     [ -z "$uv_cache" ] || paths+=("$uv_cache")
   fi
-  [ "${#paths[@]}" -gt 0 ] || return 0
-  before="$(cleanup_size_kb "${paths[@]}")"
-  [ "${before:-0}" -gt 1024 ] || return 0
+  [ "${#paths[@]}" -gt 0 ] || [ "$pnpm_due" -eq 1 ] || return 0
+  before="$(cleanup_size_kb ${paths[@]+"${paths[@]}"})"
+  [ "${before:-0}" -gt 1024 ] || [ "${#olds[@]}" -gt 0 ] || [ "$pnpm_due" -eq 1 ] || return 0
   UPDATE_REPORT_CURRENT_TOOL="Cleaning up caches"
   if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then
     printf '\r\033[2K  Cleaning up caches · %ss elapsed' "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
@@ -10776,8 +11432,18 @@ post_update_cleanup() {
       run_with_heartbeat "uv cache clean" uv cache clean || true
     fi
   fi
-  after="$(cleanup_size_kb "${paths[@]}")"
-  [ "${after:-0}" -lt "$before" ] && AIUP_CLEANUP_FREED_KB=$((before - after))
+  if [ "${#olds[@]}" -gt 0 ] && [ "$AIUP_INTERRUPTED" -eq 0 ]; then
+    for old in "${olds[@]}"; do
+      info "Removing old version $old"
+      rm -rf -- "$old" 2>/dev/null || warn "Could not remove old version $old"
+    done
+  fi
+  if [ "$pnpm_due" -eq 1 ] && [ "$AIUP_INTERRUPTED" -eq 0 ]; then
+    run_with_heartbeat "pnpm store prune" sh -c 'cd "$HOME" && exec pnpm store prune' || true
+    : > "$STATE_DIR/pnpm-store-prune.stamp" 2>/dev/null || true
+  fi
+  after="$(cleanup_size_kb ${paths[@]+"${paths[@]}"})"
+  [ "${after:-0}" -lt "${before:-0}" ] && AIUP_CLEANUP_FREED_KB=$((before - after))
   info "========== CLEANUP DONE: freed ${AIUP_CLEANUP_FREED_KB} KB =========="
   if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then printf '\r\033[2K' >&4; fi
   return 0
@@ -10788,9 +11454,9 @@ post_update_cleanup_line() {
   local size
   size="$(awk -v k="$AIUP_CLEANUP_FREED_KB" 'BEGIN { if (k >= 1048576) printf "%.1f GB", k / 1048576; else printf "%d MB", k / 1024 }')"
   if [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
-    printf '\033[38;5;245m  Freed %s of download caches · AIUP_CLEANUP_CACHES=0 keeps them\033[0m\n' "$size" >&4
+    printf '\033[38;5;245m  Freed %s of caches and old versions · AIUP_CLEANUP_CACHES=0 keeps them\033[0m\n' "$size" >&4
   else
-    printf '  Freed %s of download caches · AIUP_CLEANUP_CACHES=0 keeps them\n' "$size" >&4
+    printf '  Freed %s of caches and old versions · AIUP_CLEANUP_CACHES=0 keeps them\n' "$size" >&4
   fi
 }
 
@@ -10811,11 +11477,205 @@ update_installed_brew_extra() {
   esac
 }
 
+# Before Homebrew pours a bottle it can check the bottle's signed build record
+# (a GitHub artifact attestation), which proves Homebrew's own build servers
+# made that exact file. Homebrew runs that check through gh with a GitHub
+# login, so aiup turns it on only when gh is installed and signed in already:
+# it never installs gh or asks you to sign in. AIUP_BREW_ATTESTATIONS=0, or
+# your own HOMEBREW_NO_VERIFY_ATTESTATIONS, leaves it off.
+brew_attestations_setup() {
+  [ -z "${AIUP_BREW_ATTESTATIONS_STATE:-}" ] || return 0
+  AIUP_BREW_ATTESTATIONS_STATE=off
+  [ "${AIUP_BREW_ATTESTATIONS:-1}" != 0 ] && [ -z "${HOMEBREW_NO_VERIFY_ATTESTATIONS:-}" ] || return 0
+  if [ -n "${HOMEBREW_VERIFY_ATTESTATIONS:-}" ]; then AIUP_BREW_ATTESTATIONS_STATE=on; return 0; fi
+  capture_fixture_enabled && return 0
+  if ! command_exists gh; then
+    AIUP_BREW_ATTESTATIONS_STATE=no-gh
+    info "Homebrew build-record checks are off: gh is not installed (brew install gh, then gh auth login, turns them on)"
+  elif [ -n "${HOMEBREW_GITHUB_API_TOKEN:-}" ] || gh auth token >/dev/null 2>&1; then
+    export HOMEBREW_VERIFY_ATTESTATIONS=1
+    AIUP_BREW_ATTESTATIONS_STATE=on
+    info "Homebrew checks each bottle's signed build record before installing it"
+  else
+    AIUP_BREW_ATTESTATIONS_STATE=no-login
+    info "Homebrew build-record checks are off: gh is not signed in (gh auth login turns them on)"
+  fi
+}
+
+# Parallel lanes. While Homebrew upgrades run one at a time, the plain npm
+# tools and the uv tools update in two background lanes (one tool at a time
+# in each). Each lane tool writes its own log; the main sequence adds those
+# logs and report rows in order afterwards, so the log and the results look
+# the same as a one-at-a-time run. Tools with their own updater, tools that
+# would remove a Homebrew formula, and anything that needs a prompt stay in
+# the main sequence. A lane is not started when this run's Homebrew upgrades
+# include what it runs on (node for npm; uv or a Python for uv).
+# AIUP_PARALLEL=0 runs everything one at a time.
+
+# Prints npm or uv when TOOL can update in a lane.
+lane_kind_for() {
+  local tool="$1" policy formula
+  case "$tool" in bf:*|bc:*) return 1 ;; esac
+  case "$AIUP_REQUIRED_UPDATED" in *"|$tool|"*) return 1 ;; esac
+  ! type "update_$tool" >/dev/null 2>&1 || return 1
+  policy="$(policy_reason "$tool" 2>/dev/null)" && [ -z "$policy" ] || return 1
+  case "$(catalog_kind "$tool")" in
+    aiup-npm)
+      case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:node|"*) return 1 ;; esac
+      formula="$(npm_retired_brew_formula "$tool")"
+      [ -z "$formula" ] || ! brew_formula_installed "$formula" || return 1
+      printf 'npm\n' ;;
+    uv-tool)
+      command_exists uv || return 1
+      case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:uv|"*|*"|formula:python@"*) return 1 ;; esac
+      printf 'uv\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+# True when TOOL only uses Homebrew, so it can run while the lanes do.
+lane_safe_beside() {
+  case "$1" in bf:*|bc:*) return 0 ;; esac
+  ! type "update_$1" >/dev/null 2>&1 || return 1
+  case "$(catalog_kind "$1")" in brew-formula|brew-cask) return 0 ;; esac
+  return 1
+}
+
+lanes_start() {
+  [ "${AIUP_PARALLEL:-1}" != 0 ] && [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ "$AIUP_VERBOSE" -eq 0 ] || return 0
+  [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ] && [ "${AIUP_KEEP_UI:-0}" != 1 ] && [ "$AIUP_INTERRUPTED" -eq 0 ] || return 0
+  [ -z "$AIUP_LANE_DIR" ] && [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] && ! capture_fixture_enabled || return 0
+  command_exists brew || return 0
+  brew_outdated_snapshot_load
+  case "$AIUP_BREW_OUTDATED_TARGETS" in unknown|'') return 0 ;; esac
+  local tool lane dir
+  local -a npm_lane=() uv_lane=()
+  for tool in "$@"; do
+    lane="$(lane_kind_for "$tool")" || continue
+    if [ "$lane" = npm ]; then npm_lane+=("$tool"); else uv_lane+=("$tool"); fi
+  done
+  [ "${#npm_lane[@]}" -gt 0 ] || [ "${#uv_lane[@]}" -gt 0 ] || return 0
+  dir="${UPDATE_REPORT_LOG}.lanes"
+  [ ! -L "$dir" ] || return 0
+  rm -rf -- "$dir" 2>/dev/null || true
+  (umask 077 && mkdir "$dir") 2>/dev/null || return 0
+  # Load what the lanes read once here, so they do not each ask Homebrew.
+  brew_cache_load
+  ensure_system_npm_prefix
+  ensure_managed_paths
+  AIUP_LANE_DIR="$dir"
+  if [ "${#npm_lane[@]}" -gt 0 ]; then
+    for tool in "${npm_lane[@]}"; do AIUP_LANE_TOOLS="${AIUP_LANE_TOOLS}|${tool}|"; done
+    lane_run "$dir" "${npm_lane[@]}" &
+    AIUP_LANE_PIDS="$AIUP_LANE_PIDS $!"
+    info "npm lane: ${npm_lane[*]}"
+  fi
+  if [ "${#uv_lane[@]}" -gt 0 ]; then
+    for tool in "${uv_lane[@]}"; do AIUP_LANE_TOOLS="${AIUP_LANE_TOOLS}|${tool}|"; done
+    lane_run "$dir" "${uv_lane[@]}" &
+    AIUP_LANE_PIDS="$AIUP_LANE_PIDS $!"
+    info "uv lane: ${uv_lane[*]}"
+  fi
+}
+
+lane_file() {
+  printf '%s/%s' "$AIUP_LANE_DIR" "${1//[^A-Za-z0-9._-]/_}"
+}
+
+# One lane (a background subshell). Results: rc, status, seconds, note.
+lane_run() {
+  local dir="$1" tool rc started file
+  shift
+  exec 4>/dev/null </dev/null
+  trap - INT TERM HUP
+  AIUP_LANE=1
+  for tool in "$@"; do
+    [ "$AIUP_INTERRUPTED" -eq 0 ] || break
+    file="$(lane_file "$tool")"
+    UPDATE_REPORT_NOTE=''
+    UPDATE_REPORT_WARNING=0
+    UPDATE_REPORT_CURRENT_TOOL="$tool"
+    started="$(date +%s)"
+    rc=0
+    run_tool_update_impl "$tool" > "$file.log" 2>&1 || rc=$?
+    printf '%s\t%s\t%s\t%s\n' "$rc" "$AIUP_LAST_UPDATE_STATUS" "$(( $(date +%s) - started ))" \
+      "$(printf '%s' "$UPDATE_REPORT_NOTE" | tr '\t\r\n' '   ')" > "$file.next" && mv -f "$file.next" "$file.result"
+  done
+}
+
+# Ctrl-C: stop the lanes too (their commands ignore SIGINT as background jobs).
+lanes_stop() {
+  local pid
+  for pid in $AIUP_LANE_PIDS; do kill -TERM "$pid" 2>/dev/null || true; done
+}
+
+# Wait for the lanes, then record each finished tool in order. A tool the
+# lane could not finish without a prompt goes to AIUP_LANE_RERUN for the
+# main sequence; one a stopped lane never finished stays pending for resume.
+lanes_finish() {
+  [ -n "$AIUP_LANE_DIR" ] || return 0
+  local pid tool file rc status seconds note
+  if [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then printf '\r\033[2K  finishing the npm and uv updates' >&4
+  else printf '  finishing the npm and uv updates\n' >&4; fi
+  for pid in $AIUP_LANE_PIDS; do
+    # A signal ends wait early; wait again until the lane has exited.
+    while kill -0 "$pid" 2>/dev/null; do wait "$pid" 2>/dev/null || true; done
+  done
+  if [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then printf '\r\033[2K' >&4; fi
+  hash_refresh
+  tui_cache_invalidate
+  for tool in $(printf '%s' "$AIUP_LANE_TOOLS" | tr '|' ' '); do
+    file="$(lane_file "$tool")"
+    [ -f "$file.result" ] || continue
+    IFS=$'\t' read -r rc status seconds note < "$file.result"
+    if [ "$rc" = 0 ] && [ "$status" = foreground ]; then
+      AIUP_LANE_RERUN="${AIUP_LANE_RERUN} ${tool}"
+      continue
+    fi
+    UPDATE_REPORT_CURRENT_TOOL="$tool"
+    UPDATE_REPORT_NOTE="$note"
+    UPDATE_REPORT_WARNING=0
+    UPDATE_REPORT_LOG_START="$(wc -c < "$UPDATE_REPORT_LOG")"
+    cat "$file.log" >> "$UPDATE_REPORT_LOG" 2>/dev/null || true
+    UPDATE_REPORT_LOG_END="$(wc -c < "$UPDATE_REPORT_LOG")"
+    UPDATE_REPORT_TOOL_SECONDS="${seconds:-0}"
+    UPDATE_REPORT_COMPLETED=$((UPDATE_REPORT_COMPLETED + 1))
+    update_report_warnings
+    UPDATE_REPORT_WARNINGS=$((UPDATE_REPORT_WARNINGS + UPDATE_REPORT_WARNING))
+    AIUP_LAST_UPDATE_STATUS="$status"
+    if [ "$rc" = 0 ]; then
+      case "$status" in
+        current|skipped|self-updated|deferred|cancelled) result_record "$status" "$tool" ;;
+        *) result_record completed "$tool" ;;
+      esac
+      update_report_record "$tool" "$status"
+    else
+      append_failure "$tool"
+      update_report_record "$tool" failed
+    fi
+  done
+  rm -rf -- "$AIUP_LANE_DIR" 2>/dev/null || true
+  AIUP_LANE_DIR=''
+  AIUP_LANE_PIDS=''
+  AIUP_LANE_TOOLS=''
+}
+
+# One tool in the main sequence.
+main_update_tool() {
+  if should_skip_install_for_missing "$1"; then
+    result_record skipped "$1"
+    if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then update_report_record "$1" skipped; fi
+    return 0
+  fi
+  run_tool_update "$1" || true
+}
+
 main_update() {
   [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] || AIUP_BREW_OUTDATED_READY=0
   local tools=("$@")
   local tool required
   ensure_managed_paths
+  [ "$DRY_RUN" -eq 1 ] || brew_attestations_setup
   if [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ]; then
     ensure_required_tools_present || return 1
   else
@@ -10835,9 +11695,10 @@ main_update() {
   # With a report, Ctrl-C stops after the current tool and still prints the
   # results; tools not reached stay pending for aiup resume.
   local saved_traps='' index=0 prefetched=0 sink
+  local -a after_lanes=()
   if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
     saved_traps="$(trap -p INT TERM HUP)"
-    trap 'AIUP_INTERRUPTED=1' INT TERM HUP
+    trap 'AIUP_INTERRUPTED=1; lanes_stop' INT TERM HUP
   fi
   for tool in "${tools[@]}"; do
     index=$((index + 1))
@@ -10859,16 +11720,21 @@ main_update() {
         UPDATE_REPORT_CAPTURING=0
       else
         brew_prefetch_upgrades "${tools[@]:$((index - 1))}" >> "$UPDATE_REPORT_LOG" 2>&1 || true
+        lanes_start "${tools[@]:$((index - 1))}" >> "$UPDATE_REPORT_LOG" 2>&1 || true
       fi
       [ "$AIUP_INTERRUPTED" -eq 0 ] || break
     fi
-    if should_skip_install_for_missing "$tool"; then
-      result_record skipped "$tool"
-      if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then update_report_record "$tool" skipped; fi
-      continue
-    fi
-    run_tool_update "$tool" || true
+    case "$AIUP_LANE_TOOLS" in *"|$tool|"*) continue ;; esac
+    # While lanes run, only Homebrew-only tools go beside them.
+    if [ -n "$AIUP_LANE_PIDS" ] && ! lane_safe_beside "$tool"; then after_lanes+=("$tool"); continue; fi
+    main_update_tool "$tool"
   done
+  lanes_finish
+  for tool in $AIUP_LANE_RERUN ${after_lanes[@]+"${after_lanes[@]}"}; do
+    [ "$AIUP_INTERRUPTED" -eq 0 ] || break
+    main_update_tool "$tool"
+  done
+  AIUP_LANE_RERUN=''
   [ -z "$AIUP_CASK_GATE_JSON" ] || rm -f "$AIUP_CASK_GATE_JSON"
   AIUP_CASK_GATE_JSON=''
   AIUP_CASK_GATE_TOKENS=''
@@ -10889,6 +11755,12 @@ main_update() {
   fi
   info "========== AIUP COMPLETE =========="
   return 0
+}
+
+# A mistyped command or a missing argument gets one line on stderr and exit
+# status 2, so scripts can tell it apart from a failed update (1).
+usage_error() {
+  printf 'aiup: %s. Run aiup help.\n' "$1" >&2
 }
 
 parse_args() {
@@ -10918,6 +11790,10 @@ parse_args() {
         AIUP_VERBOSE=1
         shift
         ;;
+      --json)
+        AIUP_JSON=1
+        shift
+        ;;
       --dry-run)
         DRY_RUN=1
         shift
@@ -10927,20 +11803,14 @@ parse_args() {
         NO_INSTALL_EXPLICIT=1
         shift
         ;;
-      --heartbeat-seconds)
-        HEARTBEAT_SECONDS="$2"
-        shift 2
-        ;;
-      --category)
-        LIST_CATEGORY_FILTER="$2"
-        shift 2
-        ;;
-      --view)
-        LIST_VIEW_MODE="$2"
-        shift 2
-        ;;
-      --sort)
-        LIST_SORT_MODE="$2"
+      --heartbeat-seconds|--category|--view|--sort)
+        [ "$#" -ge 2 ] || { usage_error "$1 needs a value"; return 2; }
+        case "$1" in
+          --heartbeat-seconds) HEARTBEAT_SECONDS="$2" ;;
+          --category) LIST_CATEGORY_FILTER="$2" ;;
+          --view) LIST_VIEW_MODE="$2" ;;
+          --sort) LIST_SORT_MODE="$2" ;;
+        esac
         shift 2
         ;;
       --refresh)
@@ -10961,19 +11831,29 @@ parse_args() {
 
   case "$LIST_VIEW_MODE" in
     overview|all|installed|managed|detected|available) ;;
-    *) error "Unknown list view: $LIST_VIEW_MODE"; return 1 ;;
+    *) usage_error "unknown list view '$LIST_VIEW_MODE'"; return 2 ;;
   esac
 
   case "$LIST_SORT_MODE" in
     id|label) ;;
-    *) error "Unknown list sort: $LIST_SORT_MODE"; return 1 ;;
+    *) usage_error "unknown list sort '$LIST_SORT_MODE'"; return 2 ;;
   esac
 
   if [ -n "$LIST_CATEGORY_FILTER" ]; then
     case " ${CATEGORY_ORDER[*]} homebrew/casks homebrew/fonts homebrew/formulae homebrew/libraries homebrew/recommended homebrew/available " in
       *" $LIST_CATEGORY_FILTER "*) ;;
-      *) error "Unknown category: $LIST_CATEGORY_FILTER"; return 1 ;;
+      *) usage_error "unknown category '$LIST_CATEGORY_FILTER'"; return 2 ;;
     esac
+  fi
+
+  if [ "$AIUP_JSON" -eq 1 ]; then
+    case "${args[0]:-}:${args[1]:-}" in
+      :|full:*|core:*|only:*|resume:*|retry:*|check:*|group:run|group:check) ;;
+      *) usage_error "--json works with update runs and aiup check"; return 2 ;;
+    esac
+    # Only the JSON document goes to stdout (kept as fd 6); everything a
+    # person would read, progress included, goes to stderr.
+    exec 6>&1 1>&2
   fi
 
   if [ "${#args[@]}" -eq 0 ]; then
@@ -10987,8 +11867,8 @@ parse_args() {
       ;;
     only)
       if [ "${#args[@]}" -lt 2 ]; then
-        error "No tools specified for 'only'"
-        return 1
+        usage_error "expected: aiup only <tools...>"
+        return 2
       fi
       if [ "$NO_INSTALL_EXPLICIT" -eq 0 ]; then
         NO_INSTALL=0
@@ -11085,25 +11965,25 @@ parse_args() {
       cmd_coverage "${args[1]:-}"
       ;;
     project)
-      [ "${#args[@]}" -eq 2 ] || { error 'Usage: aiup project <directory>'; return 1; }
+      [ "${#args[@]}" -eq 2 ] || { usage_error 'expected: aiup project <directory>'; return 2; }
       cmd_project "${args[1]}"
       ;;
     settings)
       case "${args[1]:-}" in
-        cleanup) [ "${#args[@]}" -eq 3 ] || { error 'Usage: aiup settings cleanup auto|review'; return 1; }; preferences cleanup "${args[2]}" ;;
+        cleanup) [ "${#args[@]}" -eq 3 ] || { usage_error 'expected: aiup settings cleanup auto|review'; return 2; }; preferences cleanup "${args[2]}" ;;
         '') { printf 'Cleanup mode · %s\tChange with: aiup settings cleanup auto|review\n' "$(preferences setting cleanup)"; printf 'Tool exclusions, holds and groups\tView all values: aiup preferences. Exclude Homebrew apps with their bc:<name> ID.\n'; } | ui_cards settings ;;
-        *) error 'Usage: aiup settings [cleanup auto|review]'; return 1 ;;
+        *) usage_error 'expected: aiup settings [cleanup auto|review]'; return 2 ;;
       esac
       ;;
     preferences)
       preferences show
       ;;
     exclude|include|unhold)
-      [ "${#args[@]}" -eq 2 ] || { error 'Specify one managed tool ID'; return 1; }
+      [ "${#args[@]}" -eq 2 ] || { usage_error "expected: aiup ${args[0]} TOOL"; return 2; }
       preferences "${args[0]}" "${args[1]}"
       ;;
     hold)
-      [ "${#args[@]}" -eq 3 ] || { error 'Usage: aiup hold TOOL YYYY-MM-DD'; return 1; }
+      [ "${#args[@]}" -eq 3 ] || { usage_error 'expected: aiup hold TOOL YYYY-MM-DD'; return 2; }
       preferences hold "${args[1]}" "${args[2]}"
       ;;
     group)
@@ -11119,7 +11999,7 @@ parse_args() {
           if [ "${args[1]}" = check ]; then cmd_check "${group_tools[@]}"
           else update_report_begin "${AIUP_REQUIRED_TOOLS[@]}" "${group_tools[@]}" && main_update "${group_tools[@]}"; fi
           ;;
-        *) error 'Usage: aiup group set NAME TOOLS… | run NAME | check NAME | remove NAME'; return 1 ;;
+        *) usage_error 'expected: aiup group set NAME TOOLS… | run NAME | check NAME | remove NAME'; return 2 ;;
       esac
       ;;
     retry|resume)
@@ -11142,12 +12022,34 @@ parse_args() {
     check)
       cmd_check "${args[@]:1}"
       ;;
+    export)
+      [ "${#args[@]}" -le 2 ] || { usage_error 'expected: aiup export [FILE]'; return 2; }
+      cmd_export "${args[1]:-}"
+      ;;
+    import)
+      [ "${#args[@]}" -eq 2 ] || { usage_error 'expected: aiup import FILE'; return 2; }
+      cmd_import "${args[1]}"
+      ;;
+    notify)
+      [ "${#args[@]}" -le 2 ] || { usage_error 'expected: aiup notify [--always]'; return 2; }
+      notify_path_setup
+      cmd_notify "${args[1]:-}"
+      ;;
     explain)
-      [ "${#args[@]}" -eq 2 ] || { error 'Usage: aiup explain <tool>'; return 1; }
+      [ "${#args[@]}" -eq 2 ] || { usage_error 'expected: aiup explain <tool>'; return 2; }
       cmd_explain "${args[1]}"
       ;;
     history|logs)
-      [ "${#args[@]}" -le 2 ] || { error 'Usage: aiup history|logs [tool]'; return 1; }
+      [ "${#args[@]}" -le 2 ] || { usage_error 'expected: aiup history|logs [tool]'; return 2; }
+      # A run log can be thousands of lines: page it in a terminal. less -F
+      # exits at once when it fits on one screen; AIUP_NO_PAGER=1 or a pipe
+      # prints it straight through.
+      if [ "${args[0]}" = logs ] && [ -t 1 ] && [ -z "${AIUP_NO_PAGER:-}" ]; then
+        local pager_rc
+        run_history logs "${args[1]:-}" | LESS="${LESS:-FRX}" ${PAGER:-less}
+        pager_rc="${PIPESTATUS[0]}"
+        return "$pager_rc"
+      fi
       run_history "${args[0]}" "${args[1]:-}"
       ;;
     doctor)
@@ -11165,7 +12067,7 @@ parse_args() {
       ;;
     cleanup)
       if [ "${args[1]:-}" = history ]; then run_history cleanup; return $?; fi
-      [ "${#args[@]}" -le 3 ] && { [ "${#args[@]}" -lt 3 ] || [ "${args[2]}" = --apply ]; } || { error "Usage: aiup cleanup homebrew|bc:<name>|<detected-app-id> [--apply]"; return 1; }
+      [ "${#args[@]}" -le 3 ] && { [ "${#args[@]}" -lt 3 ] || [ "${args[2]}" = --apply ]; } || { usage_error "expected: aiup cleanup homebrew|bc:<name>|<detected-app-id> [--apply]"; return 2; }
       local cleanup_apply=0
       [ "${args[2]:-}" = '--apply' ] && cleanup_apply=1
       cmd_cleanup "${args[1]:-}" "$cleanup_apply"
@@ -11184,8 +12086,8 @@ parse_args() {
       ;;
     preview)
       if [ "${#args[@]}" -lt 2 ]; then
-        error "usage: aiup preview <tool>"
-        return 1
+        usage_error "expected: aiup preview <tool>"
+        return 2
       fi
       print_catalog_preview "${args[1]}"
       profile_mark "preview generation"
@@ -11210,9 +12112,11 @@ parse_args() {
       usage
       ;;
     *)
-      error "Unknown command: ${args[0]}"
-      usage >&2
-      return 1
+      case "${args[0]}" in
+        -*) usage_error "unknown option '${args[0]}'" ;;
+        *) usage_error "unknown command '${args[0]}'" ;;
+      esac
+      return 2
       ;;
   esac
 }

@@ -148,19 +148,18 @@ release_activation_lock() {
   activation_lock_held=0
 }
 
-# Best-effort retention: keep the current and previous generations plus any
-# generation younger than a day (an open picker may still re-run it). Never
-# stops a launch; unfamiliar contents are left in place.
+# Best-effort retention: keep the current generation plus any generation
+# younger than a day (an open picker may still re-run it). Older releases are
+# removed; nothing runs them. Never stops a launch; unfamiliar contents are
+# left in place.
 prune_unreferenced_generations() {
-  local current_generation previous_generation candidate generation_id name
+  local current_generation candidate generation_id name
   current_generation="$(read_generation_pointer "$AIUP_CURRENT_POINTER" 2>/dev/null || true)"
-  previous_generation="$(read_generation_pointer "$AIUP_PREVIOUS_POINTER" 2>/dev/null || true)"
   for candidate in "$AIUP_GENERATIONS_DIR"/*; do
     [ -d "$candidate" ] && [ ! -L "$candidate" ] || continue
     generation_id="${candidate##*/}"
     valid_generation_id "$generation_id" || continue
     [ "$generation_id" != "$current_generation" ] || continue
-    [ "$generation_id" != "$previous_generation" ] || continue
     [ -z "$(find "$candidate" -maxdepth 0 -mmin -1440 2>/dev/null)" ] || continue
     for name in "$candidate"/* "$candidate"/.[!.]*; do
       [ -e "$name" ] || continue
