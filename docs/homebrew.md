@@ -6,9 +6,9 @@ Homebrew is how many catalog items land on a Mac. It is not the whole catalog.
 
 Before its first Homebrew operation, aiup checks installed taps using Homebrew's trust metadata. A tap already installed on the Mac represents prior user approval: if Homebrew marks it untrusted, aiup shows its remote and automatically runs `brew trust --tap` without asking again. This applies to the installed tap itself, not to any tap that aiup would newly add.
 
-If a future catalog item requires a tap that is not installed, its installer must identify that tap and ask before adding and trusting it. aiup never silently adds or trusts a newly introduced tap.
+When a catalog item needs a tap that is not installed, aiup shows the tap's remote and asks before it adds it (`brew tap`) and trusts it (`brew trust --tap`). It never silently adds or trusts a new tap. Without a terminal to ask in, the install stops with a message.
 
-No current catalog item comes from a third-party tap. When a package is already installed, aiup skips the per-package tap lookup before upgrading it and only reviews the installed taps.
+Some catalog items come from taps run by their own publishers, for example `stacklok/tap/thv`, `docker/tap/sbx`, `mozilla-ai/tap/cq` and `microsoft/foundrylocal/foundrylocal`. Three taps live in repositories that are not named `homebrew-*`, so aiup adds them from their GitHub address: `jundot/omlx`, `vllm-project/vllm-metal` and `ddalcu/mlx-serve`. When a name exists as both a formula and a cask (`mlx-serve`), aiup passes `--formula` or `--cask` so Homebrew installs the right one. When a package is already installed, aiup skips the per-package tap lookup before upgrading it and only reviews the installed taps.
 
 ## Downloads and cleanup
 
@@ -27,6 +27,8 @@ Homebrew can check that each bottle was built by Homebrew's own build service, u
 Homebrew answers "is there a newer version?" from a local copy of its package metadata. aiup's read-only paths run Homebrew with auto-update off, so that copy could otherwise be days old. Before `aiup check` or the picker's update preview asks Homebrew, aiup refreshes the copy with Homebrew's own fast `brew update --auto-update` when it is older than 15 minutes. If you set `HOMEBREW_NO_AUTO_UPDATE`, aiup leaves it alone.
 
 aiup reports the version Homebrew can install, which can trail the vendor's own release by a few hours or days while Homebrew packages it. Tools that aiup installs outside Homebrew are compared with their vendor's release channel instead.
+
+That lag is why many tools default to npm, PyPI or their own installer, with Homebrew as an alternate. `aiup channel TOOL brew` moves a tool to Homebrew if you prefer it there, and `aiup channel TOOL default` moves it back. The next `aiup only TOOL` makes the switch and removes the old copy.
 
 Update candidates include auto-updating casks (aiup then compares the installed app, so a self-updated app is not downgraded) but not unversioned `:latest` casks, which would otherwise reinstall on every run. If Homebrew's metadata for an app cask cannot be read during an update run, the upgrade is deferred so it never runs unchecked; `aiup resume` picks it up.
 

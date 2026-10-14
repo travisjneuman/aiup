@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 PRODUCTION = "https://aiup.neuman.dev/"
 REPOSITORY = "https://github.com/travisjneuman/aiup"
-CACHE_VERSION = "20260826-03"
+CACHE_VERSION = "20261014-01"
 GIF_SEQUENCE = [
     {"state": "collapsed-overview", "duration_ms": 1040},
     {"state": "gemini-search-update", "duration_ms": 2070},
@@ -239,7 +239,7 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
     require(urllib.parse.urlsplit(primary_image.get("src", "")).path == "/media/aiup-list.gif", "GIF is not the default TUI image")
     require(primary_image.get("fetchpriority") == "high", "primary GIF must use high fetch priority")
     require(primary_image.get("loading", "") != "lazy", "primary GIF must not be lazy loaded")
-    require((primary_image.get("width"), primary_image.get("height")) == ("2016", "1208"), "primary GIF dimensions drifted")
+    require((primary_image.get("width"), primary_image.get("height")) == ("1020", "618"), "primary GIF dimensions drifted")
     require(not any(key.startswith("data-") for key in primary_image), "obsolete animation data attributes remain")
 
     sources = elements(document, "source")
@@ -390,8 +390,8 @@ def validate_media_and_public_safety() -> None:
             sha256(SITE / "media" / name) == capture_manifest["assets"][name]["sha256"],
             f"canonical media hash drifted: {name}",
         )
-    require(image_dimensions(SITE / "media" / "aiup-list.gif") == (2016, 1208), "canonical GIF dimensions drifted")
-    require(image_dimensions(SITE / "media" / "aiup-list-poster.png") == (2016, 1208), "canonical poster dimensions drifted")
+    require(image_dimensions(SITE / "media" / "aiup-list.gif") == (1020, 618), "canonical GIF dimensions drifted")
+    require(image_dimensions(SITE / "media" / "aiup-list-poster.png") == (1020, 618), "canonical poster dimensions drifted")
     require(
         b"NETSCAPE2.0\x03\x01\x00\x00\x00" in (SITE / "media" / "aiup-list.gif").read_bytes(),
         "canonical GIF lacks the infinite-loop NETSCAPE extension",

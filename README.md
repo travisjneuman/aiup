@@ -36,8 +36,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png?v=20260826-03" />
-    <img src="docs/media/aiup-list.gif?v=20260826-03" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1008" height="604" />
+    <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/aiup-list-poster.png?v=20261014-01" />
+    <img src="docs/media/aiup-list.gif?v=20261014-01" alt="Responsive aiup catalog in a macOS Terminal frame: overview, Gemini update state, expanded Homebrew recommendations, Raycast switch context, a cancelled safety confirmation, and the final overview" width="1020" height="618" />
   </picture>
 </p>
 
@@ -133,6 +133,8 @@ Repository contributors can opt into an offline local checkout for one invocatio
 
 Normal package updates are unattended: Homebrew package confirmations are accepted automatically, and version checks cannot wait for terminal input. The initial Homebrew bootstrap is the exception and runs its official installer interactively for confirmation and any administrator authentication. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations also require your approval.
 
+Each tool installs from the official channel that gets new releases first. Homebrew often trails a vendor's release by a few hours to a day, so tools such as Codex, Copilot and Kimi install from npm, Spec Kit and gptme from PyPI, and Claude Code and OpenCode from their own installers. Where a tool has more than one official package, the others are alternates. `aiup channel` lists those tools, `aiup channel TOOL` shows each channel's package and latest version, and `aiup channel TOOL brew|npm|uv|vendor|default` picks one. The next `aiup only TOOL` installs from that channel and then removes the old copy; settings stay.
+
 Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; aiup replaces only its app bundle and does not remove its configured settings or capture paths.
 
 ## ✨ Ground rules
@@ -173,12 +175,12 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them. Project-local dependencies, temporary `npx` downloads, and agent skills are not global installed tools. Remotion is managed as `@remotion/cli`; individual video projects still need their own matching Remotion dependencies.
 
 <p align="center">
-  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="Responsive 100 by 30 aiup overview with 11 color-coded collapsed categories and a compact four-line category preview" />
+  <img src="docs/media/aiup-list-collapsed.png" width="46%" alt="aiup overview in a 100 by 30 Terminal with color-coded collapsed categories, installed counts and a category preview" />
   <img src="docs/media/aiup-list-homebrew.png" width="46%" alt="Responsive Homebrew hierarchy with Raycast selected and its switch-to-Homebrew action, safety boundary, and relevant keys visible" />
 </p>
 
 <p align="center">
-  <img src="docs/media/aiup-list-search.png" alt="Left-anchored Gemini search in aiup with installed state, update action, dependencies, and contextual preview controls" width="1008" height="604" />
+  <img src="docs/media/aiup-list-search.png" alt="Left-anchored Gemini search in aiup with installed state, update action, dependencies, and contextual preview controls" width="1020" height="618" />
 </p>
 
 ## 🎛️ Keys
@@ -224,7 +226,7 @@ Installed rows are bright and the rest are dimmed, so what you have stands out. 
 Homebrew takes over the app you already have instead of installing a second copy.
 
 <p align="center">
-  <img src="docs/media/aiup-list-adopt.png" alt="Green-on-black macOS Terminal confirmation for Raycast adoption, stating the no-zap boundary and awaiting a yes or no answer" width="1008" height="604" />
+  <img src="docs/media/aiup-list-adopt.png" alt="Green-on-black macOS Terminal confirmation for Raycast adoption, stating the no-zap boundary and awaiting a yes or no answer" width="1020" height="618" />
 </p>
 
 | State | Meaning |
@@ -244,30 +246,30 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.29-06** · **218** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.29-06** · **261** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
 | ⚙️ | **Essentials** (`infra`) | Runtimes and installers other tools need | 8 tools |
 | 🤖 | **Coding assistants** (`coding-agents`) | Agents that write and edit code in the terminal | 40 tools |
-| 🧰 | **Agent helpers** (`agent-tools`) | Add-ons for coding agents: usage reports, specs, task lists, rules | 9 tools |
-| 🖥️ | **Agent workspaces** (`workspaces`) | Desktop apps that run and manage coding agents | 15 tools |
+| 🧰 | **Agent helpers** (`agent-tools`) | Add-ons for coding agents: usage reports, specs, task lists, rules | 17 tools |
+| 🖥️ | **Agent workspaces** (`workspaces`) | Desktop apps that run and manage coding agents | 16 tools |
 | ✏️ | **Code editors** (`editors`) | Places you type code | 10 tools |
 | ⌨️ | **Terminals** (`terminals`) | Places you run commands | 5 tools |
-| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 7 tools |
-| 🛡️ | **Sandboxes** (`sandboxes`) | Containers and sandboxes for running agents apart from your files | 3 tools |
+| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 15 tools |
+| 🛡️ | **Sandboxes** (`sandboxes`) | Containers and sandboxes for running agents apart from your files | 9 tools |
 | 🔌 | **Integrations** (`adapters`) | Glue between agents and editors (ACP) | 6 tools |
-| 💬 | **Chat assistants** (`chat`) | Cloud chat apps | 10 tools |
-| 🌐 | **AI browsers** (`browsers`) | Web browsers with an AI assistant or agent built in | 3 tools |
-| ⚡ | **Automation** (`automation`) | General-purpose agents and workflow automation | 6 tools |
-| 🧠 | **Local models** (`local-ai`) | Model runtimes and servers that run on your Mac | 15 tools |
-| 💻 | **Local AI apps** (`local-apps`) | Desktop apps for running models on your Mac | 12 tools |
+| 💬 | **Chat assistants** (`chat`) | Cloud chat apps | 11 tools |
+| 🌐 | **AI browsers** (`browsers`) | Web browsers with an AI assistant or agent built in | 6 tools |
+| ⚡ | **Automation** (`automation`) | General-purpose agents and workflow automation | 7 tools |
+| 🧠 | **Local models** (`local-ai`) | Model runtimes and servers that run on your Mac | 22 tools |
+| 💻 | **Local AI apps** (`local-apps`) | Desktop apps for running models on your Mac | 16 tools |
 | 🎙️ | **Voice and dictation** (`voice`) | Dictation, transcription, meeting notes and speech | 24 tools |
 | 🎨 | **Image and video AI** (`image-gen`) | Apps and tools that generate images and video | 6 tools |
 | 🎬 | **Creative apps** (`media`) | Editors and recorders for video, images, audio and 3D | 12 tools |
 | 🎞️ | **Media tools** (`media-tools`) | Command-line tools for converting and downloading media | 6 tools |
-| 🔧 | **AI utilities** (`llm-utils`) | Command-line LLM tools, and converters that turn files into text for models | 8 tools |
-| 🛠️ | **Developer tools** (`dev-utils`) | Development, search, data, and deployment utilities | 13 tools |
+| 🔧 | **AI utilities** (`llm-utils`) | Command-line LLM tools, and converters that turn files into text for models | 11 tools |
+| 🛠️ | **Developer tools** (`dev-utils`) | Development, search, data, and deployment utilities | 14 tools |
 | 🍺 | **Other packages** (`homebrew`) | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 
@@ -309,6 +311,7 @@ The current macOS tool, public repository, minimal site, and six-state media are
 | `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes. Runs a read-only check first, so each tool with an update gets its own card with its release notes. Shows self-updated apps and apps that must be quit first; download sizes remain updater-dependent |
 | `aiup owners` | Local installation ownership, paths and maintenance guidance; observations persist locally |
 | `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
+| `aiup channel [TOOL [brew\|npm\|uv\|vendor\|default]]` | Lists tools with more than one install channel, shows a tool's channels and latest versions, or picks the one it installs from |
 | `aiup resume` | Retries tools whose newest saved result is pending, deferred (app was open), cancelled or failed, across all retained runs, rechecking current state |
 | `aiup settings cleanup auto` / `review` | Automatic cleanup or review-first mode; exclusions also accept `bc:`/`bf:` IDs |
 | `aiup cleanup history` | Cleanup results from retained structured run history |

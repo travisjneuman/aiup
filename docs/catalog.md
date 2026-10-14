@@ -32,7 +32,7 @@ Agents that write and edit code in the terminal
 | `pi` | Pi coding agent: @earendil-works/pi-coding-agent |
 | `kilo` | Kilo Code CLI: @kilocode/cli |
 | `gsd2` | GSD (gsd-pi): @opengsd/gsd-pi |
-| `opencode` | OpenCode: official installer (1.x line) |
+| `opencode` | OpenCode 2: official installer |
 | `warp` | Warp Agent CLI (warp) |
 | `aider` | Aider: git-native pair programming CLI |
 | `goose` | Goose: open-source agent CLI |
@@ -79,6 +79,14 @@ Add-ons for coding agents: usage reports, specs, task lists, rules
 | `beads` | Beads: issue tracker that coding agents use as memory (bd) |
 | `backlog-md` | Backlog.md: Markdown task board inside a Git repository (backlog) |
 | `rulesync` | rulesync: one set of rules, written out for each coding agent |
+| `cq` | cq: shared knowledge store so agents avoid known mistakes |
+| `agent-deck` | Agent Deck: one terminal UI for many coding agent sessions |
+| `git-gtr` | git-gtr: CodeRabbit git worktree runner for parallel agents (gtr) |
+| `worktrunk` | Worktrunk: git worktrees for parallel agent work (wt) |
+| `apm` | APM: Microsoft package manager for agent configuration |
+| `peekaboo` | Peekaboo: screenshots and UI automation for agents (macOS 15+) |
+| `codexbar` | CodexBar: menu bar view of coding agent limits and usage (macOS 14+) |
+| `coderabbit` | CodeRabbit CLI: AI code review in the terminal (account required) |
 
 ## 🖥️ Agent workspaces (`workspaces`)
 
@@ -101,6 +109,7 @@ Desktop apps that run and manage coding agents
 | `nimbalyst` | Nimbalyst: visual workspace for Codex and Claude Code |
 | `commander` | Commander: AI agent operator app (macOS 15+) |
 | `zcode` | ZCode: Z.ai agentic development environment |
+| `zed-delta` | Delta: multiplayer coding with agents (Apple silicon, macOS 13+) |
 
 ## ✏️ Code editors (`editors`)
 
@@ -144,6 +153,14 @@ Tools to run, test and connect MCP servers
 | `mcpc` | mcpc: Apify command-line MCP client |
 | `supergateway` | Supergateway: serve stdio MCP servers over SSE or WebSocket |
 | `toolhive-studio` | ToolHive: desktop app to install and run MCP servers (macOS 13+) |
+| `playwright-mcp` | Playwright MCP: Microsoft browser control server for MCP clients |
+| `chrome-devtools-mcp` | Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome |
+| `thv` | ToolHive CLI (thv): run and manage MCP servers from the terminal |
+| `mcpd` | mcpd: Mozilla.ai tool to define and run MCP servers from one config file |
+| `mcporter` | MCPorter: call MCP servers from the terminal or TypeScript |
+| `github-mcp-server` | GitHub MCP Server: GitHub tools for AI clients |
+| `mcp-toolbox` | MCP Toolbox: Google MCP server for databases (toolbox) |
+| `mcp-publisher` | MCP Publisher: publish servers to the official MCP Registry |
 
 ## 🛡️ Sandboxes (`sandboxes`)
 
@@ -154,6 +171,12 @@ Containers and sandboxes for running agents apart from your files
 | `srt` | Sandbox Runtime (srt): Anthropic file and network sandbox for agents |
 | `container` | Apple container: Linux containers in lightweight VMs (Apple silicon, macOS 26+) |
 | `orbstack` | OrbStack: Docker containers and Linux machines (macOS 14+) |
+| `sbx` | Docker Sandboxes (sbx): run coding agents in isolated sandboxes (Apple silicon, macOS 14+) |
+| `daytona` | Daytona CLI: manage cloud sandboxes for AI-generated code (account required) |
+| `e2b` | E2B CLI: manage cloud sandboxes and templates (account required) |
+| `openshell` | OpenShell: NVIDIA private runtime for autonomous agents (early release) |
+| `lume` | Lume: macOS and Linux VMs for agents, from Cua (Apple silicon, macOS 15+) |
+| `arcbox` | ArcBox: containers, Linux VMs and agent sandboxes (Apple silicon, macOS 15+) |
 
 ## 🔌 Integrations (`adapters`)
 
@@ -184,6 +207,7 @@ Cloud chat apps
 | `boltai` | BoltAI: native macOS AI chat client |
 | `chatbox` | Chatbox: multi-provider AI chat desktop app |
 | `lobehub` | LobeHub: open-source AI chat/agent desktop app |
+| `poe` | Poe: Quora chat app with models from many providers |
 
 ## 🌐 AI browsers (`browsers`)
 
@@ -194,6 +218,9 @@ Web browsers with an AI assistant or agent built in
 | `dia` | Dia: AI browser from The Browser Company (macOS 14+) |
 | `comet` | Comet: Perplexity browser with a built-in assistant |
 | `browseros` | BrowserOS: open-source agentic browser |
+| `agent-browser` | agent-browser: Vercel browser automation CLI for coding agents |
+| `browser-use` | Browser Use: lets an agent drive your own Chrome from the terminal |
+| `playwright-cli` | Playwright CLI: Microsoft browser automation commands for coding agents |
 
 ## ⚡ Automation (`automation`)
 
@@ -207,6 +234,7 @@ General-purpose agents and workflow automation
 | `n8n` | n8n: workflow automation via the official npm package |
 | `manus` | Manus Studio: Manus agent for tasks on your computer |
 | `langflow` | Langflow Desktop: low-code AI workflow builder |
+| `docker-agent` | Docker Agent: build and run AI agents from a config file |
 
 ## 🧠 Local models (`local-ai`)
 
@@ -229,6 +257,13 @@ Model runtimes and servers that run on your Mac
 | `gollama` | Gollama: manage Ollama models in a terminal UI |
 | `llmfit` | llmfit: find which models run on your hardware |
 | `mlx-knife` | MLX Knife (mlxk): manage and run MLX models |
+| `vllm-metal` | vLLM Metal: vLLM inference server on Apple silicon (macOS 15+, large install) |
+| `omlx` | oMLX: MLX inference server with batching and an SSD cache (macOS 15+, builds from source) |
+| `splash` | Splash: Inco AI local inference engine for coding agents (M3 or newer, macOS 26.4+) |
+| `mlx-serve-cli` | mlx-serve: the MLX-Serve model server without the app (macOS 26.2+) |
+| `foundry-local` | Foundry Local: Microsoft CLI for running models locally (preview, macOS 15+) |
+| `llama-swap` | llama-swap: swap models behind one OpenAI-compatible endpoint |
+| `cactus` | Cactus: on-device AI inference CLI (Apple silicon, macOS 14+) |
 
 ## 💻 Local AI apps (`local-apps`)
 
@@ -248,6 +283,10 @@ Desktop apps for running models on your Mac
 | `swama` | Swama: MLX model runtime app (macOS 15+) |
 | `nativ` | Nativ: run models locally (macOS 26+) |
 | `dayflow` | Dayflow: a timeline of your day from your screen activity (macOS 14+) |
+| `mlx-serve` | MLX-Serve: local model server app with OpenAI and Anthropic APIs (macOS 26+) |
+| `nvidia-pair` | NVIDIA PAIR: share local inference across your computers (macOS 13+) |
+| `unsloth` | Unsloth Studio: run and fine-tune models locally (beta, Apple silicon) |
+| `lm-studio-bionic` | Bionic: LM Studio agent that works with open models (Apple silicon) |
 
 ## 🎙️ Voice and dictation (`voice`)
 
@@ -339,6 +378,9 @@ Command-line LLM tools, and converters that turn files into text for models
 | `docling` | Docling: turn PDFs and office documents into text for models (large install) |
 | `pandoc` | Pandoc: convert between document formats |
 | `defuddle` | Defuddle: pull the main content of a web page as Markdown |
+| `oracle` | Oracle: send prompts and files to a second model for review (API key required) |
+| `rtk` | RTK: cut the tokens dev commands send to agents |
+| `promptfoo` | promptfoo: test and red-team LLM prompts locally |
 
 ## 🛠️ Developer tools (`dev-utils`)
 
@@ -359,6 +401,7 @@ Development, search, data, and deployment utilities
 | `tmux` | tmux: terminal multiplexer |
 | `supabase` | Supabase CLI: local Postgres development and deploys |
 | `vercel` | Vercel CLI: deploy and manage Vercel projects |
+| `android-cli` | Android CLI: Google tool for Android development with agents (android) |
 
 ## 🍺 Other packages (`homebrew`)
 

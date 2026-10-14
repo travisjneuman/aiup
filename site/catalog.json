@@ -67,7 +67,7 @@
         {
           "id": "mise",
           "category": "infra",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://mise.jdx.dev/",
           "label": "mise: polyglot runtime/tool version manager"
@@ -158,7 +158,7 @@
           "kind": "special",
           "lifecycle": "active",
           "docs": "https://github.com/anomalyco/opencode",
-          "label": "OpenCode: official installer (1.x line)"
+          "label": "OpenCode 2: official installer"
         },
         {
           "id": "warp",
@@ -235,7 +235,7 @@
         {
           "id": "kimi",
           "category": "coding-agents",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/MoonshotAI/kimi-code",
           "label": "Kimi Code CLI: Moonshot (kimi-code)"
@@ -363,7 +363,7 @@
         {
           "id": "gptme",
           "category": "coding-agents",
-          "kind": "brew-formula",
+          "kind": "uv-tool",
           "lifecycle": "active",
           "docs": "https://gptme.org/docs/",
           "label": "gptme: open-source AI assistant in your terminal"
@@ -411,7 +411,7 @@
         {
           "id": "ccusage",
           "category": "agent-tools",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/ccusage/ccusage",
           "label": "ccusage: token and cost reports from local agent logs"
@@ -427,7 +427,7 @@
         {
           "id": "claude-code-router",
           "category": "agent-tools",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/musistudio/claude-code-router",
           "label": "Claude Code Router: send Claude Code requests to other model providers (ccr)"
@@ -451,7 +451,7 @@
         {
           "id": "openspec",
           "category": "agent-tools",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://openspec.dev/",
           "label": "OpenSpec: spec-driven development for coding agents"
@@ -467,7 +467,7 @@
         {
           "id": "backlog-md",
           "category": "agent-tools",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/MrLesk/Backlog.md",
           "label": "Backlog.md: Markdown task board inside a Git repository (backlog)"
@@ -479,6 +479,70 @@
           "lifecycle": "active",
           "docs": "https://github.com/dyoshikawa/rulesync",
           "label": "rulesync: one set of rules, written out for each coding agent"
+        },
+        {
+          "id": "cq",
+          "category": "agent-tools",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://docs.mozilla.ai/cq",
+          "label": "cq: shared knowledge store so agents avoid known mistakes"
+        },
+        {
+          "id": "agent-deck",
+          "category": "agent-tools",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/asheshgoplani/agent-deck",
+          "label": "Agent Deck: one terminal UI for many coding agent sessions"
+        },
+        {
+          "id": "git-gtr",
+          "category": "agent-tools",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/coderabbitai/git-worktree-runner",
+          "label": "git-gtr: CodeRabbit git worktree runner for parallel agents (gtr)"
+        },
+        {
+          "id": "worktrunk",
+          "category": "agent-tools",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://worktrunk.dev",
+          "label": "Worktrunk: git worktrees for parallel agent work (wt)"
+        },
+        {
+          "id": "apm",
+          "category": "agent-tools",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://microsoft.github.io/apm/",
+          "label": "APM: Microsoft package manager for agent configuration"
+        },
+        {
+          "id": "peekaboo",
+          "category": "agent-tools",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://peekaboo.sh/",
+          "label": "Peekaboo: screenshots and UI automation for agents (macOS 15+)"
+        },
+        {
+          "id": "codexbar",
+          "category": "agent-tools",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://codexbar.app/",
+          "label": "CodexBar: menu bar view of coding agent limits and usage (macOS 14+)"
+        },
+        {
+          "id": "coderabbit",
+          "category": "agent-tools",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://www.coderabbit.ai/cli",
+          "label": "CodeRabbit CLI: AI code review in the terminal (account required)"
         }
       ]
     },
@@ -607,6 +671,14 @@
           "lifecycle": "active",
           "docs": "https://zcode.z.ai/en/",
           "label": "ZCode: Z.ai agentic development environment"
+        },
+        {
+          "id": "zed-delta",
+          "category": "workspaces",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://delta.dev/",
+          "label": "Delta: multiplayer coding with agents (Apple silicon, macOS 13+)"
         }
       ]
     },
@@ -755,7 +827,7 @@
         {
           "id": "mcp-inspector",
           "category": "mcp",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/modelcontextprotocol/inspector",
           "label": "MCP Inspector: visual testing tool for MCP servers"
@@ -771,7 +843,7 @@
         {
           "id": "mcp-proxy",
           "category": "mcp",
-          "kind": "brew-formula",
+          "kind": "uv-tool",
           "lifecycle": "active",
           "docs": "https://github.com/sparfenyuk/mcp-proxy",
           "label": "mcp-proxy: bridge stdio and HTTP MCP transports"
@@ -779,7 +851,7 @@
         {
           "id": "mcp-remote",
           "category": "mcp",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/geelen/mcp-remote",
           "label": "mcp-remote: connect local MCP clients to remote servers that use OAuth"
@@ -787,7 +859,7 @@
         {
           "id": "mcpc",
           "category": "mcp",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/apify/mcpc",
           "label": "mcpc: Apify command-line MCP client"
@@ -807,6 +879,70 @@
           "lifecycle": "active",
           "docs": "https://github.com/stacklok/toolhive-studio",
           "label": "ToolHive: desktop app to install and run MCP servers (macOS 13+)"
+        },
+        {
+          "id": "playwright-mcp",
+          "category": "mcp",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/microsoft/playwright-mcp",
+          "label": "Playwright MCP: Microsoft browser control server for MCP clients"
+        },
+        {
+          "id": "chrome-devtools-mcp",
+          "category": "mcp",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+          "label": "Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome"
+        },
+        {
+          "id": "thv",
+          "category": "mcp",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://docs.stacklok.com/toolhive/",
+          "label": "ToolHive CLI (thv): run and manage MCP servers from the terminal"
+        },
+        {
+          "id": "mcpd",
+          "category": "mcp",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/mozilla-ai/mcpd",
+          "label": "mcpd: Mozilla.ai tool to define and run MCP servers from one config file"
+        },
+        {
+          "id": "mcporter",
+          "category": "mcp",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://mcporter.sh",
+          "label": "MCPorter: call MCP servers from the terminal or TypeScript"
+        },
+        {
+          "id": "github-mcp-server",
+          "category": "mcp",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/github/github-mcp-server",
+          "label": "GitHub MCP Server: GitHub tools for AI clients"
+        },
+        {
+          "id": "mcp-toolbox",
+          "category": "mcp",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/googleapis/mcp-toolbox",
+          "label": "MCP Toolbox: Google MCP server for databases (toolbox)"
+        },
+        {
+          "id": "mcp-publisher",
+          "category": "mcp",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/modelcontextprotocol/registry",
+          "label": "MCP Publisher: publish servers to the official MCP Registry"
         }
       ]
     },
@@ -839,6 +975,54 @@
           "lifecycle": "active",
           "docs": "https://orbstack.dev/",
           "label": "OrbStack: Docker containers and Linux machines (macOS 14+)"
+        },
+        {
+          "id": "sbx",
+          "category": "sandboxes",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://docs.docker.com/ai/sandboxes/",
+          "label": "Docker Sandboxes (sbx): run coding agents in isolated sandboxes (Apple silicon, macOS 14+)"
+        },
+        {
+          "id": "daytona",
+          "category": "sandboxes",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://www.daytona.io/docs/en/tools/cli/",
+          "label": "Daytona CLI: manage cloud sandboxes for AI-generated code (account required)"
+        },
+        {
+          "id": "e2b",
+          "category": "sandboxes",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://e2b.dev/docs/cli",
+          "label": "E2B CLI: manage cloud sandboxes and templates (account required)"
+        },
+        {
+          "id": "openshell",
+          "category": "sandboxes",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://docs.nvidia.com/openshell/latest/",
+          "label": "OpenShell: NVIDIA private runtime for autonomous agents (early release)"
+        },
+        {
+          "id": "lume",
+          "category": "sandboxes",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://cua.ai/docs/lume",
+          "label": "Lume: macOS and Linux VMs for agents, from Cua (Apple silicon, macOS 15+)"
+        },
+        {
+          "id": "arcbox",
+          "category": "sandboxes",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://arcbox.dev/",
+          "label": "ArcBox: containers, Linux VMs and agent sandboxes (Apple silicon, macOS 15+)"
         }
       ]
     },
@@ -983,6 +1167,14 @@
           "lifecycle": "active",
           "docs": "https://github.com/lobehub/lobehub",
           "label": "LobeHub: open-source AI chat/agent desktop app"
+        },
+        {
+          "id": "poe",
+          "category": "chat",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://poe.com/",
+          "label": "Poe: Quora chat app with models from many providers"
         }
       ]
     },
@@ -1015,6 +1207,30 @@
           "lifecycle": "active",
           "docs": "https://www.browseros.com/",
           "label": "BrowserOS: open-source agentic browser"
+        },
+        {
+          "id": "agent-browser",
+          "category": "browsers",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/vercel-labs/agent-browser",
+          "label": "agent-browser: Vercel browser automation CLI for coding agents"
+        },
+        {
+          "id": "browser-use",
+          "category": "browsers",
+          "kind": "uv-tool",
+          "lifecycle": "active",
+          "docs": "https://github.com/browser-use/browser-use",
+          "label": "Browser Use: lets an agent drive your own Chrome from the terminal"
+        },
+        {
+          "id": "playwright-cli",
+          "category": "browsers",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://github.com/microsoft/playwright-cli",
+          "label": "Playwright CLI: Microsoft browser automation commands for coding agents"
         }
       ]
     },
@@ -1035,7 +1251,7 @@
         {
           "id": "openclaw",
           "category": "automation",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/openclaw/openclaw",
           "label": "OpenClaw: personal/local AI assistant CLI"
@@ -1071,6 +1287,14 @@
           "lifecycle": "active",
           "docs": "https://www.langflow.org/desktop",
           "label": "Langflow Desktop: low-code AI workflow builder"
+        },
+        {
+          "id": "docker-agent",
+          "category": "automation",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://docker.github.io/docker-agent/",
+          "label": "Docker Agent: build and run AI agents from a config file"
         }
       ]
     },
@@ -1139,7 +1363,7 @@
         {
           "id": "hf",
           "category": "local-ai",
-          "kind": "brew-formula",
+          "kind": "uv-tool",
           "lifecycle": "active",
           "docs": "https://huggingface.co/docs/huggingface_hub/guides/cli",
           "label": "Hugging Face CLI (hf): model download and hub management"
@@ -1155,7 +1379,7 @@
         {
           "id": "rapid-mlx",
           "category": "local-ai",
-          "kind": "brew-formula",
+          "kind": "uv-tool",
           "lifecycle": "active",
           "docs": "https://github.com/raullenchai/Rapid-MLX",
           "label": "Rapid-MLX: local MLX inference server with an OpenAI-compatible API (macOS 14+)"
@@ -1199,6 +1423,62 @@
           "lifecycle": "active",
           "docs": "https://github.com/mzau/mlx-knife",
           "label": "MLX Knife (mlxk): manage and run MLX models"
+        },
+        {
+          "id": "vllm-metal",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://docs.vllm.ai/projects/vllm-metal",
+          "label": "vLLM Metal: vLLM inference server on Apple silicon (macOS 15+, large install)"
+        },
+        {
+          "id": "omlx",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://omlx.ai",
+          "label": "oMLX: MLX inference server with batching and an SSD cache (macOS 15+, builds from source)"
+        },
+        {
+          "id": "splash",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://inco.ai/blog/splash/",
+          "label": "Splash: Inco AI local inference engine for coding agents (M3 or newer, macOS 26.4+)"
+        },
+        {
+          "id": "mlx-serve-cli",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://mlxserve.com/",
+          "label": "mlx-serve: the MLX-Serve model server without the app (macOS 26.2+)"
+        },
+        {
+          "id": "foundry-local",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-local/",
+          "label": "Foundry Local: Microsoft CLI for running models locally (preview, macOS 15+)"
+        },
+        {
+          "id": "llama-swap",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://github.com/mostlygeek/llama-swap",
+          "label": "llama-swap: swap models behind one OpenAI-compatible endpoint"
+        },
+        {
+          "id": "cactus",
+          "category": "local-ai",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://cactuscompute.com",
+          "label": "Cactus: on-device AI inference CLI (Apple silicon, macOS 14+)"
         }
       ]
     },
@@ -1303,6 +1583,38 @@
           "lifecycle": "active",
           "docs": "https://github.com/JerryZLiu/Dayflow",
           "label": "Dayflow: a timeline of your day from your screen activity (macOS 14+)"
+        },
+        {
+          "id": "mlx-serve",
+          "category": "local-apps",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://mlxserve.com/",
+          "label": "MLX-Serve: local model server app with OpenAI and Anthropic APIs (macOS 26+)"
+        },
+        {
+          "id": "nvidia-pair",
+          "category": "local-apps",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://github.com/NVIDIA/Personal-AI-Router",
+          "label": "NVIDIA PAIR: share local inference across your computers (macOS 13+)"
+        },
+        {
+          "id": "unsloth",
+          "category": "local-apps",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://unsloth.ai/docs/new/studio",
+          "label": "Unsloth Studio: run and fine-tune models locally (beta, Apple silicon)"
+        },
+        {
+          "id": "lm-studio-bionic",
+          "category": "local-apps",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://lmstudio.ai/bionic",
+          "label": "Bionic: LM Studio agent that works with open models (Apple silicon)"
         }
       ]
     },
@@ -1491,7 +1803,7 @@
         {
           "id": "pocket-tts",
           "category": "voice",
-          "kind": "brew-formula",
+          "kind": "uv-tool",
           "lifecycle": "active",
           "docs": "https://github.com/kyutai-labs/pocket-tts",
           "label": "Pocket TTS: Kyutai text-to-speech that runs on the CPU"
@@ -1755,7 +2067,7 @@
         {
           "id": "repomix",
           "category": "llm-utils",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://github.com/yamadashy/repomix",
           "label": "Repomix: pack a repository into one AI-friendly file"
@@ -1791,6 +2103,30 @@
           "lifecycle": "active",
           "docs": "https://github.com/kepano/defuddle",
           "label": "Defuddle: pull the main content of a web page as Markdown"
+        },
+        {
+          "id": "oracle",
+          "category": "llm-utils",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://askoracle.sh",
+          "label": "Oracle: send prompts and files to a second model for review (API key required)"
+        },
+        {
+          "id": "rtk",
+          "category": "llm-utils",
+          "kind": "brew-formula",
+          "lifecycle": "active",
+          "docs": "https://www.rtk-ai.app",
+          "label": "RTK: cut the tokens dev commands send to agents"
+        },
+        {
+          "id": "promptfoo",
+          "category": "llm-utils",
+          "kind": "aiup-npm",
+          "lifecycle": "active",
+          "docs": "https://www.promptfoo.dev/docs/",
+          "label": "promptfoo: test and red-team LLM prompts locally"
         }
       ]
     },
@@ -1875,7 +2211,7 @@
         {
           "id": "ast-grep",
           "category": "dev-utils",
-          "kind": "brew-formula",
+          "kind": "aiup-npm",
           "lifecycle": "active",
           "docs": "https://ast-grep.github.io/",
           "label": "ast-grep: structural code search and rewrite (sg)"
@@ -1903,6 +2239,14 @@
           "lifecycle": "active",
           "docs": "https://vercel.com/docs/cli",
           "label": "Vercel CLI: deploy and manage Vercel projects"
+        },
+        {
+          "id": "android-cli",
+          "category": "dev-utils",
+          "kind": "brew-cask",
+          "lifecycle": "active",
+          "docs": "https://developer.android.com/tools/agents/android-cli",
+          "label": "Android CLI: Google tool for Android development with agents (android)"
         }
       ]
     },
@@ -2163,7 +2507,7 @@
       "kind": "special",
       "lifecycle": "active",
       "docs": "https://github.com/anomalyco/opencode",
-      "label": "OpenCode: official installer (1.x line)"
+      "label": "OpenCode 2: official installer"
     },
     {
       "id": "hermes",
@@ -2248,7 +2592,7 @@
     {
       "id": "kimi",
       "category": "coding-agents",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/MoonshotAI/kimi-code",
       "label": "Kimi Code CLI: Moonshot (kimi-code)"
@@ -2256,7 +2600,7 @@
     {
       "id": "openclaw",
       "category": "automation",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/openclaw/openclaw",
       "label": "OpenClaw: personal/local AI assistant CLI"
@@ -2752,7 +3096,7 @@
     {
       "id": "mcp-inspector",
       "category": "mcp",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/modelcontextprotocol/inspector",
       "label": "MCP Inspector: visual testing tool for MCP servers"
@@ -2760,7 +3104,7 @@
     {
       "id": "mise",
       "category": "infra",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://mise.jdx.dev/",
       "label": "mise: polyglot runtime/tool version manager"
@@ -2886,6 +3230,14 @@
       "label": "LobeHub: open-source AI chat/agent desktop app"
     },
     {
+      "id": "poe",
+      "category": "chat",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://poe.com/",
+      "label": "Poe: Quora chat app with models from many providers"
+    },
+    {
       "id": "localai",
       "category": "local-ai",
       "kind": "brew-formula",
@@ -2920,7 +3272,7 @@
     {
       "id": "hf",
       "category": "local-ai",
-      "kind": "brew-formula",
+      "kind": "uv-tool",
       "lifecycle": "active",
       "docs": "https://huggingface.co/docs/huggingface_hub/guides/cli",
       "label": "Hugging Face CLI (hf): model download and hub management"
@@ -2992,7 +3344,7 @@
     {
       "id": "repomix",
       "category": "llm-utils",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/yamadashy/repomix",
       "label": "Repomix: pack a repository into one AI-friendly file"
@@ -3072,7 +3424,7 @@
     {
       "id": "gptme",
       "category": "coding-agents",
-      "kind": "brew-formula",
+      "kind": "uv-tool",
       "lifecycle": "active",
       "docs": "https://gptme.org/docs/",
       "label": "gptme: open-source AI assistant in your terminal"
@@ -3112,7 +3464,7 @@
     {
       "id": "ccusage",
       "category": "agent-tools",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/ccusage/ccusage",
       "label": "ccusage: token and cost reports from local agent logs"
@@ -3128,7 +3480,7 @@
     {
       "id": "claude-code-router",
       "category": "agent-tools",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/musistudio/claude-code-router",
       "label": "Claude Code Router: send Claude Code requests to other model providers (ccr)"
@@ -3152,7 +3504,7 @@
     {
       "id": "openspec",
       "category": "agent-tools",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://openspec.dev/",
       "label": "OpenSpec: spec-driven development for coding agents"
@@ -3168,7 +3520,7 @@
     {
       "id": "backlog-md",
       "category": "agent-tools",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/MrLesk/Backlog.md",
       "label": "Backlog.md: Markdown task board inside a Git repository (backlog)"
@@ -3180,6 +3532,70 @@
       "lifecycle": "active",
       "docs": "https://github.com/dyoshikawa/rulesync",
       "label": "rulesync: one set of rules, written out for each coding agent"
+    },
+    {
+      "id": "cq",
+      "category": "agent-tools",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://docs.mozilla.ai/cq",
+      "label": "cq: shared knowledge store so agents avoid known mistakes"
+    },
+    {
+      "id": "agent-deck",
+      "category": "agent-tools",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/asheshgoplani/agent-deck",
+      "label": "Agent Deck: one terminal UI for many coding agent sessions"
+    },
+    {
+      "id": "git-gtr",
+      "category": "agent-tools",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/coderabbitai/git-worktree-runner",
+      "label": "git-gtr: CodeRabbit git worktree runner for parallel agents (gtr)"
+    },
+    {
+      "id": "worktrunk",
+      "category": "agent-tools",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://worktrunk.dev",
+      "label": "Worktrunk: git worktrees for parallel agent work (wt)"
+    },
+    {
+      "id": "apm",
+      "category": "agent-tools",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://microsoft.github.io/apm/",
+      "label": "APM: Microsoft package manager for agent configuration"
+    },
+    {
+      "id": "peekaboo",
+      "category": "agent-tools",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://peekaboo.sh/",
+      "label": "Peekaboo: screenshots and UI automation for agents (macOS 15+)"
+    },
+    {
+      "id": "codexbar",
+      "category": "agent-tools",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://codexbar.app/",
+      "label": "CodexBar: menu bar view of coding agent limits and usage (macOS 14+)"
+    },
+    {
+      "id": "coderabbit",
+      "category": "agent-tools",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://www.coderabbit.ai/cli",
+      "label": "CodeRabbit CLI: AI code review in the terminal (account required)"
     },
     {
       "id": "cline-app",
@@ -3222,6 +3638,14 @@
       "label": "ZCode: Z.ai agentic development environment"
     },
     {
+      "id": "zed-delta",
+      "category": "workspaces",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://delta.dev/",
+      "label": "Delta: multiplayer coding with agents (Apple silicon, macOS 13+)"
+    },
+    {
       "id": "trae",
       "category": "editors",
       "kind": "brew-cask",
@@ -3256,7 +3680,7 @@
     {
       "id": "mcp-proxy",
       "category": "mcp",
-      "kind": "brew-formula",
+      "kind": "uv-tool",
       "lifecycle": "active",
       "docs": "https://github.com/sparfenyuk/mcp-proxy",
       "label": "mcp-proxy: bridge stdio and HTTP MCP transports"
@@ -3264,7 +3688,7 @@
     {
       "id": "mcp-remote",
       "category": "mcp",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/geelen/mcp-remote",
       "label": "mcp-remote: connect local MCP clients to remote servers that use OAuth"
@@ -3272,7 +3696,7 @@
     {
       "id": "mcpc",
       "category": "mcp",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://github.com/apify/mcpc",
       "label": "mcpc: Apify command-line MCP client"
@@ -3292,6 +3716,70 @@
       "lifecycle": "active",
       "docs": "https://github.com/stacklok/toolhive-studio",
       "label": "ToolHive: desktop app to install and run MCP servers (macOS 13+)"
+    },
+    {
+      "id": "playwright-mcp",
+      "category": "mcp",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/microsoft/playwright-mcp",
+      "label": "Playwright MCP: Microsoft browser control server for MCP clients"
+    },
+    {
+      "id": "chrome-devtools-mcp",
+      "category": "mcp",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/ChromeDevTools/chrome-devtools-mcp",
+      "label": "Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome"
+    },
+    {
+      "id": "thv",
+      "category": "mcp",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://docs.stacklok.com/toolhive/",
+      "label": "ToolHive CLI (thv): run and manage MCP servers from the terminal"
+    },
+    {
+      "id": "mcpd",
+      "category": "mcp",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/mozilla-ai/mcpd",
+      "label": "mcpd: Mozilla.ai tool to define and run MCP servers from one config file"
+    },
+    {
+      "id": "mcporter",
+      "category": "mcp",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://mcporter.sh",
+      "label": "MCPorter: call MCP servers from the terminal or TypeScript"
+    },
+    {
+      "id": "github-mcp-server",
+      "category": "mcp",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/github/github-mcp-server",
+      "label": "GitHub MCP Server: GitHub tools for AI clients"
+    },
+    {
+      "id": "mcp-toolbox",
+      "category": "mcp",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/googleapis/mcp-toolbox",
+      "label": "MCP Toolbox: Google MCP server for databases (toolbox)"
+    },
+    {
+      "id": "mcp-publisher",
+      "category": "mcp",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/modelcontextprotocol/registry",
+      "label": "MCP Publisher: publish servers to the official MCP Registry"
     },
     {
       "id": "srt",
@@ -3316,6 +3804,54 @@
       "lifecycle": "active",
       "docs": "https://orbstack.dev/",
       "label": "OrbStack: Docker containers and Linux machines (macOS 14+)"
+    },
+    {
+      "id": "sbx",
+      "category": "sandboxes",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://docs.docker.com/ai/sandboxes/",
+      "label": "Docker Sandboxes (sbx): run coding agents in isolated sandboxes (Apple silicon, macOS 14+)"
+    },
+    {
+      "id": "daytona",
+      "category": "sandboxes",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://www.daytona.io/docs/en/tools/cli/",
+      "label": "Daytona CLI: manage cloud sandboxes for AI-generated code (account required)"
+    },
+    {
+      "id": "e2b",
+      "category": "sandboxes",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://e2b.dev/docs/cli",
+      "label": "E2B CLI: manage cloud sandboxes and templates (account required)"
+    },
+    {
+      "id": "openshell",
+      "category": "sandboxes",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://docs.nvidia.com/openshell/latest/",
+      "label": "OpenShell: NVIDIA private runtime for autonomous agents (early release)"
+    },
+    {
+      "id": "lume",
+      "category": "sandboxes",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://cua.ai/docs/lume",
+      "label": "Lume: macOS and Linux VMs for agents, from Cua (Apple silicon, macOS 15+)"
+    },
+    {
+      "id": "arcbox",
+      "category": "sandboxes",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://arcbox.dev/",
+      "label": "ArcBox: containers, Linux VMs and agent sandboxes (Apple silicon, macOS 15+)"
     },
     {
       "id": "amp-acp",
@@ -3366,6 +3902,30 @@
       "label": "BrowserOS: open-source agentic browser"
     },
     {
+      "id": "agent-browser",
+      "category": "browsers",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/vercel-labs/agent-browser",
+      "label": "agent-browser: Vercel browser automation CLI for coding agents"
+    },
+    {
+      "id": "browser-use",
+      "category": "browsers",
+      "kind": "uv-tool",
+      "lifecycle": "active",
+      "docs": "https://github.com/browser-use/browser-use",
+      "label": "Browser Use: lets an agent drive your own Chrome from the terminal"
+    },
+    {
+      "id": "playwright-cli",
+      "category": "browsers",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://github.com/microsoft/playwright-cli",
+      "label": "Playwright CLI: Microsoft browser automation commands for coding agents"
+    },
+    {
       "id": "manus",
       "category": "automation",
       "kind": "brew-cask",
@@ -3382,6 +3942,14 @@
       "label": "Langflow Desktop: low-code AI workflow builder"
     },
     {
+      "id": "docker-agent",
+      "category": "automation",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://docker.github.io/docker-agent/",
+      "label": "Docker Agent: build and run AI agents from a config file"
+    },
+    {
       "id": "apfel",
       "category": "local-ai",
       "kind": "brew-formula",
@@ -3392,7 +3960,7 @@
     {
       "id": "rapid-mlx",
       "category": "local-ai",
-      "kind": "brew-formula",
+      "kind": "uv-tool",
       "lifecycle": "active",
       "docs": "https://github.com/raullenchai/Rapid-MLX",
       "label": "Rapid-MLX: local MLX inference server with an OpenAI-compatible API (macOS 14+)"
@@ -3438,6 +4006,62 @@
       "label": "MLX Knife (mlxk): manage and run MLX models"
     },
     {
+      "id": "vllm-metal",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://docs.vllm.ai/projects/vllm-metal",
+      "label": "vLLM Metal: vLLM inference server on Apple silicon (macOS 15+, large install)"
+    },
+    {
+      "id": "omlx",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://omlx.ai",
+      "label": "oMLX: MLX inference server with batching and an SSD cache (macOS 15+, builds from source)"
+    },
+    {
+      "id": "splash",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://inco.ai/blog/splash/",
+      "label": "Splash: Inco AI local inference engine for coding agents (M3 or newer, macOS 26.4+)"
+    },
+    {
+      "id": "mlx-serve-cli",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://mlxserve.com/",
+      "label": "mlx-serve: the MLX-Serve model server without the app (macOS 26.2+)"
+    },
+    {
+      "id": "foundry-local",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-local/",
+      "label": "Foundry Local: Microsoft CLI for running models locally (preview, macOS 15+)"
+    },
+    {
+      "id": "llama-swap",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://github.com/mostlygeek/llama-swap",
+      "label": "llama-swap: swap models behind one OpenAI-compatible endpoint"
+    },
+    {
+      "id": "cactus",
+      "category": "local-ai",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://cactuscompute.com",
+      "label": "Cactus: on-device AI inference CLI (Apple silicon, macOS 14+)"
+    },
+    {
       "id": "vmlx",
       "category": "local-apps",
       "kind": "brew-cask",
@@ -3468,6 +4092,38 @@
       "lifecycle": "active",
       "docs": "https://github.com/JerryZLiu/Dayflow",
       "label": "Dayflow: a timeline of your day from your screen activity (macOS 14+)"
+    },
+    {
+      "id": "mlx-serve",
+      "category": "local-apps",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://mlxserve.com/",
+      "label": "MLX-Serve: local model server app with OpenAI and Anthropic APIs (macOS 26+)"
+    },
+    {
+      "id": "nvidia-pair",
+      "category": "local-apps",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://github.com/NVIDIA/Personal-AI-Router",
+      "label": "NVIDIA PAIR: share local inference across your computers (macOS 13+)"
+    },
+    {
+      "id": "unsloth",
+      "category": "local-apps",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://unsloth.ai/docs/new/studio",
+      "label": "Unsloth Studio: run and fine-tune models locally (beta, Apple silicon)"
+    },
+    {
+      "id": "lm-studio-bionic",
+      "category": "local-apps",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://lmstudio.ai/bionic",
+      "label": "Bionic: LM Studio agent that works with open models (Apple silicon)"
     },
     {
       "id": "fluidvoice",
@@ -3584,7 +4240,7 @@
     {
       "id": "pocket-tts",
       "category": "voice",
-      "kind": "brew-formula",
+      "kind": "uv-tool",
       "lifecycle": "active",
       "docs": "https://github.com/kyutai-labs/pocket-tts",
       "label": "Pocket TTS: Kyutai text-to-speech that runs on the CPU"
@@ -3670,9 +4326,33 @@
       "label": "Defuddle: pull the main content of a web page as Markdown"
     },
     {
+      "id": "oracle",
+      "category": "llm-utils",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://askoracle.sh",
+      "label": "Oracle: send prompts and files to a second model for review (API key required)"
+    },
+    {
+      "id": "rtk",
+      "category": "llm-utils",
+      "kind": "brew-formula",
+      "lifecycle": "active",
+      "docs": "https://www.rtk-ai.app",
+      "label": "RTK: cut the tokens dev commands send to agents"
+    },
+    {
+      "id": "promptfoo",
+      "category": "llm-utils",
+      "kind": "aiup-npm",
+      "lifecycle": "active",
+      "docs": "https://www.promptfoo.dev/docs/",
+      "label": "promptfoo: test and red-team LLM prompts locally"
+    },
+    {
       "id": "ast-grep",
       "category": "dev-utils",
-      "kind": "brew-formula",
+      "kind": "aiup-npm",
       "lifecycle": "active",
       "docs": "https://ast-grep.github.io/",
       "label": "ast-grep: structural code search and rewrite (sg)"
@@ -3700,6 +4380,14 @@
       "lifecycle": "active",
       "docs": "https://vercel.com/docs/cli",
       "label": "Vercel CLI: deploy and manage Vercel projects"
+    },
+    {
+      "id": "android-cli",
+      "category": "dev-utils",
+      "kind": "brew-cask",
+      "lifecycle": "active",
+      "docs": "https://developer.android.com/tools/agents/android-cli",
+      "label": "Android CLI: Google tool for Android development with agents (android)"
     }
   ],
   "recommended": [

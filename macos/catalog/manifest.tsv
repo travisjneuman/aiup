@@ -26,7 +26,7 @@ gemini	coding-agents	special	sunset	Google Gemini CLI: enterprise and API key ac
 pi	coding-agents	special	active	Pi coding agent: @earendil-works/pi-coding-agent	https://github.com/earendil-works/pi
 kilo	coding-agents	special	active	Kilo Code CLI: @kilocode/cli	https://github.com/Kilo-Org/kilocode
 gsd2	coding-agents	special	active	GSD (gsd-pi): @opengsd/gsd-pi	https://github.com/open-gsd/gsd-pi
-opencode	coding-agents	special	active	OpenCode: official installer (1.x line)	https://github.com/anomalyco/opencode
+opencode	coding-agents	special	active	OpenCode 2: official installer	https://github.com/anomalyco/opencode
 hermes	automation	special	active	Hermes Agent: Nous Research	https://github.com/NousResearch/hermes-agent
 warp	coding-agents	special	active	Warp Agent CLI (warp)	https://github.com/warpdotdev/warp
 aider	coding-agents	special	active	Aider: git-native pair programming CLI	https://github.com/Aider-AI/aider
@@ -37,8 +37,8 @@ crush	coding-agents	aiup-npm	active	Crush: Charm agentic TUI (@charmland/crush)	
 amp	coding-agents	curl-installer	active	Amp: frontier coding agent CLI	https://ampcode.com/
 kiro	coding-agents	brew-cask	active	Kiro CLI: Amazon Q Developer CLI successor	https://kiro.dev/docs/cli/	kiro-cli
 droid	coding-agents	curl-installer	active	Factory Droid: Factory.ai coding agent	https://github.com/Factory-AI/factory
-kimi	coding-agents	brew-formula	active	Kimi Code CLI: Moonshot (kimi-code)	https://github.com/MoonshotAI/kimi-code	kimi-code
-openclaw	automation	brew-formula	active	OpenClaw: personal/local AI assistant CLI	https://github.com/openclaw/openclaw	openclaw-cli
+kimi	coding-agents	aiup-npm	active	Kimi Code CLI: Moonshot (kimi-code)	https://github.com/MoonshotAI/kimi-code	@moonshot-ai/kimi-code
+openclaw	automation	aiup-npm	active	OpenClaw: personal/local AI assistant CLI	https://github.com/openclaw/openclaw	openclaw
 cline	coding-agents	aiup-npm	active	Cline CLI: npm cline	https://github.com/cline/cline	cline
 pi-acp	adapters	aiup-npm	active	Pi ACP adapter (pi-acp, community) for T3 Code and editors	https://www.npmjs.com/package/pi-acp	pi-acp
 llm	llm-utils	brew-formula	active	llm: Simon Willison Unix LLM CLI	https://github.com/simonw/llm	llm
@@ -100,8 +100,8 @@ letta	coding-agents	aiup-npm	active	Letta Code: stateful agent CLI (@letta-ai/le
 qoder	coding-agents	aiup-npm	active	Qoder CLI: @qoder-ai/qodercli	https://qoder.com/cli	@qoder-ai/qodercli
 claude-acp	adapters	aiup-npm	active	Claude Agent ACP adapter (@agentclientprotocol/claude-agent-acp) for Zed / editors	https://github.com/agentclientprotocol/claude-agent-acp	@agentclientprotocol/claude-agent-acp
 codex-acp	adapters	aiup-npm	active	Codex ACP adapter (@agentclientprotocol/codex-acp) for Zed / editors	https://github.com/agentclientprotocol/codex-acp	@agentclientprotocol/codex-acp
-mcp-inspector	mcp	brew-formula	active	MCP Inspector: visual testing tool for MCP servers	https://github.com/modelcontextprotocol/inspector	mcp-inspector
-mise	infra	brew-formula	active	mise: polyglot runtime/tool version manager	https://mise.jdx.dev/	mise
+mcp-inspector	mcp	aiup-npm	active	MCP Inspector: visual testing tool for MCP servers	https://github.com/modelcontextprotocol/inspector	@modelcontextprotocol/inspector
+mise	infra	aiup-npm	active	mise: polyglot runtime/tool version manager	https://mise.jdx.dev/	@jdxcode/mise
 devin-desktop	editors	brew-cask	active	Devin Desktop: agentic IDE (formerly Windsurf)	https://devin.ai/desktop	devin-desktop
 kiro-ide	editors	brew-cask	active	Kiro IDE: spec-driven agentic IDE (distinct from Kiro CLI)	https://kiro.dev/	kiro
 jetbrains-air	editors	brew-cask	active	JetBrains Air: agentic development environment	https://www.jetbrains.com/air/	jetbrains-air
@@ -117,11 +117,12 @@ msty-studio	chat	brew-cask	active	Msty Studio: local and online model desktop ap
 boltai	chat	brew-cask	active	BoltAI: native macOS AI chat client	https://boltai.com/	boltai
 chatbox	chat	brew-cask	active	Chatbox: multi-provider AI chat desktop app	https://chatboxai.app/en	chatbox
 lobehub	chat	brew-cask	active	LobeHub: open-source AI chat/agent desktop app	https://github.com/lobehub/lobehub	lobehub
+poe	chat	brew-cask	active	Poe: Quora chat app with models from many providers	https://poe.com/	poe
 localai	local-ai	brew-formula	active	LocalAI: OpenAI-compatible local inference server	https://localai.io/	localai
 ramalama	local-ai	brew-formula	active	RamaLama: run local models via containers	https://ramalama.ai/	ramalama
 osaurus	local-apps	brew-cask	active	Osaurus: MLX-based local LLM server app (macOS 15+)	https://github.com/osaurus-ai/osaurus	osaurus
 mlx-vlm	local-ai	uv-tool	active	mlx-vlm: vision-language models on Apple Silicon via MLX	https://github.com/Blaizzy/mlx-vlm	mlx-vlm
-hf	local-ai	brew-formula	active	Hugging Face CLI (hf): model download and hub management	https://huggingface.co/docs/huggingface_hub/guides/cli	hf
+hf	local-ai	uv-tool	active	Hugging Face CLI (hf): model download and hub management	https://huggingface.co/docs/huggingface_hub/guides/cli	huggingface-hub
 open-webui	local-apps	uv-tool	active	Open WebUI: self-hosted chat UI for Ollama/OpenAI-compatible APIs (Python 3.11–3.12)	https://github.com/open-webui/open-webui	open-webui
 whisperkit	voice	brew-formula	active	WhisperKit CLI: Argmax on-device speech recognition (models separate)	https://github.com/argmaxinc/argmax-oss-swift	whisperkit-cli
 handy	voice	brew-cask	active	Handy: open-source local speech-to-text dictation	https://github.com/cjpais/Handy	handy
@@ -130,7 +131,7 @@ wispr-flow	voice	brew-cask	active	Wispr Flow: AI dictation; vendor account requi
 stability-matrix	image-gen	brew-cask	active	Stability Matrix: Stable Diffusion package manager and inference UI	https://github.com/LykosAI/StabilityMatrix	stability-matrix
 mochi-diffusion	image-gen	brew-cask	active	Mochi Diffusion: native Core ML Stable Diffusion (macOS 15+)	https://github.com/MochiDiffusion/MochiDiffusion	mochi-diffusion
 sox-ng	media-tools	brew-formula	active	SoX NG: maintained SoX fork for command-line audio processing (replaces sox)	https://codeberg.org/sox_ng/sox_ng	sox_ng
-repomix	llm-utils	brew-formula	active	Repomix: pack a repository into one AI-friendly file	https://github.com/yamadashy/repomix	repomix
+repomix	llm-utils	aiup-npm	active	Repomix: pack a repository into one AI-friendly file	https://github.com/yamadashy/repomix	repomix
 markitdown	llm-utils	uv-tool	active	MarkItDown: Microsoft file-to-Markdown converter for LLMs	https://github.com/microsoft/markitdown	markitdown
 muse-code	coding-agents	brew-cask	active	Muse Code: Meta terminal coding agent (muse)	https://dev.meta.ai/	muse-code
 minimax-code	coding-agents	aiup-npm	active	MiniMax Code: open-source terminal coding agent (mcode)	https://agent.minimax.io/docs/cli/quick-start	@minimax-ai/code
@@ -140,56 +141,94 @@ dcode	coding-agents	uv-tool	active	Deep Agents Code: LangChain terminal coding a
 forgecode	coding-agents	brew-formula	active	Forge Code: terminal coding agent (forge)	https://forgecode.dev/	forgecode
 vtcode	coding-agents	brew-formula	active	VT Code: Rust terminal coding agent with ACP	https://github.com/vinhnx/VTCode	vtcode
 jcode	coding-agents	brew-formula	active	jcode: Rust coding agent for the terminal	https://jcode.sh	jcode
-gptme	coding-agents	brew-formula	active	gptme: open-source AI assistant in your terminal	https://gptme.org/docs/	gptme
+gptme	coding-agents	uv-tool	active	gptme: open-source AI assistant in your terminal	https://gptme.org/docs/	gptme
 code-puppy	coding-agents	uv-tool	active	Code Puppy: open-source terminal coding agent	https://github.com/mpfaffenberger/code_puppy	code-puppy
 command-code	coding-agents	aiup-npm	active	Command Code: terminal coding agent (commandcode)	https://commandcode.ai/docs	command-code
 nanocoder	coding-agents	aiup-npm	active	Nanocoder: local-first terminal coding agent	https://github.com/Nano-Collective/nanocoder	@nanocollective/nanocoder
 codebuff	coding-agents	aiup-npm	active	Codebuff: terminal coding agent	https://www.codebuff.com/	codebuff
-ccusage	agent-tools	brew-formula	active	ccusage: token and cost reports from local agent logs	https://github.com/ccusage/ccusage	ccusage
+ccusage	agent-tools	aiup-npm	active	ccusage: token and cost reports from local agent logs	https://github.com/ccusage/ccusage	ccusage
 claude-squad	agent-tools	brew-formula	active	Claude Squad: run several agents in tmux and git worktrees (cs)	https://smtg-ai.github.io/claude-squad/	claude-squad
-claude-code-router	agent-tools	brew-formula	active	Claude Code Router: send Claude Code requests to other model providers (ccr)	https://github.com/musistudio/claude-code-router	claude-code-router
+claude-code-router	agent-tools	aiup-npm	active	Claude Code Router: send Claude Code requests to other model providers (ccr)	https://github.com/musistudio/claude-code-router	@musistudio/claude-code-router
 skills	agent-tools	aiup-npm	active	skills: Vercel CLI that adds agent skills to a project	https://github.com/vercel-labs/skills	skills
 specify	agent-tools	uv-tool	active	Spec Kit (specify): GitHub toolkit for spec-driven development	https://github.com/github/spec-kit	specify-cli
-openspec	agent-tools	brew-formula	active	OpenSpec: spec-driven development for coding agents	https://openspec.dev/	openspec
+openspec	agent-tools	aiup-npm	active	OpenSpec: spec-driven development for coding agents	https://openspec.dev/	@fission-ai/openspec
 beads	agent-tools	brew-formula	active	Beads: issue tracker that coding agents use as memory (bd)	https://github.com/gastownhall/beads	beads
-backlog-md	agent-tools	brew-formula	active	Backlog.md: Markdown task board inside a Git repository (backlog)	https://github.com/MrLesk/Backlog.md	backlog-md
+backlog-md	agent-tools	aiup-npm	active	Backlog.md: Markdown task board inside a Git repository (backlog)	https://github.com/MrLesk/Backlog.md	backlog.md
 rulesync	agent-tools	aiup-npm	active	rulesync: one set of rules, written out for each coding agent	https://github.com/dyoshikawa/rulesync	rulesync
+cq	agent-tools	brew-cask	active	cq: shared knowledge store so agents avoid known mistakes	https://docs.mozilla.ai/cq	mozilla-ai/tap/cq
+agent-deck	agent-tools	brew-formula	active	Agent Deck: one terminal UI for many coding agent sessions	https://github.com/asheshgoplani/agent-deck	asheshgoplani/tap/agent-deck
+git-gtr	agent-tools	brew-formula	active	git-gtr: CodeRabbit git worktree runner for parallel agents (gtr)	https://github.com/coderabbitai/git-worktree-runner	coderabbitai/tap/git-gtr
+worktrunk	agent-tools	brew-formula	active	Worktrunk: git worktrees for parallel agent work (wt)	https://worktrunk.dev	worktrunk
+apm	agent-tools	brew-formula	active	APM: Microsoft package manager for agent configuration	https://microsoft.github.io/apm/	apm
+peekaboo	agent-tools	aiup-npm	active	Peekaboo: screenshots and UI automation for agents (macOS 15+)	https://peekaboo.sh/	@steipete/peekaboo
+codexbar	agent-tools	brew-cask	active	CodexBar: menu bar view of coding agent limits and usage (macOS 14+)	https://codexbar.app/	codexbar
+coderabbit	agent-tools	brew-cask	active	CodeRabbit CLI: AI code review in the terminal (account required)	https://www.coderabbit.ai/cli	coderabbit
 cline-app	workspaces	brew-cask	active	Cline desktop app: coding agent	https://cline.bot/	cline-app
 kiro-crew	workspaces	brew-cask	active	KiroCrew: multi-agent development workspace	https://kiro.dev/docs/crew/	kirocrew
 nimbalyst	workspaces	brew-cask	active	Nimbalyst: visual workspace for Codex and Claude Code	https://nimbalyst.com/	nimbalyst
 commander	workspaces	brew-cask	active	Commander: AI agent operator app (macOS 15+)	https://thecommander.app/	commander
 zcode	workspaces	brew-cask	active	ZCode: Z.ai agentic development environment	https://zcode.z.ai/en/	zcode
+zed-delta	workspaces	brew-cask	active	Delta: multiplayer coding with agents (Apple silicon, macOS 13+)	https://delta.dev/	zed-delta
 trae	editors	brew-cask	active	Trae: AI IDE from ByteDance	https://www.trae.ai/	trae
 codebuddy-ide	editors	brew-cask	active	CodeBuddy IDE: Tencent AI IDE	https://www.codebuddy.ai/ide/	codebuddy
 kitty	terminals	brew-cask	active	kitty: GPU-based terminal	https://sw.kovidgoyal.net/kitty/	kitty
 ctx7	mcp	aiup-npm	active	Context7 CLI (ctx7): current library docs for agents	https://github.com/upstash/context7	ctx7
-mcp-proxy	mcp	brew-formula	active	mcp-proxy: bridge stdio and HTTP MCP transports	https://github.com/sparfenyuk/mcp-proxy	mcp-proxy
-mcp-remote	mcp	brew-formula	active	mcp-remote: connect local MCP clients to remote servers that use OAuth	https://github.com/geelen/mcp-remote	mcp-remote
-mcpc	mcp	brew-formula	active	mcpc: Apify command-line MCP client	https://github.com/apify/mcpc	mcpc
+mcp-proxy	mcp	uv-tool	active	mcp-proxy: bridge stdio and HTTP MCP transports	https://github.com/sparfenyuk/mcp-proxy	mcp-proxy
+mcp-remote	mcp	aiup-npm	active	mcp-remote: connect local MCP clients to remote servers that use OAuth	https://github.com/geelen/mcp-remote	mcp-remote
+mcpc	mcp	aiup-npm	active	mcpc: Apify command-line MCP client	https://github.com/apify/mcpc	@apify/mcpc
 supergateway	mcp	aiup-npm	active	Supergateway: serve stdio MCP servers over SSE or WebSocket	https://github.com/supercorp-ai/supergateway	supergateway
 toolhive-studio	mcp	brew-cask	active	ToolHive: desktop app to install and run MCP servers (macOS 13+)	https://github.com/stacklok/toolhive-studio	toolhive-studio
+playwright-mcp	mcp	aiup-npm	active	Playwright MCP: Microsoft browser control server for MCP clients	https://github.com/microsoft/playwright-mcp	@playwright/mcp
+chrome-devtools-mcp	mcp	aiup-npm	active	Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome	https://github.com/ChromeDevTools/chrome-devtools-mcp	chrome-devtools-mcp
+thv	mcp	brew-formula	active	ToolHive CLI (thv): run and manage MCP servers from the terminal	https://docs.stacklok.com/toolhive/	stacklok/tap/thv
+mcpd	mcp	brew-cask	active	mcpd: Mozilla.ai tool to define and run MCP servers from one config file	https://github.com/mozilla-ai/mcpd	mozilla-ai/tap/mcpd
+mcporter	mcp	aiup-npm	active	MCPorter: call MCP servers from the terminal or TypeScript	https://mcporter.sh	mcporter
+github-mcp-server	mcp	brew-formula	active	GitHub MCP Server: GitHub tools for AI clients	https://github.com/github/github-mcp-server	github-mcp-server
+mcp-toolbox	mcp	brew-formula	active	MCP Toolbox: Google MCP server for databases (toolbox)	https://github.com/googleapis/mcp-toolbox	mcp-toolbox
+mcp-publisher	mcp	brew-formula	active	MCP Publisher: publish servers to the official MCP Registry	https://github.com/modelcontextprotocol/registry	mcp-publisher
 srt	sandboxes	aiup-npm	active	Sandbox Runtime (srt): Anthropic file and network sandbox for agents	https://github.com/anthropics/sandbox-runtime	@anthropic-ai/sandbox-runtime
 container	sandboxes	brew-formula	active	Apple container: Linux containers in lightweight VMs (Apple silicon, macOS 26+)	https://github.com/apple/container	container
 orbstack	sandboxes	brew-cask	active	OrbStack: Docker containers and Linux machines (macOS 14+)	https://orbstack.dev/	orbstack
+sbx	sandboxes	brew-cask	active	Docker Sandboxes (sbx): run coding agents in isolated sandboxes (Apple silicon, macOS 14+)	https://docs.docker.com/ai/sandboxes/	docker/tap/sbx
+daytona	sandboxes	brew-formula	active	Daytona CLI: manage cloud sandboxes for AI-generated code (account required)	https://www.daytona.io/docs/en/tools/cli/	daytonaio/cli/daytona
+e2b	sandboxes	aiup-npm	active	E2B CLI: manage cloud sandboxes and templates (account required)	https://e2b.dev/docs/cli	@e2b/cli
+openshell	sandboxes	brew-formula	active	OpenShell: NVIDIA private runtime for autonomous agents (early release)	https://docs.nvidia.com/openshell/latest/	openshell
+lume	sandboxes	brew-formula	active	Lume: macOS and Linux VMs for agents, from Cua (Apple silicon, macOS 15+)	https://cua.ai/docs/lume	lume
+arcbox	sandboxes	brew-cask	active	ArcBox: containers, Linux VMs and agent sandboxes (Apple silicon, macOS 15+)	https://arcbox.dev/	arcbox
 amp-acp	adapters	aiup-npm	active	Amp ACP adapter (amp-acp, community) for Zed and editors	https://github.com/tao12345666333/amp-acp	amp-acp
 acpx	adapters	aiup-npm	active	acpx: headless ACP client for driving agents from scripts	https://github.com/openclaw/acpx	acpx
 fast-agent	adapters	uv-tool	active	fast-agent: MCP-native agent framework that also runs over ACP	https://fast-agent.ai/	fast-agent-mcp
 dia	browsers	brew-cask	active	Dia: AI browser from The Browser Company (macOS 14+)	https://www.diabrowser.com/	thebrowsercompany-dia
 comet	browsers	brew-cask	active	Comet: Perplexity browser with a built-in assistant	https://www.perplexity.ai/comet	comet
 browseros	browsers	brew-cask	active	BrowserOS: open-source agentic browser	https://www.browseros.com/	browseros
+agent-browser	browsers	aiup-npm	active	agent-browser: Vercel browser automation CLI for coding agents	https://github.com/vercel-labs/agent-browser	agent-browser
+browser-use	browsers	uv-tool	active	Browser Use: lets an agent drive your own Chrome from the terminal	https://github.com/browser-use/browser-use	browser-use
+playwright-cli	browsers	aiup-npm	active	Playwright CLI: Microsoft browser automation commands for coding agents	https://github.com/microsoft/playwright-cli	@playwright/cli
 manus	automation	brew-cask	active	Manus Studio: Manus agent for tasks on your computer	https://manus.im/desktop	manus
 langflow	automation	brew-cask	active	Langflow Desktop: low-code AI workflow builder	https://www.langflow.org/desktop	langflow
+docker-agent	automation	brew-formula	active	Docker Agent: build and run AI agents from a config file	https://docker.github.io/docker-agent/	docker-agent
 apfel	local-ai	brew-formula	active	apfel: Apple Intelligence from the command line, with an OpenAI-compatible server (macOS 26+)	https://apfel.franzai.com	apfel
-rapid-mlx	local-ai	brew-formula	active	Rapid-MLX: local MLX inference server with an OpenAI-compatible API (macOS 14+)	https://github.com/raullenchai/Rapid-MLX	rapid-mlx
+rapid-mlx	local-ai	uv-tool	active	Rapid-MLX: local MLX inference server with an OpenAI-compatible API (macOS 14+)	https://github.com/raullenchai/Rapid-MLX	rapid-mlx
 tei	local-ai	brew-formula	active	Text Embeddings Inference: Hugging Face embeddings server	https://huggingface.co/docs/text-embeddings-inference/quick_tour	text-embeddings-inference
 shimmy	local-ai	brew-formula	active	Shimmy: small OpenAI-compatible server for GGUF models	https://github.com/Michael-A-Kuykendall/shimmy	shimmy
 gollama	local-ai	brew-formula	active	Gollama: manage Ollama models in a terminal UI	https://github.com/sammcj/gollama	gollama
 llmfit	local-ai	brew-formula	active	llmfit: find which models run on your hardware	https://github.com/AlexsJones/llmfit	llmfit
 mlx-knife	local-ai	uv-tool	active	MLX Knife (mlxk): manage and run MLX models	https://github.com/mzau/mlx-knife	mlx-knife
+vllm-metal	local-ai	brew-formula	active	vLLM Metal: vLLM inference server on Apple silicon (macOS 15+, large install)	https://docs.vllm.ai/projects/vllm-metal	vllm-project/vllm-metal/vllm-metal
+omlx	local-ai	brew-formula	active	oMLX: MLX inference server with batching and an SSD cache (macOS 15+, builds from source)	https://omlx.ai	jundot/omlx/omlx
+splash	local-ai	brew-formula	active	Splash: Inco AI local inference engine for coding agents (M3 or newer, macOS 26.4+)	https://inco.ai/blog/splash/	incoai/tap/splash
+mlx-serve-cli	local-ai	brew-formula	active	mlx-serve: the MLX-Serve model server without the app (macOS 26.2+)	https://mlxserve.com/	ddalcu/mlx-serve/mlx-serve
+foundry-local	local-ai	brew-formula	active	Foundry Local: Microsoft CLI for running models locally (preview, macOS 15+)	https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-local/	microsoft/foundrylocal/foundrylocal
+llama-swap	local-ai	brew-formula	active	llama-swap: swap models behind one OpenAI-compatible endpoint	https://github.com/mostlygeek/llama-swap	mostlygeek/llama-swap/llama-swap
+cactus	local-ai	brew-formula	active	Cactus: on-device AI inference CLI (Apple silicon, macOS 14+)	https://cactuscompute.com	cactus-compute/cactus/cactus
 vmlx	local-apps	brew-cask	active	vMLX: run local models on Apple silicon (macOS 14+)	https://mlx.studio/	vmlx
 swama	local-apps	brew-cask	active	Swama: MLX model runtime app (macOS 15+)	https://github.com/Trans-N-ai/swama	swama
 nativ	local-apps	brew-cask	active	Nativ: run models locally (macOS 26+)	https://blaizzy.github.io/nativ/	nativ
 dayflow	local-apps	brew-cask	active	Dayflow: a timeline of your day from your screen activity (macOS 14+)	https://github.com/JerryZLiu/Dayflow	dayflow
+mlx-serve	local-apps	brew-cask	active	MLX-Serve: local model server app with OpenAI and Anthropic APIs (macOS 26+)	https://mlxserve.com/	ddalcu/mlx-serve/mlx-serve
+nvidia-pair	local-apps	brew-cask	active	NVIDIA PAIR: share local inference across your computers (macOS 13+)	https://github.com/NVIDIA/Personal-AI-Router	nvidia-pair
+unsloth	local-apps	brew-cask	active	Unsloth Studio: run and fine-tune models locally (beta, Apple silicon)	https://unsloth.ai/docs/new/studio	unsloth
+lm-studio-bionic	local-apps	brew-cask	active	Bionic: LM Studio agent that works with open models (Apple silicon)	https://lmstudio.ai/bionic	lm-studio-bionic
 fluidvoice	voice	brew-cask	active	FluidVoice: open-source offline dictation (macOS 15+)	https://github.com/altic-dev/FluidVoice	fluidvoice
 spokenly	voice	brew-cask	active	Spokenly: dictation with local and cloud models	https://spokenly.app/	spokenly
 typeless	voice	brew-cask	active	Typeless: cloud AI dictation that drops filler words	https://typeless.com/	typeless
@@ -204,7 +243,7 @@ anarlog	voice	brew-cask	active	Anarlog: open-source local meeting notes, formerl
 mlx-audio	voice	uv-tool	active	mlx-audio: speech-to-text and text-to-speech on Apple silicon	https://github.com/Blaizzy/mlx-audio	mlx-audio
 parakeet-mlx	voice	uv-tool	active	parakeet-mlx: NVIDIA Parakeet transcription on MLX	https://github.com/senstella/parakeet-mlx	parakeet-mlx
 piper	voice	uv-tool	active	Piper: fast local text-to-speech	https://github.com/OHF-Voice/piper1-gpl	piper-tts
-pocket-tts	voice	brew-formula	active	Pocket TTS: Kyutai text-to-speech that runs on the CPU	https://github.com/kyutai-labs/pocket-tts	pocket-tts
+pocket-tts	voice	uv-tool	active	Pocket TTS: Kyutai text-to-speech that runs on the CPU	https://github.com/kyutai-labs/pocket-tts	pocket-tts
 speech-swift	voice	brew-formula	active	speech-swift: on-device transcription, speech and speaker labels (Apple silicon, macOS 15+)	https://soniqo.audio	speech
 comfyui	image-gen	brew-cask	active	Comfy Desktop: official ComfyUI app for image, video and audio generation (Apple silicon)	https://docs.comfy.org/installation/desktop/macos	comfy
 ltx-desktop	image-gen	brew-cask	active	LTX Desktop: Lightricks video generation on your Mac	https://github.com/Lightricks/LTX-Desktop	ltx-desktop
@@ -215,7 +254,11 @@ mkvtoolnix	media-tools	brew-formula	active	MKVToolNix: Matroska video tools (mkv
 docling	llm-utils	uv-tool	active	Docling: turn PDFs and office documents into text for models (large install)	https://github.com/docling-project/docling	docling
 pandoc	llm-utils	brew-formula	active	Pandoc: convert between document formats	https://pandoc.org/	pandoc
 defuddle	llm-utils	aiup-npm	active	Defuddle: pull the main content of a web page as Markdown	https://github.com/kepano/defuddle	defuddle
-ast-grep	dev-utils	brew-formula	active	ast-grep: structural code search and rewrite (sg)	https://ast-grep.github.io/	ast-grep
+oracle	llm-utils	aiup-npm	active	Oracle: send prompts and files to a second model for review (API key required)	https://askoracle.sh	@steipete/oracle
+rtk	llm-utils	brew-formula	active	RTK: cut the tokens dev commands send to agents	https://www.rtk-ai.app	rtk
+promptfoo	llm-utils	aiup-npm	active	promptfoo: test and red-team LLM prompts locally	https://www.promptfoo.dev/docs/	promptfoo
+ast-grep	dev-utils	aiup-npm	active	ast-grep: structural code search and rewrite (sg)	https://ast-grep.github.io/	@ast-grep/cli
 tmux	dev-utils	brew-formula	active	tmux: terminal multiplexer	https://github.com/tmux/tmux	tmux
 supabase	dev-utils	brew-formula	active	Supabase CLI: local Postgres development and deploys	https://supabase.com/docs/reference/cli/about	supabase
 vercel	dev-utils	aiup-npm	active	Vercel CLI: deploy and manage Vercel projects	https://vercel.com/docs/cli	vercel
+android-cli	dev-utils	brew-cask	active	Android CLI: Google tool for Android development with agents (android)	https://developer.android.com/tools/agents/android-cli	android-cli

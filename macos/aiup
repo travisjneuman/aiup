@@ -18,7 +18,7 @@ OPENCODE_BIN_DIR="${AIUP_OPENCODE_BIN_DIR:-$HOME/.opencode/bin}"
 HERMES_HOME="${AIUP_HERMES_HOME:-$HOME/.hermes/hermes-agent}"
 HERMES_INSTALL_URL="https://hermes-agent.nousresearch.com/install.sh"
 CLAUDE_INSTALL_URL="https://claude.ai/install.sh"
-OPENCODE_INSTALL_URL="https://opencode.ai/install"
+OPENCODE_INSTALL_URL="https://opencode.ai/v2/install"
 ANTIGRAVITY_INSTALL_URL="https://antigravity.google/cli/install.sh"
 WARP_AGENT_CLI_INSTALL_URL="https://app.warp.dev/download/agent-cli"
 GROK_INSTALL_URL="https://x.ai/cli/install.sh"
@@ -34,6 +34,9 @@ SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
 CATEGORY_ORDER=(infra coding-agents agent-tools workspaces editors terminals mcp sandboxes adapters chat browsers automation local-ai local-apps voice image-gen media media-tools llm-utils dev-utils homebrew detected)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
+# Chosen install channels (tool<TAB>brew|npm|uv|vendor), set with `aiup channel`.
+CHANNELS_FILE="${AIUP_CHANNELS_FILE:-$STATE_DIR/channels.tsv}"
+AIUP_CHANNEL_MAP='|'
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
 BREW_AVAILABLE_MARKER="${AIUP_BREW_AVAILABLE_MARKER:-$STATE_DIR/brew-available.loaded}"
@@ -1590,11 +1593,12 @@ PYOUTDATED
   fi
 }
 
+# Both accept a tap-qualified name (owner/tap/name); brew list prints short names.
 brew_formula_installed() {
   command_exists brew || return 1
   brew_cache_load
   case "$AIUP_BREW_FORMULAE" in
-    *" $1 "*) return 0 ;;
+    *" ${1##*/} "*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -1603,7 +1607,7 @@ brew_cask_installed() {
   command_exists brew || return 1
   brew_cache_load
   case "$AIUP_BREW_CASKS" in
-    *" $1 "*) return 0 ;;
+    *" ${1##*/} "*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -1779,6 +1783,17 @@ catalog_brew_tap() {
   esac
 }
 
+# Taps that live in the project repo instead of a homebrew-* repo, so
+# `brew tap` needs the URL.
+brew_tap_custom_url() {
+  case "$1" in
+    jundot/omlx) printf 'https://github.com/jundot/omlx\n' ;;
+    vllm-project/vllm-metal) printf 'https://github.com/vllm-project/vllm-metal\n' ;;
+    ddalcu/mlx-serve) printf 'https://github.com/ddalcu/mlx-serve\n' ;;
+    *) return 1 ;;
+  esac
+}
+
 brew_target_tap() {
   local tool="$1"
   local target="$2"
@@ -1817,6 +1832,8 @@ brew_ensure_target_tap() {
   case "$tap" in
     ''|homebrew/core|homebrew/cask|homebrew/bundle|homebrew/services) return 0 ;;
   esac
+  local url=''
+  url="$(brew_tap_custom_url "$tap" || true)"
   remote="$(brew_tap_remote "$tap")"
   if ! brew_tap_installed "$tap"; then
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -1824,9 +1841,14 @@ brew_ensure_target_tap() {
       return 0
     fi
     tty_usable || { error "Homebrew tap $tap is required for $target but is not installed; run aiup from a terminal to approve it"; return 1; }
-    [ -n "$remote" ] && warn "Required tap remote: $remote"
+    [ -n "$remote" ] || remote="${url:-https://github.com/${tap%%/*}/homebrew-${tap#*/}}"
+    warn "Required tap remote: $remote"
     confirm_tty "Add and trust Homebrew tap $tap for $target? [y/N] " || { error "Declined required Homebrew tap $tap"; return 1; }
-    run_with_heartbeat "brew tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew tap "$tap" || return 1
+    if [ -n "$url" ]; then
+      run_with_heartbeat "brew tap $tap $url" env HOMEBREW_NO_ENV_HINTS=1 brew tap "$tap" "$url" || return 1
+    else
+      run_with_heartbeat "brew tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew tap "$tap" || return 1
+    fi
     run_with_heartbeat "brew trust --tap $tap" env HOMEBREW_NO_ENV_HINTS=1 brew trust --tap "$tap" || return 1
     return 0
   fi
@@ -1928,11 +1950,18 @@ binary_of_tool() {
     speech-swift) printf 'speech\n' ;;
     mflux) printf 'mflux-generate\n' ;;
     mkvtoolnix) printf 'mkvmerge\n' ;;
+    vllm-metal) printf 'vllm\n' ;;
+    foundry-local) printf 'foundry\n' ;;
+    mlx-serve-cli) printf 'mlx-serve\n' ;;
+    worktrunk) printf 'wt\n' ;;
+    mcp-toolbox) printf 'toolbox\n' ;;
+    android-cli) printf 'android\n' ;;
     # Apps without a command of their own: a same-named command on PATH
     # (for example Apache Superset's) must not count as this app.
     devin-desktop|kiro-ide|jetbrains-air|conductor|emdash|superset|amp-app|factory-app|antigravity-app|gemini-app|cherry-studio|msty-studio|boltai|chatbox|lobehub|handy|voiceink|wispr-flow|stability-matrix|mochi-diffusion|mlx-vlm) printf '\n' ;;
     trae|codebuddy-ide|cline-app|kiro-crew|nimbalyst|commander|zcode|kitty|toolhive-studio|dia|comet|browseros|manus|langflow) printf '\n' ;;
     vmlx|swama|nativ|fluidvoice|spokenly|typeless|hex|amical|openwhispr|aqua-voice|monologue|granola|meetily|anarlog|comfyui|ltx-desktop|gimp|cap) printf '\n' ;;
+    mlx-serve|nvidia-pair|unsloth|lm-studio-bionic|zed-delta|codexbar|arcbox) printf '\n' ;;
     cursor-ide) printf 'cursor\n' ;;
     ollama-app) printf 'ollama\n' ;;
     llama-cpp) printf 'llama-cli\n' ;;
@@ -2181,6 +2210,9 @@ catalog_lifecycle_note() {
 catalog_kind() {
   case "$1" in bf:*) printf "brew-formula\n"; return ;; bc:*) printf "brew-cask\n"; return ;; esac
   local manifest_kind
+  case "$AIUP_CHANNEL_MAP" in
+    *"|$1="*) manifest_kind="${AIUP_CHANNEL_MAP#*|$1=}"; printf '%s\n' "${manifest_kind%%=*}"; return 0 ;;
+  esac
   manifest_kind="$(catalog_manifest_field "$1" 3 2>/dev/null || true)"
   [ -n "$manifest_kind" ] && { printf '%s\n' "$manifest_kind"; return 0; }
   printf 'unknown\n'
@@ -2302,6 +2334,7 @@ ensure_fzf_for_interactive() {
 }
 
 catalog_npm_pkg() {
+  channel_print_target "$1" aiup-npm && return 0
   case "$1" in
     codex) printf '@openai/codex\n' ;;
     gemini) printf '@google/gemini-cli\n' ;;
@@ -2318,6 +2351,7 @@ catalog_npm_pkg() {
 }
 
 catalog_brew_formula() {
+  channel_print_target "$1" brew-formula && return 0
   case "$1" in
     bf:*) printf "%s\n" "${1#bf:}" ;;
     n8n) printf 'n8n\n' ;;
@@ -2331,6 +2365,7 @@ catalog_brew_formula() {
 }
 
 catalog_brew_cask() {
+  channel_print_target "$1" brew-cask && return 0
   case "$1" in
     bc:*) printf "%s\n" "${1#bc:}" ;;
     cursor) printf 'cursor-cli\n' ;;
@@ -2348,7 +2383,308 @@ catalog_curl_url() {
 }
 
 catalog_uv_pkg() {
+  channel_print_target "$1" uv-tool && return 0
   catalog_manifest_field "$1" 7 2>/dev/null || true
+}
+
+# Install channels. Every tool has a default channel: its manifest kind, or the
+# vendor installer for most special entries. Some also have alternates, listed
+# here as kind<TAB>target. Defaults point at the channel that ships releases
+# first; Homebrew alternates trade freshness for one package manager.
+catalog_alt_channels() {
+  case "$1" in
+    # Vendor installers by default; npm and Homebrew ship the same releases.
+    claude) printf 'aiup-npm\t@anthropic-ai/claude-code\nbrew-cask\tclaude-code@latest\n' ;;
+    opencode) printf 'aiup-npm\t@opencode/cli\nbrew-formula\topencode\n' ;;
+    antigravity) printf 'brew-cask\tantigravity-cli\n' ;;
+    warp) printf 'brew-cask\twarp-agent-cli\n' ;;
+    cursor) printf 'brew-cask\tcursor-cli\n' ;;
+    droid) printf 'aiup-npm\tdroid\nbrew-cask\tdroid\n' ;;
+    # Hermes' installer tracks the main branch; the formula tracks tagged releases.
+    hermes) printf 'brew-formula\thermes-agent\n' ;;
+    # npm by default; Homebrew follows hours (casks) to about a day (formulae) later.
+    codex) printf 'brew-cask\tcodex\n' ;;
+    copilot) printf 'brew-cask\tcopilot-cli\n' ;;
+    pi) printf 'brew-formula\tpi-coding-agent\n' ;;
+    qwen) printf 'brew-formula\tqwen-code\n' ;;
+    letta) printf 'brew-formula\tletta-code\n' ;;
+    codex-acp) printf 'brew-formula\tcodex-acp\n' ;;
+    wrangler) printf 'brew-formula\tcloudflare-wrangler\n' ;;
+    vercel|ctx7|pnpm|defuddle|rulesync|skills|mise|repomix|mcp-remote|mcpc|openspec|ccusage|claude-code-router|mcp-inspector|ast-grep)
+      printf 'brew-formula\t%s\n' "$1" ;;
+    openclaw) printf 'brew-formula\topenclaw-cli\n' ;;
+    kimi) printf 'brew-formula\tkimi-code\n' ;;
+    backlog-md) printf 'brew-formula\tbacklog-md\n' ;;
+    crush) printf 'brew-formula\tcharmbracelet/tap/crush\n' ;;
+    e2b|promptfoo|peekaboo) printf 'brew-formula\t%s\n' "$1" ;;
+    mcporter|oracle) printf 'brew-formula\tsteipete/tap/%s\n' "$1" ;;
+    # PyPI by default; the formulae are built from the same packages later.
+    vibe) printf 'brew-formula\tmistral-vibe\n' ;;
+    specify|rapid-mlx|gptme|mcp-proxy|pocket-tts|hf) printf 'brew-formula\t%s\n' "$1" ;;
+    # Homebrew by default (plugins, extras or a bundled runtime live there).
+    llm|ramalama|yt-dlp) printf 'uv-tool\t%s\n' "$1" ;;
+    bun) printf 'aiup-npm\tbun\n' ;;
+    agent-browser|playwright-cli|playwright-mcp|chrome-devtools-mcp) printf 'brew-formula\t%s\n' "$1" ;;
+    *) return 0 ;;
+  esac
+}
+
+channel_name_of_kind() {
+  case "$1" in
+    brew-formula|brew-cask) printf 'brew\n' ;;
+    aiup-npm) printf 'npm\n' ;;
+    uv-tool) printf 'uv\n' ;;
+    *) printf 'vendor\n' ;;
+  esac
+}
+
+# name<TAB>kind<TAB>target for each channel of TOOL, the default first.
+tool_channels() {
+  local tool="$1" kind target AIUP_CHANNEL_MAP='|'
+  kind="$(catalog_manifest_field "$tool" 3 2>/dev/null)" || return 1
+  if [ "$kind" = special ]; then
+    kind="$(preferred_method_of "$tool")"
+    case "$kind" in aiup-npm|brew-formula) ;; *) kind=vendor ;; esac
+  fi
+  case "$kind" in
+    aiup-npm) target="$(catalog_npm_pkg "$tool")" ;;
+    brew-formula) target="$(catalog_brew_formula "$tool")" ;;
+    brew-cask) target="$(catalog_brew_cask "$tool")" ;;
+    uv-tool) target="$(catalog_uv_pkg "$tool")" ;;
+    *) target='' ;;
+  esac
+  printf '%s\t%s\t%s\n' "$(channel_name_of_kind "$kind")" "$kind" "$target"
+  catalog_alt_channels "$tool" | while IFS=$'\t' read -r kind target; do
+    [ -n "$kind" ] && printf '%s\t%s\t%s\n' "$(channel_name_of_kind "$kind")" "$kind" "$target"
+  done
+}
+
+# Prints the chosen channel's target when TOOL is switched to KIND.
+channel_print_target() {
+  case "$AIUP_CHANNEL_MAP" in *"|$1=$2="*) ;; *) return 1 ;; esac
+  local entry="${AIUP_CHANNEL_MAP#*|$1=$2=}"
+  printf '%s\n' "${entry%%|*}"
+}
+
+channel_overridden() {
+  case "$AIUP_CHANNEL_MAP" in *"|$1="*) return 0 ;; esac
+  return 1
+}
+
+# A special entry's own updater runs only on its default channel; a chosen
+# alternate goes through the generic updater for that channel's kind.
+tool_custom_updater() {
+  type "update_$1" >/dev/null 2>&1 && ! channel_overridden "$1"
+}
+
+channel_active_name() {
+  if channel_overridden "$1"; then
+    channel_name_of_kind "$(catalog_kind "$1")"
+  else
+    tool_channels "$1" | sed -n '1s/\t.*//p'
+  fi
+}
+
+# Reads CHANNELS_FILE. Entries must name a listed alternate; anything else is
+# ignored, so a stale or edited file can only fall back to the default.
+channels_load() {
+  AIUP_CHANNEL_MAP='|'
+  [ -f "$CHANNELS_FILE" ] && [ ! -L "$CHANNELS_FILE" ] || return 0
+  local tool name kind target map='|'
+  while IFS=$'\t' read -r tool name _; do
+    case "$tool" in ''|*[!a-z0-9-]*) continue ;; esac
+    case "$map" in *"|$tool="*) continue ;; esac
+    while IFS=$'\t' read -r kind target; do
+      case "$kind:$name" in
+        brew-formula:brew|brew-cask:brew|aiup-npm:npm|uv-tool:uv) ;;
+        *) continue ;;
+      esac
+      case "$target" in ''|*'|'*|*'='*) continue ;; esac
+      map="${map}${tool}=${kind}=${target}|"
+      break
+    done < <(catalog_alt_channels "$tool")
+  done < "$CHANNELS_FILE"
+  AIUP_CHANNEL_MAP="$map"
+}
+
+# The vendor installer's launcher for TOOL, when it has one.
+channel_vendor_path() {
+  local path bin
+  path="$(expected_direct_path "$1")"
+  case "$path" in
+    '') ;;
+    "$AIUP_NPM_BIN"/*) return 1 ;;
+    *) printf '%s\n' "$path"; return 0 ;;
+  esac
+  bin="$(binary_of_tool "$1")"
+  [ -n "$bin" ] || return 1
+  printf '%s/%s\n' "$LOCAL_BIN" "$bin"
+}
+
+# True when TOOL has a copy on the channel KIND/TARGET.
+channel_copy_present() {
+  local path
+  case "$2" in
+    aiup-npm) [ -n "$3" ] && aiup_npm_pkg_installed "$3" ;;
+    brew-formula) [ -n "$3" ] && brew_formula_installed "${3##*/}" ;;
+    brew-cask) [ -n "$3" ] && brew_cask_installed "${3##*/}" ;;
+    uv-tool) [ -n "$3" ] && command_exists uv && uv_tool_installed "$3" ;;
+    *) path="$(channel_vendor_path "$1")" && { [ -x "$path" ] || [ -L "$path" ]; } ;;
+  esac
+}
+
+# After TOOL updates on its active channel, take away the copy another channel
+# left: every other channel's copy when the channel was picked with
+# `aiup channel`, otherwise only the copy aiup itself last installed (PREV, the
+# recorded method), as when a default moves to a fresher channel. Only places
+# aiup manages are touched: its npm prefix, Homebrew, uv tools and the vendor
+# launcher, which goes to Trash. Settings and data stay.
+channel_retire_others() {
+  local tool="$1" prev="${2:-}" active prev_name='' name kind target active_kind='' active_target=''
+  [ "$DRY_RUN" -eq 0 ] || return 0
+  [ -n "$(catalog_alt_channels "$tool")" ] || return 0
+  case "${AIUP_LAST_UPDATE_STATUS:-completed}" in deferred|cancelled|skipped) return 0 ;; esac
+  active="$(channel_active_name "$tool")"
+  case "$prev" in
+    '') ;;
+    aiup-npm|brew-formula|brew-cask|uv-tool) prev_name="$(channel_name_of_kind "$prev")" ;;
+    installer|native|official-dmg) prev_name=vendor ;;
+  esac
+  if ! channel_overridden "$tool"; then
+    [ -n "$prev_name" ] && [ "$prev_name" != "$active" ] || return 0
+  fi
+  while IFS=$'\t' read -r name kind target; do
+    [ "$name" = "$active" ] || continue
+    active_kind="$kind"; active_target="$target"
+  done < <(tool_channels "$tool")
+  [ -n "$active_kind" ] || return 0
+  channel_copy_present "$tool" "$active_kind" "$active_target" || return 0
+  while IFS=$'\t' read -r name kind target; do
+    [ "$name" != "$active" ] || continue
+    channel_overridden "$tool" || [ "$name" = "$prev_name" ] || continue
+    channel_copy_present "$tool" "$kind" "$target" || continue
+    info "$tool now updates from $active; removing its $name copy"
+    case "$kind" in
+      aiup-npm) remove_aiup_npm_pkg "$target" ;;
+      brew-formula)
+        run_with_heartbeat "brew uninstall $target" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall "$target" \
+          || warn "Kept Homebrew formula $target (Homebrew declined to remove it); aiup doctor lists the duplicate"
+        brew_cache_invalidate ;;
+      brew-cask)
+        run_with_heartbeat "brew uninstall --cask $target" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall --cask "$target" \
+          || warn "Kept Homebrew cask $target; aiup doctor lists the duplicate"
+        brew_cache_invalidate ;;
+      uv-tool) run_with_heartbeat "uv tool uninstall $target" uv tool uninstall "$target" || true ;;
+      *) move_to_trash "$(channel_vendor_path "$tool")" || true ;;
+    esac
+  done < <(tool_channels "$tool")
+  hash_refresh
+}
+
+# True when a Homebrew channel of TOOL other than the active one has a copy
+# that channel_retire_others may uninstall.
+channel_brew_copy_present() {
+  local active kind target
+  [ -n "$(catalog_alt_channels "$1")" ] || return 1
+  active="$(channel_active_name "$1")"
+  [ "$active" != brew ] || return 1
+  while IFS=$'\t' read -r _ kind target; do
+    case "$kind" in brew-formula|brew-cask) channel_copy_present "$1" "$kind" "$target" && return 0 ;; esac
+  done < <(tool_channels "$1")
+  return 1
+}
+
+channels_write() {
+  local tool="$1" name="$2" tmp
+  if [ "$DRY_RUN" -eq 1 ]; then printf 'DRY-RUN: channel %s %s\n' "$tool" "${name:-default}"; return 0; fi
+  ensure_dir "$(dirname "$CHANNELS_FILE")" || return 1
+  [ ! -L "$CHANNELS_FILE" ] || { error "Refusing to write through a symlink: $CHANNELS_FILE"; return 1; }
+  tmp="$(mktemp "$(dirname "$CHANNELS_FILE")/.channels.XXXXXX")" || return 1
+  {
+    [ -f "$CHANNELS_FILE" ] && awk -F '\t' -v t="$tool" '$1 != t' "$CHANNELS_FILE"
+    [ -z "$name" ] || printf '%s\t%s\n' "$tool" "$name"
+  } > "$tmp" && mv -f "$tmp" "$CHANNELS_FILE" || { rm -f "$tmp"; return 1; }
+}
+
+# Latest release per channel: npm and PyPI in one parallel lookup, the vendor
+# channel through its usual release source, Homebrew from its local index.
+channel_latest_versions() {
+  local tool="$1" name kind target spec input='' raw
+  while IFS=$'\t' read -r name kind target; do
+    case "$kind" in
+      aiup-npm) spec="npm"$'\t'"$target" ;;
+      uv-tool) spec="pypi"$'\t'"$target" ;;
+      brew-formula|brew-cask)
+        command_exists brew || continue
+        raw="$(env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 "--${kind#brew-}" "$target" 2>/dev/null \
+          | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+f=d.get("formulae") or []
+c=d.get("casks") or []
+print(f[0]["versions"]["stable"] if f else (c[0]["version"] if c else ""))' 2>/dev/null)"
+        [ -z "$raw" ] || printf '%s\t%s\n' "$name" "${raw%%,*}"
+        continue ;;
+      *) spec="$(AIUP_CHANNEL_MAP='|' live_source_spec "$tool")" || continue ;;
+    esac
+    input="${input}${name}"$'\t'"0"$'\t'"${spec}"$'\n'
+  done < <(tool_channels "$tool")
+  [ -n "$input" ] || return 0
+  printf '%s' "$input" | live_source_run print 2>/dev/null | awk -F '\t' '$2 == "newer" {print $1 "\t" $3}'
+}
+
+catalog_channel_preview() {
+  local name active out=''
+  [ -n "$(catalog_alt_channels "$1")" ] || return 0
+  active="$(channel_active_name "$1")"
+  while IFS=$'\t' read -r name _ _; do
+    [ "$name" = "$active" ] && name="$name (in use)"
+    out="${out:+$out · }$name"
+  done < <(tool_channels "$1")
+  printf 'channel  %s · switch: aiup channel %s\n' "$out" "$1"
+}
+
+cmd_channel() {
+  local tool="${1:-}" choice="${2:-}" name kind target active latest versions found=0 id
+  if [ -z "$tool" ]; then
+    catalog_manifest_load || return 1
+    printf 'Tools with more than one install channel (in use first):\n'
+    for id in "${CATALOG_IDS[@]}"; do
+      [ -n "$(catalog_alt_channels "$id")" ] || continue
+      active="$(channel_active_name "$id")"
+      printf '  %-18s %s' "$id" "$active"
+      while IFS=$'\t' read -r name _ _; do [ "$name" = "$active" ] || printf ' · %s' "$name"; done < <(tool_channels "$id")
+      printf '\n'
+    done
+    printf 'Details and versions: aiup channel TOOL · switch: aiup channel TOOL brew|npm|uv|vendor|default\n'
+    return 0
+  fi
+  catalog_manifest_field "$tool" 1 >/dev/null 2>&1 || { error "Unknown tool: $tool"; return 1; }
+  if [ -z "$(catalog_alt_channels "$tool")" ]; then
+    printf '%s installs from one channel: %s\n' "$tool" "$(channel_active_name "$tool")"
+    return 0
+  fi
+  if [ -z "$choice" ]; then
+    active="$(channel_active_name "$tool")"
+    versions="$(channel_latest_versions "$tool")"
+    printf '%s install channels (* in use, latest release on each):\n' "$tool"
+    while IFS=$'\t' read -r name kind target; do
+      latest="$(printf '%s\n' "$versions" | awk -F '\t' -v n="$name" '$1 == n {print $2; exit}')"
+      [ -n "$target" ] || target='official installer'
+      printf '%s %-7s %-34s %s\n' "$([ "$name" = "$active" ] && printf '*' || printf ' ')" "$name" "$target" "${latest:-unknown}"
+    done < <(tool_channels "$tool")
+    printf 'Switch with: aiup channel %s <channel>, then aiup only %s\n' "$tool" "$tool"
+    return 0
+  fi
+  case "$choice" in default) choice="$(tool_channels "$tool" | sed -n '1s/\t.*//p')" ;; esac
+  while IFS=$'\t' read -r name _ _; do [ "$name" != "$choice" ] || found=1; done < <(tool_channels "$tool")
+  [ "$found" -eq 1 ] || { error "$tool has no $choice channel; aiup channel $tool lists them"; return 1; }
+  if [ "$choice" = "$(tool_channels "$tool" | sed -n '1s/\t.*//p')" ]; then
+    channels_write "$tool" '' || return 1
+  else
+    channels_write "$tool" "$choice" || return 1
+  fi
+  tui_cache_invalidate
+  info "$tool will install and update from $choice. Run aiup only $tool to switch now; the copy from the old channel is removed after the new one is in place (settings stay)."
 }
 
 catalog_app_path() {
@@ -2379,6 +2715,14 @@ catalog_app_path() {
     claude-app) printf '/Applications/Claude.app\n' ;;
     copilot-app) printf '/Applications/GitHub Copilot.app\n' ;;
     opencode-desktop) printf '/Applications/OpenCode.app\n' ;;
+    poe) printf '/Applications/Poe.app\n' ;;
+    mlx-serve) printf '/Applications/MLX-Serve.app\n' ;;
+    nvidia-pair) printf '/Applications/NVIDIA PAIR.app\n' ;;
+    unsloth) printf '/Applications/Unsloth.app\n' ;;
+    lm-studio-bionic) printf '/Applications/Bionic.app\n' ;;
+    zed-delta) printf '/Applications/Delta.app\n' ;;
+    codexbar) printf '/Applications/CodexBar.app\n' ;;
+    arcbox) printf '/Applications/ArcBox.app\n' ;;
     antigravity-ide) printf '/Applications/Antigravity IDE.app\n' ;;
     perplexity) printf '/Applications/Perplexity.app\n' ;;
     macwhisper) printf '/Applications/MacWhisper.app\n' ;;
@@ -2451,7 +2795,7 @@ catalog_app_path() {
 }
 
 catalog_validate() {
-  local tool kind category lifecycle target i=0 seen="|"
+  local tool kind category lifecycle target i=0 seen="|" AIUP_CHANNEL_MAP='|'
   local failures=0
   catalog_manifest_load || return 1
   for tool in "${TOOLS_CATALOG[@]}"; do
@@ -2781,6 +3125,7 @@ print_catalog_preview() {
     printf '%s\n' "$note"
   fi
   printf '%s  %s\n' "$kind" "$url"
+  catalog_channel_preview "$tool"
   catalog_version_preview "$tool" "$state"
   printf 'action   %s\n' "$(catalog_action_for_state "$tool" "$state")"
   catalog_dependency_preview "$tool"
@@ -3350,13 +3695,17 @@ brew_child_for() {
 
 catalog_brew_index_init() {
   [ "${AIUP_BREW_CATALOG_INDEX_READY:-0}" -eq 1 ] && return 0
-  local tool name
+  local tool name kind AIUP_CHANNEL_MAP='|'
   BREW_CATALOG_NAMES="|"
   for tool in "${TOOLS_CATALOG[@]}"; do
     name="$(catalog_brew_formula "$tool")"
     [ -n "$name" ] && BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|"
     name="$(catalog_brew_cask "$tool")"
     [ -n "$name" ] && BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|"
+    # Homebrew alternates belong to their catalog entry too.
+    while IFS=$'\t' read -r kind name; do
+      case "$kind" in brew-formula|brew-cask) BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|${name##*/}|" ;; esac
+    done < <(catalog_alt_channels "$tool")
   done
   AIUP_BREW_CATALOG_INDEX_READY=1
 }
@@ -3906,7 +4255,7 @@ version_of_tool() {
   if [ "$kind" = 'brew-formula' ]; then
     formula="$(catalog_brew_formula "$tool")"
     if [ -n "$formula" ] && brew_formula_installed "$formula"; then
-      printf '%s\n' "$AIUP_BREW_FORMULA_VERSIONS" | awk -v name="$formula" '$1==name {$1=""; sub(/^ /, ""); print; exit}'
+      printf '%s\n' "$AIUP_BREW_FORMULA_VERSIONS" | awk -v name="${formula##*/}" '$1==name {$1=""; sub(/^ /, ""); print; exit}'
       return 0
     fi
   fi
@@ -4134,6 +4483,14 @@ PY
 # metadata instead, because that is what aiup installs.
 live_source_spec() {
   local tool="$1" kind pkg arch
+  if channel_overridden "$tool"; then
+    case "$(catalog_kind "$tool")" in
+      aiup-npm) printf 'npm\t%s\n' "$(catalog_npm_pkg "$tool")" ;;
+      uv-tool) printf 'pypi\t%s\n' "$(catalog_uv_pkg "$tool")" ;;
+      *) return 1 ;;
+    esac
+    return 0
+  fi
   case "$tool" in
     brew) printf 'redirect\thttps://github.com/Homebrew/brew/releases/latest\t/tag/v?([0-9][0-9A-Za-z._-]*)$\n' ;;
     npm) printf 'nodenpm\n' ;;
@@ -4150,7 +4507,8 @@ live_source_spec() {
     amp) printf 'text\thttps://static.ampcode.com/cli/cli-version.txt\t\tmain\n' ;;
     droid) printf 'text\thttps://downloads.factory.ai/factory-cli/LATEST\n' ;;
     hermes) printf 'git\t%s\thttps://github.com/NousResearch/hermes-agent.git\n' "$HERMES_HOME" ;;
-    opencode) printf 'npm\topencode-ai\n' ;;
+    # The v2 installer downloads the native build of this npm release.
+    opencode) printf 'npm\t@opencode/cli\n' ;;
     aider) printf 'pypi\taider-chat\n' ;;
     bf:*|bc:*|goose|screenpipe) return 1 ;;
     *)
@@ -4869,11 +5227,11 @@ opencode_method() {
     fi
     return 0
   fi
-  if aiup_npm_pkg_installed opencode-ai; then
+  if aiup_npm_pkg_installed @opencode/cli || aiup_npm_pkg_installed opencode-ai; then
     printf 'aiup-npm\n'
     return 0
   fi
-  if system_npm_pkg_installed opencode-ai; then
+  if system_npm_pkg_installed @opencode/cli || system_npm_pkg_installed opencode-ai; then
     printf 'npm-global\n'
     return 0
   fi
@@ -5055,6 +5413,7 @@ brew_method() {
 }
 
 install_method_of() {
+  channel_overridden "$1" && { generic_method "$1"; return; }
   case "$1" in
     brew) brew_method ;;
     npm) npm_method ;;
@@ -5117,6 +5476,7 @@ generic_method() {
 }
 
 preferred_method_of() {
+  channel_overridden "$1" && { catalog_kind "$1"; return 0; }
   case "$1" in
     # Special entries; every other entry's preferred manager follows its kind.
     brew) printf 'installer\n' ;;
@@ -5702,6 +6062,7 @@ tui_source_fingerprint() {
     printf 'uv=%s\n' "$(inventory_stat_mtime "$HOME/.local/share/uv/tools")"
     printf 'commands=%s|%s|%s|%s\n' "$(command_path brew)" "$(command_path fzf)" "$(command_path npm)" "$(command_path uv)"
     printf 'fixture=%s\n' "$fixture_fingerprint"
+    printf 'channels=%s\n' "$AIUP_CHANNEL_MAP"
   } | sha256_stream
 }
 
@@ -6666,6 +7027,7 @@ source_count_of() {
       { [ -x "$LOCAL_BIN/claude" ] || [ -d "$HOME/.local/share/claude" ]; } && count=$((count+1))
       brew_cask_installed claude-code && count=$((count+1))
       brew_cask_installed claude-code@latest && count=$((count+1))
+      aiup_npm_pkg_installed @anthropic-ai/claude-code && count=$((count+1))
       system_npm_pkg_installed @anthropic-ai/claude-code && count=$((count+1))
       ;;
     codex)
@@ -6685,10 +7047,10 @@ source_count_of() {
       system_npm_pkg_installed @google/gemini-cli && count=$((count+1))
       ;;
     opencode)
-      [ -x "$LOCAL_BIN/opencode" ] && count=$((count+1))
+      { [ -x "$LOCAL_BIN/opencode" ] || [ -x "$OPENCODE_BIN_DIR/opencode" ]; } && count=$((count+1))
       brew_formula_installed opencode && count=$((count+1))
-      aiup_npm_pkg_installed opencode-ai && count=$((count+1))
-      system_npm_pkg_installed opencode-ai && count=$((count+1))
+      { aiup_npm_pkg_installed @opencode/cli || aiup_npm_pkg_installed opencode-ai; } && count=$((count+1))
+      { system_npm_pkg_installed @opencode/cli || system_npm_pkg_installed opencode-ai; } && count=$((count+1))
       ;;
     kilo)
       aiup_npm_pkg_installed @kilocode/cli && count=$((count+1))
@@ -6729,6 +7091,16 @@ source_count_of() {
       ;;
     cursor)
       { command_exists cursor-agent || [ -x "$LOCAL_BIN/cursor-agent" ]; } && count=$((count+1))
+      brew_cask_installed cursor-cli && count=$((count+1))
+      ;;
+    *)
+      # One copy per install channel, for entries with more than one.
+      if [ -n "$(catalog_alt_channels "$tool")" ]; then
+        local kind target
+        while IFS=$'\t' read -r _ kind target; do
+          channel_copy_present "$tool" "$kind" "$target" && count=$((count+1))
+        done < <(tool_channels "$tool")
+      fi
       ;;
   esac
   printf '%s\n' "$count"
@@ -6885,7 +7257,7 @@ notes_of() {
     codex) printf 'aiup-managed npm prefix tracks the official npm latest channel and avoids Homebrew cask lag/sync issues.\n' ;;
     antigravity) printf 'Google Antigravity CLI is a separate Google coding-agent product; aiup manages its agy installer binary.\n' ;;
     gemini) printf 'Official Gemini CLI npm package. Current vendor documentation requires Node.js 20+ and macOS 15+.\n' ;;
-    opencode) printf 'Official install script in ~/.local/bin preserves a stable path and keeps OpenCode outside Homebrew tap/source ambiguity.\n' ;;
+    opencode) printf 'Official v2 install script in ~/.opencode/bin keeps one OpenCode 2 binary; OpenCode 1.x and 2 cannot share the opencode command.\n' ;;
     kilo) printf 'Official npm install anchored to aiup-managed stable prefix avoids brittle global/bin paths.\n' ;;
     gsd2) printf 'GSD coding agent. aiup prefers @opengsd/gsd-pi and also recognizes the older gsd-pi package for migration.\n' ;;
     hermes) printf 'Hermes Agent CLI (Nous Research) installs into ~/.hermes via the official curl script and self-updates via "hermes update". Hermes Desktop is a separate catalog item under workspaces.\n' ;;
@@ -7146,42 +7518,50 @@ update_antigravity() {
 
 update_opencode() {
   ensure_managed_paths
-  local method direct
+  local method direct current
   method="$(opencode_method)"
-  direct="$(command_path opencode)"
-  if [ -z "$direct" ]; then
-    direct="$OPENCODE_BIN_DIR/opencode"
-  fi
+  direct="$OPENCODE_BIN_DIR/opencode"
+  [ -x "$direct" ] || direct="$(command_path opencode)"
   info "OpenCode detected install method: $method"
 
-  case "$method" in
-    installer)
-      info "OpenCode official installer path detected"
-      if [ -x "$direct" ]; then
-        if ! run_with_heartbeat "$direct upgrade --method curl" "$direct" upgrade --method curl; then
-          warn "OpenCode self-upgrade failed; falling back to installer refresh"
-          run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash XDG_BIN_DIR="$LOCAL_BIN" || return 1
-        fi
-      else
-        run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash XDG_BIN_DIR="$LOCAL_BIN" || return 1
+  if [ "$method" != installer ]; then
+    # OpenCode 1.x and 2 cannot share the opencode command; the vendor says to
+    # remove package-managed copies before the v2 installer.
+    warn "Moving OpenCode to the official installer in $OPENCODE_BIN_DIR"
+    if brew_formula_installed opencode; then
+      brew_update_once || true
+      run_with_heartbeat "brew uninstall opencode" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall opencode || true
+    fi
+    remove_aiup_npm_pkg opencode-ai
+    remove_aiup_npm_pkg @opencode/cli
+    npm_uninstall_system_pkg_if_distinct opencode-ai || true
+    npm_uninstall_system_pkg_if_distinct @opencode/cli || true
+    direct=''
+  fi
+
+  current=''
+  [ -n "$direct" ] && [ -x "$direct" ] && current="$("$direct" --version </dev/null 2>/dev/null | first_line)"
+  case "$current" in
+    2.*|v2.*)
+      if ! run_with_heartbeat "$direct upgrade" "$direct" upgrade; then
+        warn "OpenCode self-upgrade failed; running the official installer"
+        run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash || return 1
       fi
       ;;
     *)
-      warn "Migrating OpenCode to the official installer in $LOCAL_BIN"
-      if brew_formula_installed opencode; then
-        brew_update_once || true
-        run_with_heartbeat "brew uninstall opencode" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall opencode || true
-      fi
-      npm_uninstall_system_pkg_if_distinct opencode-ai || true
-      run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash XDG_BIN_DIR="$OPENCODE_BIN_DIR" || return 1
+      # 1.x (or no working copy): the v2 installer replaces the 1.x binary.
+      # Config carries over; 1.x plugins need porting
+      # (https://opencode.ai/v2/docs/migrate-v1/).
+      [ -z "$current" ] || info "Upgrading OpenCode $current to OpenCode 2; config carries over, 1.x plugins need porting (https://opencode.ai/v2/docs/migrate-v1/)"
+      run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash || return 1
       ;;
   esac
 
   ensure_managed_paths
   [ "$DRY_RUN" -eq 1 ] && return 0
   hash_refresh
-  if [ ! -x "$LOCAL_BIN/opencode" ] && [ ! -x "$OPENCODE_BIN_DIR/opencode" ]; then
-    error "OpenCode installer did not place a binary at $LOCAL_BIN/opencode or $OPENCODE_BIN_DIR/opencode"
+  if [ ! -x "$OPENCODE_BIN_DIR/opencode" ] && [ ! -x "$LOCAL_BIN/opencode" ]; then
+    error "OpenCode installer did not place a binary at $OPENCODE_BIN_DIR/opencode"
     return 1
   fi
   if ! command_exists opencode; then
@@ -7760,9 +8140,9 @@ update_by_kind() {
           info "$tool is current; no Homebrew upgrade needed"
           return 0
         fi
-        run_with_heartbeat "brew upgrade $formula" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --yes "$formula" || return 1
+        run_with_heartbeat "brew upgrade $formula" env HOMEBREW_NO_ENV_HINTS=1 brew upgrade --formula --yes "$formula" || return 1
       else
-        run_with_heartbeat "brew install $formula" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes "$formula" || return 1
+        run_with_heartbeat "brew install $formula" env HOMEBREW_NO_ENV_HINTS=1 brew install --formula --yes "$formula" || return 1
       fi
       set_state_method "$tool" brew-formula
       ;;
@@ -7837,6 +8217,7 @@ uv_tool_install_args() {
     open-webui) printf '%s\n' --python 3.12 "$2" ;;
     markitdown) printf '%s\n' "$2[all]" ;;
     mlx-audio) printf '%s\n' "$2[all]" ;;
+    rapid-mlx|browser-use) printf '%s\n' --python 3.12 "$2" ;;
     *) printf '%s\n' "$2" ;;
   esac
 }
@@ -8855,18 +9236,15 @@ run_tool_update_impl() {
       fi
       append_failure "$tool"; return 1 ;;
   esac
-  if type "update_$tool" >/dev/null 2>&1; then
-    if "update_$tool"; then
-      result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
-      case "$result_kind" in
-        current|skipped|self-updated|deferred|cancelled) result_record "$result_kind" "$tool" ;;
-        *) result_record completed "$tool" ;;
-      esac
-      info "========== TOOL DONE: $tool =========="
-      tui_cache_invalidate
-      return 0
-    fi
+  local prev_method updated=0
+  prev_method="$(get_state_method "$tool")"
+  if tool_custom_updater "$tool"; then
+    "update_$tool" && updated=1
   elif update_by_kind "$tool"; then
+    updated=1
+  fi
+  if [ "$updated" -eq 1 ]; then
+    channel_retire_others "$tool" "$prev_method" || true
     result_kind="${AIUP_LAST_UPDATE_STATUS:-completed}"
     case "$result_kind" in
       current|skipped|self-updated|deferred|cancelled) result_record "$result_kind" "$tool" ;;
@@ -9024,8 +9402,8 @@ print_doctor() {
         printf '  Installer binary exists: %s\n' "$({ [ -x "$LOCAL_BIN/opencode" ] || [ -x "$OPENCODE_BIN_DIR/opencode" ]; } && printf yes || printf no)"
         printf '  Installer bin dir: %s\n' "$OPENCODE_BIN_DIR"
         printf '  Homebrew formula installed: %s\n' "$(brew_formula_installed opencode && printf yes || printf no)"
-        printf '  AIUP/npm package installed: %s\n' "$(aiup_npm_pkg_installed opencode-ai && printf yes || printf no)"
-        printf '  System npm package installed: %s\n' "$(system_npm_pkg_installed opencode-ai && printf yes || printf no)"
+        printf '  AIUP/npm package installed: %s\n' "$({ aiup_npm_pkg_installed @opencode/cli || aiup_npm_pkg_installed opencode-ai; } && printf yes || printf no)"
+        printf '  System npm package installed: %s\n' "$({ system_npm_pkg_installed @opencode/cli || system_npm_pkg_installed opencode-ai; } && printf yes || printf no)"
         ;;
       kilo)
         printf '  AIUP npm package installed: %s\n' "$(aiup_npm_pkg_installed @kilocode/cli && printf yes || printf no)"
@@ -9247,7 +9625,7 @@ print_catalog_contracts() {
 # Catalog definition only: no scan of your Mac. Used by the public site/README.
 print_catalog_definition() {
   local mode="${1:---json}"
-  local tool cat rec
+  local tool cat rec AIUP_CHANNEL_MAP='|'
   {
     printf 'VERSION\t%s\n' "$AIUP_VERSION"
     for cat in "${CATEGORY_ORDER[@]}"; do
@@ -9688,8 +10066,9 @@ remove_gsd2() {
 }
 
 remove_opencode() {
-  remove_file_if_exists "$LOCAL_BIN/opencode" "$OPENCODE_BIN_DIR/opencode"
+  remove_file_if_exists "$LOCAL_BIN/opencode" "$OPENCODE_BIN_DIR/opencode" "$OPENCODE_BIN_DIR/opencode2"
   npm_uninstall_system_pkg_if_distinct opencode-ai || true
+  npm_uninstall_system_pkg_if_distinct @opencode/cli || true
   move_tool_user_data_to_trash opencode
 }
 
@@ -9742,6 +10121,11 @@ run_tool_remove() {
   local tool="$1"
   mutation_authoritative_preflight "$tool remove" || return 1
   info "========== REMOVE START: $tool =========="
+  # A special entry on a chosen alternate: remove that copy first, then let
+  # its own remover take the default channel's copy as usual.
+  if channel_overridden "$tool" && type "remove_$tool" >/dev/null 2>&1; then
+    remove_by_kind "$tool" || true
+  fi
   if type "remove_$tool" >/dev/null 2>&1; then
     if "remove_$tool"; then
       result_record removed "$tool"
@@ -11248,6 +11632,8 @@ Preferences:
   aiup group check|run NAME      Check or update a group's installed members
   aiup group remove NAME         Remove a group
   aiup settings cleanup auto|review  Clean removed-app records automatically, or review first
+  aiup channel [TOOL [CHANNEL]]  Tools with more than one install channel, each channel's
+                                 latest version, or pick one: brew, npm, uv, vendor, default
 
 Other Macs and schedules:
   aiup export [FILE]       Save your tools, Homebrew packages and preferences as JSON
@@ -11436,7 +11822,7 @@ brew_prefetch_upgrades() {
     case "$tool:$kind" in
       bf:*|bc:*) ;;
       npm:*) kind=brew-formula ;;
-      *:brew-formula|*:brew-cask) ! type "update_$tool" >/dev/null 2>&1 || continue ;;
+      *:brew-formula|*:brew-cask) ! tool_custom_updater "$tool" || continue ;;
       *) continue ;;
     esac
     policy="$(policy_reason "$tool" 2>/dev/null)" && [ -z "$policy" ] || continue
@@ -11708,8 +12094,11 @@ lane_kind_for() {
   case "$AIUP_REQUIRED_UPDATED" in *"|$tool|"*) return 1 ;; esac
   # A missing tool stays in the main sequence, which skips it unless asked to install.
   if [ "$NO_INSTALL" -eq 1 ] && ! tool_is_present "$tool"; then return 1; fi
-  ! type "update_$tool" >/dev/null 2>&1 || return 1
+  ! tool_custom_updater "$tool" || return 1
   policy="$(policy_reason "$tool" 2>/dev/null)" && [ -z "$policy" ] || return 1
+  # Retiring a Homebrew copy after the update needs Homebrew, so it stays in
+  # the main sequence.
+  ! channel_brew_copy_present "$tool" || return 1
   case "$(catalog_kind "$tool")" in
     aiup-npm)
       formula="$(npm_retired_brew_formula "$tool")"
@@ -11725,7 +12114,7 @@ lane_kind_for() {
 # True when TOOL only uses Homebrew, so it can run while the lanes do.
 lane_safe_beside() {
   case "$1" in bf:*|bc:*) return 0 ;; esac
-  ! type "update_$1" >/dev/null 2>&1 || return 1
+  ! tool_custom_updater "$1" || return 1
   case "$(catalog_kind "$1")" in brew-formula|brew-cask) return 0 ;; esac
   return 1
 }
@@ -12244,6 +12633,10 @@ parse_args() {
     preferences)
       preferences show
       ;;
+    channel)
+      [ "${#args[@]}" -le 3 ] || { usage_error 'expected: aiup channel [TOOL [brew|npm|uv|vendor|default]]'; return 2; }
+      cmd_channel "${args[1]:-}" "${args[2]:-}"
+      ;;
     exclude|include|unhold)
       [ "${#args[@]}" -eq 2 ] || { usage_error "expected: aiup ${args[0]} TOOL"; return 2; }
       preferences "${args[0]}" "${args[1]}"
@@ -12429,6 +12822,7 @@ if [ "${1:-}" = catalog ]; then
 fi
 
 profile_begin
+channels_load
 if tui_internal_command "${1:-}"; then
   if [ -n "${AIUP_TUI_SESSION_DIR:-}${AIUP_TUI_SESSION_TOKEN:-}" ]; then
     tui_session_activate || { error "Private TUI session validation failed"; exit 1; }

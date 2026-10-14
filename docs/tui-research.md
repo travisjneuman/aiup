@@ -45,7 +45,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 ## List layout (2026-10-14)
 
-With 218 entries, the flat list had become hard to scan. These changes keep the overview calm and make the state of each row readable at a glance:
+With more than 200 entries, the flat list had become hard to scan. These changes keep the overview calm and make the state of each row readable at a glance:
 
 - **Categories by kind of tool.** Twenty curated categories, in the order people reach for them: essentials, coding assistants and their helpers, workspaces, editors, terminals, MCP tools, sandboxes and integrations first; chat, browsers and automation next; then local models and apps, voice, image and video AI, creative apps, media tools, and utilities. Homebrew extras and detected software stay last.
 - **Plain names.** Headings show a name such as **Voice and dictation**; the id (`voice`) still works with `--category`, and the category preview shows the name and a one-line description.
