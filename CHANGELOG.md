@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Removed the 12 `scripts/test-*` self-check scripts. Nothing ran them, and parts no longer matched how aiup works. `scripts/fixtures` stays, because media capture uses it.
 - Ctrl-C during an update now stops the running brew, npm or installer command instead of leaving it running after aiup exits. aiup finishes nothing else, prints the results, records the interrupted tool as `cancelled` and the tools not reached as pending, and exits with status 130. `aiup resume` picks them up.
 - `aiup resume` and `aiup retry` look at each tool's newest result across all retained runs, so a later `aiup only <tool>` run no longer hides a tool an earlier run deferred or failed.
 - A version that went down (Homebrew repointed openssl@3 from 3.6.5 to 3.5.9) is reported as `downgraded` in red and listed in `aiup attention`, instead of `updated`.

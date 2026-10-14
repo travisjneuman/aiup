@@ -22,7 +22,7 @@ Front door for `docs/`: find the right aiup document in one read. Up: [README](.
 
 ## Dated reviews
 
-Point-in-time records; they keep their original text. Newer runtime facts live in [status.md](status.md) and [catalog.md](catalog.md).
+Point-in-time records; they keep their original text. Newer runtime facts live in [status.md](status.md) and [catalog.md](catalog.md). The `scripts/test-*` files some of them mention were removed on 2026-10-14; git history keeps them.
 
 | Date | Record | Scope |
 | --- | --- | --- |
