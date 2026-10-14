@@ -1,6 +1,6 @@
 # Scope, completion, and next work
 
-Status date: **2026-10-13**
+Status date: **2026-10-14**
 
 Current version: **2026.09.29-06**
 
@@ -18,7 +18,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - update one verified item, selected verified items, or an explicitly confirmed dependency-ordered snapshot of all bulk-eligible verified items through the existing authoritative updater;
 - validate once per interactive entry, materialize a coherent state snapshot, and serve cursor/search/resize/category helpers from an exact-runtime private session;
 - reuse only versioned, fingerprinted, atomically published disposable cache generations while treating live state as authoritative for every mutation;
-- search inside collapsed categories and restore a clean picker after provider actions;
+- group 218 catalog entries into 20 named categories, each heading with an installed bar and `N of T installed`, and mark every row's state with `●`, `◐`, `○`, `◇` or `◆`;
+- search inside collapsed categories, match category names, label each hit with its category, and restore a clean picker after provider actions;
 - keep query typing, category toggles, navigation, resize, and documentation return on materialized session data with exact fzf row identity tracking;
 - coalesce and negatively cache bounded remote metadata reads, then prefetch installed managed items only with two read-only workers after the picker becomes interactive;
 - avoid passing `--zap` or directly deleting `~/Library` when an existing app is handed to Homebrew, without claiming universal vendor behavior;
@@ -71,7 +72,7 @@ Publication remains the established GitHub-connected Cloudflare Pages path; dire
 
 ## Media and brand status
 
-The current media is captured from source `c15f3366dc96d3b8440e2359ef46d64ec229e87b`. It uses the real TUI and fzf 0.74.3 at an ordinary 100 × 30 PTY, a measured macOS Terminal/Homebrew profile, the live shell's Catppuccin fzf palette, aiup's production indexed category colors, reproduced sanitized Terminal chrome, and 2016 × 1208 Retina output. The six-frame, 10.78-second sequence covers the overview, Gemini lifecycle state, expanded Homebrew recommendations, Raycast switch context, cancelled `[y/N]` safety boundary, and final overview. Its Pillow `loop=0` encoding includes the NETSCAPE infinite-loop extension and repeats continuously. Exact provenance, hashes, PTY matrix, dimensions, timing, profile evidence, and limitations are in [`media/README.md`](media/README.md) and [`media/capture-manifest.json`](media/capture-manifest.json).
+The 2026-10-14 list layout (category names, installed bars, state marks and the framed picker) is newer than the media. The GIF and screenshots still show the earlier look and need a fresh capture before they match. The current media is captured from source `c15f3366dc96d3b8440e2359ef46d64ec229e87b`. It uses the real TUI and fzf 0.74.3 at an ordinary 100 × 30 PTY, a measured macOS Terminal/Homebrew profile, the live shell's Catppuccin fzf palette, aiup's production indexed category colors, reproduced sanitized Terminal chrome, and 2016 × 1208 Retina output. The six-frame, 10.78-second sequence covers the overview, Gemini lifecycle state, expanded Homebrew recommendations, Raycast switch context, cancelled `[y/N]` safety boundary, and final overview. Its Pillow `loop=0` encoding includes the NETSCAPE infinite-loop extension and repeats continuously. Exact provenance, hashes, PTY matrix, dimensions, timing, profile evidence, and limitations are in [`media/README.md`](media/README.md) and [`media/capture-manifest.json`](media/capture-manifest.json).
 
 The owner-directed absence of a playback control means the animation's greater-than-five-second autoplay is a known WCAG 2.2.2 limitation. Reduced-motion users receive the static poster through the native `<picture>` media query; the site does not claim complete WCAG conformance.
 

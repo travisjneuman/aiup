@@ -18,7 +18,7 @@
   ],
   "metrics": [
     {
-      "value": "131",
+      "value": "218",
       "label": "Catalog tools",
       "source": "local export: macos/aiup catalog --json; length of top-level tools (curated manifest entries). Refresh: scripts/sync-public-docs --skip-media",
       "round": "exact",
@@ -29,9 +29,9 @@
         "catalogCommand": "macos/aiup catalog --json",
         "population": "top-level tools: curated manifest entries",
         "runtimeVersion": "2026.09.29-06",
-        "runtimeSha256": "d8b85d2d4c9e7f27b0281e96587a56e1657c019c64fe9e613518566c377d1feb",
-        "manifestSha256": "222adba350ec47514006ee257ae567bc810304744832b5a1f986d29ceb6675b7",
-        "exportSha256": "4b24c8d768d7355d3d6b12c488b7674d8678c76444341ce1f9fbee2e8377d023"
+        "runtimeSha256": "a6abc646273fe96905c79f9970960fd60c6f41d840dd9d4e316aac3879d985af",
+        "manifestSha256": "eb6c0e7a4a3979ce1c9484ebd145514193712770a185d00785f4d9b71ee13a6f",
+        "exportSha256": "6bbff2f9f8ce22ea140eb7f77c6fb7f87ad8165af083417acd7f621e1e18be83"
       }
     },
     {

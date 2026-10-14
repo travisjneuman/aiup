@@ -43,6 +43,8 @@
 
 <p align="center"><em>⏎ install or expand &nbsp;·&nbsp; ⌃D uninstall &nbsp;·&nbsp; ⌃O docs &nbsp;·&nbsp; esc done</em></p>
 
+**Contents:** [One minute](#-one-minute) · [Ground rules](#-ground-rules) · [Keys](#-keys) · [Already installed](#-already-installed-just-not-via-homebrew) · [Catalog](#-whats-in-the-catalog) · [What aiup needs](#-what-aiup-needs) · [Status](#-status) · [Everyday commands](#everyday-commands) · [AppCleaner](#apps-removed-with-appcleaner) · [Documentation map](#documentation-map) · [License](#-license)
+
 ## ⚡ One minute
 
 ```bash
@@ -85,7 +87,7 @@ Routine installer output is saved in a private run log under `~/.local/share/aiu
 
 A removed app with a leftover Homebrew receipt is skipped with an explanation; AIUP does not silently reinstall it or erase the receipt. The Updates category includes informational rows for checks that could not finish, so an unsuccessful check is visible even when no updates were confirmed.
 
-Category headings use plain-language names and “installed / available to install” counts. Detected commands include owner, description, metadata-based version evidence, and update guidance where recognizable. See [command insights](docs/command-insights.md).
+Each category heading shows its name, a ten-cell bar for how much of it is on your Mac, and a count such as `3 of 12 installed`. Detected commands include owner, description, metadata-based version evidence, and update guidance where recognizable. See [command insights](docs/command-insights.md).
 
 New maintenance controls:
 
@@ -113,9 +115,9 @@ aiup check --json                  # results as JSON for your own scripts
 
 Preferences are local in `~/.local/share/aiup/preferences.json`. Exclusions and holds apply to CLI and picker updates, including `--force`; remove a preference explicitly to resume. Holds expire after the indicated local calendar date. A held missing prerequisite stops dependent work. Named groups do not install absent members by default. `--dry-run` also prevents preference writes. No preferences are enabled on your behalf. `retry` may reinstall a failed absent tool; use `--no-install retry` to prevent that.
 
-Search ranks exact names, aliases, name prefixes, then descriptions. Multiple words must all match meaningful name/package/description fields; status text and category headings do not generate unrelated hits. Clear the query to return to category browsing.
+Search ranks exact names, aliases, name prefixes, then descriptions. Multiple words must all match the name, package, description or category name, so `voice` lists every dictation and speech tool and `sandbox` finds the sandboxes. Status text does not create hits. Headings hide while you search, so each hit ends with the name of its category. Clear the query to return to category browsing.
 
-The **media** category starts with Remotion and includes managed tools for AI image generation, transcription/dictation, video editing, animation, audio, and image processing. Its current curated total is in the generated catalog table below. It also recognizes five installed media apps with **manual update** guidance: Final Cut Pro, Motion, Pixelmator Pro, Darkroom, and Luminar AI. Those remain inspect-only, are excluded from managed counts, and never enter automated updates. `--view managed` hides manual rows; `--view detected` retains them in the inventory. AI creation/transcription tools and supporting media utilities are labeled distinctly. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md) and [media expansion review](docs/media-expansion-2026-09-04.md).
+Media work is split four ways. **Creative apps** (`media`) holds Remotion and the editors and recorders: Blender, OBS, GIMP, Krita and the rest. **Voice and dictation** (`voice`) holds dictation apps, meeting note takers, Whisper and Parakeet transcription, and text-to-speech. **Image and video AI** (`image-gen`) holds Comfy Desktop, Draw Things, LTX Desktop and mflux. **Media tools** (`media-tools`) holds ffmpeg, ImageMagick, yt-dlp and the other converters. The Creative apps category also recognizes five installed apps with **manual update** guidance: Final Cut Pro, Motion, Pixelmator Pro, Darkroom, and Luminar AI. Those remain inspect-only, are excluded from managed counts, and never enter automated updates. `--view managed` hides manual rows; `--view detected` retains them in the inventory. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md) and [media expansion review](docs/media-expansion-2026-09-04.md).
 
 AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section (in `less` when the output is a terminal; `AIUP_NO_PAGER=1` prints it straight through). Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
 
@@ -205,7 +207,17 @@ Use `--view installed` for a compact maintenance view, `--view managed` to hide 
 
 For Homebrew extras outside the managed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. The overview intentionally does not load thousands of Homebrew rows: it says “not loaded” so you never see a misleading zero. The full view is generated from the Homebrew taps already on the Mac, places `font-*` casks under `Homebrew > fonts`, and delegates dependency resolution back to Homebrew; managed catalog items remain in their normal categories.
 
-Installed rows use **mint green**. Each category has a color bar. Categories start collapsed.
+Categories start collapsed, and each has its own color bar. Every row starts with a state mark:
+
+| Mark | Meaning |
+|---|---|
+| <code>●</code> green | Installed, and aiup manages it |
+| <code>◐</code> amber | On disk, installed some other way |
+| <code>○</code> gray | Not installed |
+| <code>◇</code> | Detected software aiup doesn't manage |
+| <code>◆</code> amber | An app you update by hand (manual update) |
+
+Installed rows are bright and the rest are dimmed, so what you have stands out. A tool that is winding down shows its stage (`maintenance`, `sunset` or `archived`) in amber, and installing a sunset tool from the list asks first.
 
 ## 🍺 Already installed, just not via Homebrew?
 
@@ -217,9 +229,9 @@ Homebrew takes over the app you already have instead of installing a second copy
 
 | State | Meaning |
 |---|---|
-| 💚 **installed** | Homebrew owns it |
-| 💚 **on disk** | The app or command is already here some other way |
-| ⬜ **absent** | Not found (recommended list only) |
+| <code>●</code> **installed** | Homebrew owns it |
+| <code>◐</code> **on disk** | The app or command is already here some other way |
+| <code>○</code> **absent** | Not found (recommended list only) |
 
 Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 
@@ -232,30 +244,38 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.09.29-06** · **131** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.09.29-06** · **218** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
-| ⚙️ | **infra** | Runtimes and installers other tools need | 8 tools |
-| 🤖 | **coding-agents** | Agents that write and edit code in the terminal | 27 tools |
-| 🖥️ | **workspaces** | Desktop hubs that drive those agents | 10 tools |
-| ✏️ | **editors** | Places you type code | 8 tools |
-| ⌨️ | **terminals** | Places you run commands | 4 tools |
-| 💬 | **chat** | Cloud chat apps | 10 tools |
-| 🎬 | **media** | Video, images, audio, transcription, and AI creation tools | 26 tools |
-| 🧠 | **local-ai** | Local models, inference engines, and contextual capture | 16 tools |
-| ⚡ | **automation** | General-purpose agents and workflow automation | 4 tools |
-| 🔧 | **llm-utils** | Unix-pipe LLM CLIs | 5 tools |
-| 🛠️ | **dev-utils** | Development, search, data, and deployment utilities | 10 tools |
-| 🔌 | **adapters** | Glue between agents and editors | 3 tools |
-| 🍺 | **homebrew** | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
+| ⚙️ | **Essentials** (`infra`) | Runtimes and installers other tools need | 8 tools |
+| 🤖 | **Coding assistants** (`coding-agents`) | Agents that write and edit code in the terminal | 40 tools |
+| 🧰 | **Agent helpers** (`agent-tools`) | Add-ons for coding agents: usage reports, specs, task lists, rules | 9 tools |
+| 🖥️ | **Agent workspaces** (`workspaces`) | Desktop apps that run and manage coding agents | 15 tools |
+| ✏️ | **Code editors** (`editors`) | Places you type code | 10 tools |
+| ⌨️ | **Terminals** (`terminals`) | Places you run commands | 5 tools |
+| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 7 tools |
+| 🛡️ | **Sandboxes** (`sandboxes`) | Containers and sandboxes for running agents apart from your files | 3 tools |
+| 🔌 | **Integrations** (`adapters`) | Glue between agents and editors (ACP) | 6 tools |
+| 💬 | **Chat assistants** (`chat`) | Cloud chat apps | 10 tools |
+| 🌐 | **AI browsers** (`browsers`) | Web browsers with an AI assistant or agent built in | 3 tools |
+| ⚡ | **Automation** (`automation`) | General-purpose agents and workflow automation | 6 tools |
+| 🧠 | **Local models** (`local-ai`) | Model runtimes and servers that run on your Mac | 15 tools |
+| 💻 | **Local AI apps** (`local-apps`) | Desktop apps for running models on your Mac | 12 tools |
+| 🎙️ | **Voice and dictation** (`voice`) | Dictation, transcription, meeting notes and speech | 24 tools |
+| 🎨 | **Image and video AI** (`image-gen`) | Apps and tools that generate images and video | 6 tools |
+| 🎬 | **Creative apps** (`media`) | Editors and recorders for video, images, audio and 3D | 12 tools |
+| 🎞️ | **Media tools** (`media-tools`) | Command-line tools for converting and downloading media | 6 tools |
+| 🔧 | **AI utilities** (`llm-utils`) | Command-line LLM tools, and converters that turn files into text for models | 8 tools |
+| 🛠️ | **Developer tools** (`dev-utils`) | Development, search, data, and deployment utilities | 13 tools |
+| 🍺 | **Other packages** (`homebrew`) | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
 <!-- CATALOG:END -->
 
 Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**
 
 These totals count curated manifest entries. They don't include software installed on a Mac, detected-only apps, or Homebrew recommendations. Contributors refresh this table, public catalog files, website counts, and `showcase.json` together with `scripts/sync-public-docs --skip-media`. See [public catalog facts](docs/public-catalog-facts.md).
 
-Research notes → **[dated 83-entry accuracy audit](docs/catalog-accuracy-2026-08-25.md)** · **[catalog research](docs/catalog-research.md)** · TUI review → **[navigation research](docs/tui-research.md)**
+Research notes → **[2026-10-14 catalog review](docs/catalog-review-2026-10-14.md)** · **[catalog research](docs/catalog-research.md)** · **[dated 83-entry accuracy audit](docs/catalog-accuracy-2026-08-25.md)** · TUI review → **[layout and navigation](docs/tui-research.md)**
 
 ## 🧰 What aiup needs
 
@@ -318,6 +338,20 @@ AIUP remembers bundle identities observed at their installed locations, scans co
 | Update notifications, cron, launchd | [docs/notify.md](docs/notify.md) |
 | Contribute, report a bug, security | [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md) |
 | Release history | [CHANGELOG.md](CHANGELOG.md) |
+
+```mermaid
+graph LR
+  RD[README] --> DX[docs/README]
+  RD --> IN[install]
+  RD --> CT[catalog]
+  RD --> PV[privacy]
+  RD --> ST[status]
+  DX --> SC[scripting]
+  DX --> HB[homebrew]
+  DX --> NT[notify]
+  DX --> DR[dated reviews]
+  RD --> CO[CONTRIBUTING]
+```
 
 ## 📜 License
 

@@ -12,7 +12,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 | Problem | Current behavior |
 |---|---|
-| Too many rows at startup | Categories start collapsed. Each header shows installed/absent counts. |
+| Too many rows at startup | Categories start collapsed. Each header shows its name, a ten-cell installed bar, and `N of T installed`. |
 | Need to move without a long scroll | Left/right collapse or expand the current category; Page Up/Page Down jumps to the previous/next category. |
 | Need to jump farther | `ctrl-g` opens a searchable category palette and returns to the selected header. |
 | Need a focused view | `aiup list --category CAT` focuses a managed category, `detected`, `homebrew`, or `homebrew/available`. |
@@ -21,7 +21,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 | Unknown local software | A final `detected` category shows app, npm, uv, and PATH evidence as detected-only rows with source, version, location, and source subtotals. |
 | Need context without leaving the list | The preview pane shows official docs for managed entries and source/version/path plus a Google search for detections. `ctrl-/` toggles the preview. |
 | Risk of an accidental mutation | Detected rows never enter an update action because aiup has no verified owner/updater contract. Detected app rows expose an exact-path cleanup preview and require `--apply` plus confirmation to move candidates to Trash. |
-| Need to know what Enter will do | Rows show action badges such as `install`, `update`, `switch to Homebrew`, `sunset`, or `detected-only`; previews show dependency readiness. |
+| Need to know what Enter will do | Rows show a state mark, an `on disk` note, and lifecycle tags such as `sunset`; the preview's `action` line names what Enter does and shows dependency readiness. |
 
 ## Implemented improvements
 
@@ -39,9 +39,21 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 ### Explainable maintenance
 
-- Visible action badges distinguish `update`, `install`, `switch to Homebrew`, `detected-only`, and lifecycle warnings.
+- The preview's `action` line distinguishes `update`, `install`, `switch to Homebrew` and detected-only rows; lifecycle warnings show on the row itself.
 - Previews show dependency closure and whether each prerequisite is ready or missing. Detected previews show a Google search URL and, for app bundles, the cleanup command.
 - Update runs summarize completed, removed, skipped, detected-only, failed, and cancelled work.
+
+## List layout (2026-10-14)
+
+With 218 entries, the flat list had become hard to scan. These changes keep the overview calm and make the state of each row readable at a glance:
+
+- **Categories by kind of tool.** Twenty curated categories, in the order people reach for them: essentials, coding assistants and their helpers, workspaces, editors, terminals, MCP tools, sandboxes and integrations first; chat, browsers and automation next; then local models and apps, voice, image and video AI, creative apps, media tools, and utilities. Homebrew extras and detected software stay last.
+- **Plain names.** Headings show a name such as **Voice and dictation**; the id (`voice`) still works with `--category`, and the category preview shows the name and a one-line description.
+- **A fill bar per category.** Ten cells in the category color show how much of it is installed, next to `N of T installed` or `all N installed`. A category with any tool installed always fills at least one cell, and one with a gap never looks full.
+- **State marks.** `●` installed, `◐` on disk some other way, `○` not installed, `◇` detected, `◆` manual update. Installed rows are bright and the rest are dimmed, so color is never the only signal.
+- **One column rhythm.** Catalog, Homebrew, detected and Updates rows share the same bar, mark and id columns. Updates rows read `installed → available` with the new version in green.
+- **Search that knows categories.** Category names are part of each tool's search text, so `voice` or `sandbox` lists a whole group. Headings hide while searching, so every hit ends with `· <category name>`.
+- **A framed picker.** A rounded border labeled `aiup`, an inline match counter, a `❯` prompt, and `▶`/`✓` pointer and marker. aiup's style goes first in `FZF_DEFAULT_OPTS`, so a user's own fzf colors still win.
 
 ## State and action continuity
 

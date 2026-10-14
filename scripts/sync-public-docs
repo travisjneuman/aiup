@@ -220,8 +220,9 @@ for category in data['categories']:
         continue
     tools = category.get('tools') or []
     size = 'your Mac + recommended' if category['id'] == 'homebrew' else f'{len(tools)} tool' + ('' if len(tools) == 1 else 's')
-    body.append(f"| {category.get('emoji', '')} | **{category['id']}** | {category.get('blurb', '')} | {size} |")
-    markdown.extend([f"## {category.get('emoji', '')} {category['id']}", '', category.get('blurb', ''), ''])
+    name = category.get('name') or category['id']
+    body.append(f"| {category.get('emoji', '')} | **{name}** (`{category['id']}`) | {category.get('blurb', '')} | {size} |")
+    markdown.extend([f"## {category.get('emoji', '')} {name} (`{category['id']}`)", '', category.get('blurb', ''), ''])
     if category['id'] == 'homebrew':
         markdown.extend(['| Child | What |', '|---|---|'])
         for child in data['categories']:

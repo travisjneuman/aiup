@@ -1,5 +1,7 @@
 # aiup brand assets
 
+Up: [site/README.md](../README.md). Not here: product screenshots and GIF capture ([docs/media/README.md](../../docs/media/README.md)).
+
 `original/aiup-logo.png` is the archived pre-vector source and remains
 byte-for-byte unchanged at SHA-256
 `726b5f4c1a9e518055bbdeb1807c6bb42700fd0bb5631fb514e3bd9c5f39b5c8`.

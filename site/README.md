@@ -1,5 +1,7 @@
 # aiup public site
 
+Up: [README](../README.md) · [docs](../docs/README.md). Not here: product screenshots and GIF capture ([docs/media/README.md](../docs/media/README.md)), logo and icon sources ([brand/README.md](brand/README.md)).
+
 Static files for **https://aiup.neuman.dev**. Cloudflare Pages serves this
 directory through the repository's existing GitHub-connected publication path.
 Do not publish it directly with Wrangler.

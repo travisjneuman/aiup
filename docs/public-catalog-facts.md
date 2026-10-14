@@ -34,8 +34,9 @@ Metric `source` strings are descriptive provenance and are never executed.
 The same exported data supplies all these text outputs:
 
 - `site/catalog.json`: the existing catalog definition shape, including separate
-  `categories`, top-level `tools`, and `recommended` arrays;
-- `docs/catalog.md`: category tables and a separate Homebrew recommendation table;
+  `categories`, top-level `tools`, and `recommended` arrays. Each category has
+  `id`, `name` (the heading shown in `aiup list`), `emoji`, `blurb` and `tools`;
+- `docs/catalog.md`: category tables headed by name and id, and a separate Homebrew recommendation table;
 - `README.md`: the existing `CATALOG` marker block;
 - `showcase.json`: the Catalog tools metric, plus `updated` when metrics change.
   The exporter assigns `key: tools`, an exact value, a local-export source note,

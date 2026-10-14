@@ -16,7 +16,7 @@ AIUP_NPM_BIN="$AIUP_NPM_PREFIX/bin"
 AIUP_NPM_NODE_MODULES="$AIUP_NPM_PREFIX/lib/node_modules"
 OPENCODE_BIN_DIR="${AIUP_OPENCODE_BIN_DIR:-$HOME/.opencode/bin}"
 HERMES_HOME="${AIUP_HERMES_HOME:-$HOME/.hermes/hermes-agent}"
-HERMES_INSTALL_URL="https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh"
+HERMES_INSTALL_URL="https://hermes-agent.nousresearch.com/install.sh"
 CLAUDE_INSTALL_URL="https://claude.ai/install.sh"
 OPENCODE_INSTALL_URL="https://opencode.ai/install"
 ANTIGRAVITY_INSTALL_URL="https://antigravity.google/cli/install.sh"
@@ -32,7 +32,7 @@ HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/in
 SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
-CATEGORY_ORDER=(infra coding-agents workspaces editors terminals chat media local-ai automation llm-utils dev-utils adapters homebrew detected)
+CATEGORY_ORDER=(infra coding-agents agent-tools workspaces editors terminals mcp sandboxes adapters chat browsers automation local-ai local-apps voice image-gen media media-tools llm-utils dev-utils homebrew detected)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
@@ -95,12 +95,12 @@ HOMEBREW_RECOMMENDED_CASKS=(
   copilot-cli cursor-cli claude-code
   warp-agent-cli coderabbit auto-claude monet ollamac notesollama
   tableplus postman insomnia 1password secretive stats iina
-  kitty neovide fork sublime-merge
+  neovide fork sublime-merge
   figma brave-browser firefox utm
 )
 HOMEBREW_RECOMMENDED_FORMULAE=(
   jq neovim go cmake ninja tree watch wget curl
-  ripgrep fd tmux starship eza bat git-delta
+  ripgrep fd starship eza bat git-delta
   gh git lazygit helix direnv just yarn
   podman kubectl helm terraform
 )
@@ -1912,9 +1912,27 @@ binary_of_tool() {
     whisperkit) printf 'whisperkit-cli\n' ;;
     kiro) printf 'kiro-cli\n' ;;
     sox-ng) printf 'sox\n' ;;
+    muse-code) printf 'muse\n' ;;
+    minimax-code) printf 'mcode\n' ;;
+    codebuddy-code) printf 'codebuddy\n' ;;
+    forgecode) printf 'forge\n' ;;
+    command-code) printf 'commandcode\n' ;;
+    claude-squad) printf 'cs\n' ;;
+    claude-code-router) printf 'ccr\n' ;;
+    beads) printf 'bd\n' ;;
+    backlog-md) printf 'backlog\n' ;;
+    orbstack) printf 'orb\n' ;;
+    tei) printf 'text-embeddings-router\n' ;;
+    mlx-knife) printf 'mlxk\n' ;;
+    mlx-audio) printf 'mlx_audio.server\n' ;;
+    speech-swift) printf 'speech\n' ;;
+    mflux) printf 'mflux-generate\n' ;;
+    mkvtoolnix) printf 'mkvmerge\n' ;;
     # Apps without a command of their own: a same-named command on PATH
     # (for example Apache Superset's) must not count as this app.
     devin-desktop|kiro-ide|jetbrains-air|conductor|emdash|superset|amp-app|factory-app|antigravity-app|gemini-app|cherry-studio|msty-studio|boltai|chatbox|lobehub|handy|voiceink|wispr-flow|stability-matrix|mochi-diffusion|mlx-vlm) printf '\n' ;;
+    trae|codebuddy-ide|cline-app|kiro-crew|nimbalyst|commander|zcode|kitty|toolhive-studio|dia|comet|browseros|manus|langflow) printf '\n' ;;
+    vmlx|swama|nativ|fluidvoice|spokenly|typeless|hex|amical|openwhispr|aqua-voice|monologue|granola|meetily|anarlog|comfyui|ltx-desktop|gimp|cap) printf '\n' ;;
     cursor-ide) printf 'cursor\n' ;;
     ollama-app) printf 'ollama\n' ;;
     llama-cpp) printf 'llama-cli\n' ;;
@@ -2024,16 +2042,24 @@ catalog_category_blurb() {
   case "$1" in
     infra) printf 'Runtimes and installers other tools need\n' ;;
     coding-agents) printf 'Agents that write and edit code in the terminal\n' ;;
-    workspaces) printf 'Desktop hubs that drive those agents\n' ;;
+    agent-tools) printf 'Add-ons for coding agents: usage reports, specs, task lists, rules\n' ;;
+    workspaces) printf 'Desktop apps that run and manage coding agents\n' ;;
     editors) printf 'Places you type code\n' ;;
     terminals) printf 'Places you run commands\n' ;;
+    mcp) printf 'Tools to run, test and connect MCP servers\n' ;;
+    sandboxes) printf 'Containers and sandboxes for running agents apart from your files\n' ;;
+    adapters) printf 'Glue between agents and editors (ACP)\n' ;;
     chat) printf 'Cloud chat apps\n' ;;
-    media) printf 'Video, images, audio, transcription, and AI creation tools\n' ;;
+    browsers) printf 'Web browsers with an AI assistant or agent built in\n' ;;
     automation) printf 'General-purpose agents and workflow automation\n' ;;
+    local-ai) printf 'Model runtimes and servers that run on your Mac\n' ;;
+    local-apps) printf 'Desktop apps for running models on your Mac\n' ;;
+    voice) printf 'Dictation, transcription, meeting notes and speech\n' ;;
+    image-gen) printf 'Apps and tools that generate images and video\n' ;;
+    media) printf 'Editors and recorders for video, images, audio and 3D\n' ;;
+    media-tools) printf 'Command-line tools for converting and downloading media\n' ;;
+    llm-utils) printf 'Command-line LLM tools, and converters that turn files into text for models\n' ;;
     dev-utils) printf 'Development, search, data, and deployment utilities\n' ;;
-    local-ai) printf 'Local models, inference engines, and contextual capture\n' ;;
-    llm-utils) printf 'Unix-pipe LLM CLIs\n' ;;
-    adapters) printf 'Glue between agents and editors\n' ;;
     detected) printf 'Unmanaged software found on this Mac: apps, npm, uv, and PATH executables\n' ;;
     homebrew) printf 'Homebrew extras outside the managed catalog, plus a short recommended list\n' ;;
     homebrew/casks) printf 'GUI apps Homebrew already installed on your Mac\n' ;;
@@ -2046,15 +2072,41 @@ catalog_category_blurb() {
   esac
 }
 
+# The one list of category names people see (headers, previews, search hits).
+category_display_name() {
+  case "$1" in
+    updates) printf 'Updates\n' ;;
+    infra) printf 'Essentials\n' ;; coding-agents) printf 'Coding assistants\n' ;; agent-tools) printf 'Agent helpers\n' ;;
+    workspaces) printf 'Agent workspaces\n' ;; editors) printf 'Code editors\n' ;; terminals) printf 'Terminals\n' ;;
+    mcp) printf 'MCP tools\n' ;; sandboxes) printf 'Sandboxes\n' ;; adapters) printf 'Integrations\n' ;;
+    chat) printf 'Chat assistants\n' ;; browsers) printf 'AI browsers\n' ;; automation) printf 'Automation\n' ;;
+    local-ai) printf 'Local models\n' ;; local-apps) printf 'Local AI apps\n' ;; voice) printf 'Voice and dictation\n' ;;
+    image-gen) printf 'Image and video AI\n' ;; media) printf 'Creative apps\n' ;; media-tools) printf 'Media tools\n' ;;
+    llm-utils) printf 'AI utilities\n' ;; dev-utils) printf 'Developer tools\n' ;;
+    homebrew) printf 'Other packages\n' ;; detected) printf 'Other software\n' ;;
+    homebrew/casks) printf 'Apps\n' ;; homebrew/formulae) printf 'Commands\n' ;; homebrew/libraries) printf 'Support libraries\n' ;;
+    homebrew/fonts) printf 'Fonts\n' ;; homebrew/recommended) printf 'Suggestions\n' ;; homebrew/available) printf 'More packages\n' ;;
+    *) printf '%s\n' "${1##*/}" ;;
+  esac
+}
+
 catalog_category_emoji() {
   case "$1" in
     infra) printf '⚙️\n' ;;
     coding-agents) printf '🤖\n' ;;
+    agent-tools) printf '🧰\n' ;;
     workspaces) printf '🖥️\n' ;;
     editors) printf '✏️\n' ;;
     terminals) printf '⌨️\n' ;;
+    mcp) printf '🧩\n' ;;
+    sandboxes) printf '🛡️\n' ;;
     chat) printf '💬\n' ;;
+    browsers) printf '🌐\n' ;;
+    local-apps) printf '💻\n' ;;
+    voice) printf '🎙️\n' ;;
+    image-gen) printf '🎨\n' ;;
     media) printf '🎬\n' ;;
+    media-tools) printf '🎞️\n' ;;
     automation) printf '⚡\n' ;;
     dev-utils) printf '🛠️\n' ;;
     local-ai) printf '🧠\n' ;;
@@ -2359,6 +2411,41 @@ catalog_app_path() {
     wispr-flow) printf '/Applications/Wispr Flow.app\n' ;;
     stability-matrix) printf '/Applications/Stability Matrix.app\n' ;;
     mochi-diffusion) printf '/Applications/Mochi Diffusion.app\n' ;;
+    trae) printf '/Applications/Trae.app\n' ;;
+    codebuddy-ide) printf '/Applications/CodeBuddy.app\n' ;;
+    cline-app) printf '/Applications/Cline.app\n' ;;
+    kiro-crew) printf '/Applications/KiroCrew.app\n' ;;
+    nimbalyst) printf '/Applications/Nimbalyst.app\n' ;;
+    commander) printf '/Applications/Commander.app\n' ;;
+    zcode) printf '/Applications/ZCode.app\n' ;;
+    kitty) printf '/Applications/kitty.app\n' ;;
+    toolhive-studio) printf '/Applications/ToolHive.app\n' ;;
+    orbstack) printf '/Applications/OrbStack.app\n' ;;
+    dia) printf '/Applications/Dia.app\n' ;;
+    comet) printf '/Applications/Comet.app\n' ;;
+    browseros) printf '/Applications/BrowserOS.app\n' ;;
+    manus) printf '/Applications/Manus Studio.app\n' ;;
+    # Langflow's bundle name really ends in a space.
+    langflow) printf '/Applications/Langflow .app\n' ;;
+    vmlx) printf '/Applications/vMLX.app\n' ;;
+    swama) printf '/Applications/Swama.app\n' ;;
+    nativ) printf '/Applications/Nativ.app\n' ;;
+    dayflow) printf '/Applications/Dayflow.app\n' ;;
+    fluidvoice) printf '/Applications/FluidVoice.app\n' ;;
+    spokenly) printf '/Applications/Spokenly.app\n' ;;
+    typeless) printf '/Applications/Typeless.app\n' ;;
+    hex) printf '/Applications/Hex.app\n' ;;
+    amical) printf '/Applications/Amical.app\n' ;;
+    openwhispr) printf '/Applications/OpenWhispr.app\n' ;;
+    aqua-voice) printf '/Applications/Aqua Voice.app\n' ;;
+    monologue) printf '/Applications/Monologue.app\n' ;;
+    granola) printf '/Applications/Granola.app\n' ;;
+    meetily) printf '/Applications/meetily.app\n' ;;
+    anarlog) printf '/Applications/Anarlog.app\n' ;;
+    comfyui) printf '/Applications/Comfy Desktop.app\n' ;;
+    ltx-desktop) printf '/Applications/LTX Desktop.app\n' ;;
+    gimp) printf '/Applications/GIMP.app\n' ;;
+    cap) printf '/Applications/Cap.app\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -2534,11 +2621,19 @@ catalog_ansi() {
     updates) printf '\033[38;5;82m' ;;
     infra) printf '\033[38;5;39m' ;;
     coding-agents) printf '\033[38;5;171m' ;;
+    agent-tools) printf '\033[38;5;177m' ;;
     workspaces) printf '\033[38;5;219m' ;;
     editors) printf '\033[38;5;111m' ;;
     terminals) printf '\033[38;5;81m' ;;
+    mcp) printf '\033[38;5;141m' ;;
+    sandboxes) printf '\033[38;5;109m' ;;
     chat) printf '\033[38;5;51m' ;;
+    browsers) printf '\033[38;5;45m' ;;
+    local-apps) printf '\033[38;5;85m' ;;
+    voice) printf '\033[38;5;204m' ;;
+    image-gen) printf '\033[38;5;199m' ;;
     media) printf '\033[38;5;213m' ;;
+    media-tools) printf '\033[38;5;175m' ;;
     automation) printf '\033[38;5;184m' ;;
     dev-utils) printf '\033[38;5;75m' ;;
     local-ai) printf '\033[38;5;48m' ;;
@@ -2557,6 +2652,14 @@ catalog_ansi() {
 
 catalog_preview_height() {
   printf '33%%\n'
+}
+
+catalog_fzf_style() {
+  printf '%s ' \
+    --border=rounded "--border-label=' aiup '" --border-label-pos=3 \
+    --info=inline-right --highlight-line --pointer=▶ --marker=✓ --scrollbar=│ \
+    --color=fg:252,fg+:255,bg+:236,hl:220,hl+:220,info:244,prompt:213,pointer:213,marker:82,spinner:213 \
+    --color=header:245,border:238,label:213,query:255,gutter:-1,separator:238,scrollbar:240,preview-border:238
 }
 
 catalog_preview_window() {
@@ -2752,26 +2855,38 @@ catalog_dependency_preview() {
   done < <(catalog_dep_closure "$tool" | awk 'NF && !seen[$0]++')
 }
 
+# Row marks: ● installed, ◐ on this Mac but installed some other way, ○ not installed.
+row_state_mark() {
+  case "$1" in
+    installed) printf '\033[1;38;2;57;255;20m●\033[0m' ;;
+    on-disk) printf '\033[1;38;5;214m◐\033[0m' ;;
+    *) printf '\033[38;5;240m○\033[0m' ;;
+  esac
+}
+
+# A catalog tool row: category bar, state mark, id, label. One manifest pass and
+# no command substitutions for the fields, because this runs once per row.
 format_catalog_display() {
   local tool="$1"
   local state="$2"
-  local cat life tag reset bar cat_txt state_txt id_txt
-  reset=$'\033[0m'
-  cat="$(catalog_category "$tool")"
-  life="$(catalog_lifecycle "$tool")"
-  tag=""
-  [ "$life" = 'active' ] || tag="[${life}] "
-  bar="$(catalog_ansi "$cat")▌${reset}"
-  cat_txt="$(catalog_ansi "$cat")$(printf '%-16s' "$cat")${reset}"
-  if [ "$state" = 'installed' ]; then
-    state_txt=$'\033[1;38;2;57;255;20m'"$(printf '%-14s' 'installed')"${reset}
-  elif [ "$state" = 'on-disk' ]; then
-    state_txt=$'\033[1;38;2;57;255;20m'"$(printf '%-14s' 'on disk')"${reset}
-  else
-    state_txt=$'\033[38;5;245m'"$(printf '%-14s' 'not installed')"${reset}
-  fi
-  id_txt="$(printf '%-18s' "$tool")"
-  printf '%s %s %s %s %s%s' "$bar" "$cat_txt" "$state_txt" "$id_txt" "$tag" "$(catalog_label "$tool")"
+  local i=0 cat='' life=active label="$1" reset=$'\033[0m' color id_color label_color tag='' note=''
+  catalog_manifest_load || return 1
+  while [ "$i" -lt "${#CATALOG_IDS[@]}" ]; do
+    if [ "${CATALOG_IDS[$i]}" = "$tool" ]; then
+      cat="${CATALOG_CATEGORIES[$i]}"; life="${CATALOG_LIFECYCLES[$i]:-active}"; label="${CATALOG_LABELS[$i]}"
+      break
+    fi
+    i=$((i + 1))
+  done
+  [ -n "$cat" ] || cat="$(catalog_category "$tool")"
+  color="$(catalog_ansi "$cat")"
+  case "$state" in
+    installed) id_color=$'\033[1;38;5;255m'; label_color=$'\033[38;5;252m' ;;
+    on-disk) id_color=$'\033[1;38;5;255m'; label_color=$'\033[38;5;252m'; note=$'  \033[38;5;214mon disk\033[0m' ;;
+    *) id_color=$'\033[38;5;246m'; label_color=$'\033[38;5;243m' ;;
+  esac
+  [ "$life" = 'active' ] || tag=$'  \033[38;5;220m'"${life}${reset}"
+  printf '%s▌%s   %s %s%-18s%s %s%s%s%s%s' "$color" "$reset" "$(row_state_mark "$state")" "$id_color" "$tool" "$reset" "$label_color" "$label" "$reset" "$tag" "$note"
 }
 
 inventory_item_name() {
@@ -2792,9 +2907,9 @@ format_inventory_display() {
   local reset bar state_txt name_txt version_txt source_txt path_txt
   reset=$'\033[0m'
   bar="$(catalog_ansi detected)▌${reset}"
-  state_txt=$'\033[38;5;250m'"$(printf '%-14s' 'details')""${reset}"
+  state_txt=$'\033[38;5;250m◇\033[0m '
   if [ -n "$(manual_media_record "$id")" ]; then
-    state_txt=$'\033[38;5;220m'"$(printf '%-14s' 'manual update')""${reset}"
+    state_txt=$'\033[1;38;5;220m◆\033[0m \033[38;5;220mmanual\033[0m '
     bar="$(catalog_ansi media)▌${reset}"
   fi
   if [[ "$id" == di:path:* ]]; then
@@ -2802,11 +2917,11 @@ format_inventory_display() {
     label="${id#di:path:}"
     path=''
   fi
-  name_txt="$(printf '%-26s' "$(inventory_item_name "$label")")"
-  version_txt="$(printf '%-12s' "${version:-unknown}")"
-  source_txt="$(printf '%-18s' "$source")"
-  path_txt="$(printf '%s' "$path")"
-  printf '%s %s %s %s %s %s' "$bar" "$state_txt" "$name_txt" "$version_txt" "$source_txt" "$path_txt"
+  name_txt=$'\033[38;5;252m'"$(printf '%-24s' "$(inventory_item_name "$label")")"$'\033[0m'
+  version_txt=$'\033[38;5;250m'"$(printf '%-12s' "${version:-unknown}")"$'\033[0m'
+  source_txt=$'\033[38;5;245m'"$(printf '%-16s' "$source")"$'\033[0m'
+  path_txt=$'\033[38;5;240m'"$path"$'\033[0m'
+  printf '%s   %s%s %s %s %s' "$bar" "$state_txt" "$name_txt" "$version_txt" "$source_txt" "$path_txt"
 }
 
 category_expanded() {
@@ -3036,30 +3151,26 @@ format_category_header() {
   local n_inst="$2"
   local n_abs="$3"
   local indent="${4:-0}"
-  local reset arrow bar name extra pad shown
+  local reset arrow bar name extra pad shown color meter
   reset=$'\033[0m'
   if category_expanded "$cat"; then
     arrow='▾'
   else
     arrow='▸'
   fi
-  bar="$(catalog_ansi "$cat")▌${reset}"
-  shown="${cat##*/}"
-  case "$cat" in
-    infra) shown='Essentials' ;; coding-agents) shown='Coding assistants' ;;
-    workspaces) shown='Workspaces' ;; editors) shown='Code editors' ;; terminals) shown='Terminals' ;;
-    chat) shown='Chat assistants' ;; media) shown='Media' ;; local-ai) shown='On-device AI' ;;
-    automation) shown='Automation' ;; llm-utils) shown='AI utilities' ;; dev-utils) shown='Developer tools' ;;
-    adapters) shown='Integrations' ;; homebrew) shown='Other packages' ;;
-    homebrew/casks) shown='Apps' ;; homebrew/formulae) shown='Commands' ;; homebrew/libraries) shown='Support libraries' ;;
-    homebrew/fonts) shown='Fonts' ;; homebrew/recommended) shown='Suggestions' ;; homebrew/available) shown='More packages' ;;
-  esac
-  [ "$cat" = 'detected' ] && shown='Other software'
+  color="$(catalog_ansi "$cat")"
+  bar="${color}▌${reset}"
+  shown="$(category_display_name "$cat")"
+  meter=''
   if [ "$indent" -gt 0 ]; then
     pad="$(printf '%*s' $((indent * 4)) '')"
-    name="$(catalog_ansi "$cat")${pad}$(printf '%-14s' "$shown")${reset}"
+    name="${color}${pad}$(printf '%-18s' "$shown")${reset}"
   else
-    name="$(catalog_ansi "$cat")$(printf '%-16s' "$shown")${reset}"
+    name=$'\033[1m'"${color}$(printf '%-22s' "$shown")${reset}"
+    case "$cat" in
+      homebrew|detected) ;;
+      *) meter="$(category_meter "$cat" "$n_inst" "$n_abs") " ;;
+    esac
   fi
   case "$cat" in
     detected)
@@ -3071,9 +3182,6 @@ format_category_header() {
       else
         extra="${n_inst} listed / ${n_abs} suggestions"
       fi
-      ;;
-    media)
-      extra="${n_inst} installed / ${n_abs} available to install"
       ;;
     homebrew/recommended)
       extra="${n_inst} already on your Mac / ${n_abs} curated recommendations"
@@ -3096,10 +3204,30 @@ format_category_header() {
       extra="${n_inst} already on your Mac via Homebrew"
       ;;
     *)
-      extra="${n_inst} installed / ${n_abs} available to install"
+      if [ "$n_abs" -eq 0 ] && [ "$n_inst" -gt 0 ]; then
+        extra="all ${n_inst} installed"
+      else
+        extra="${n_inst} of $((n_inst + n_abs)) installed"
+      fi
       ;;
   esac
-  printf '%s\t%s %s %s  %s' "__cat:${cat}" "$bar" "$arrow" "$name" "$extra"
+  printf '%s\t%s %s %s %s\033[38;5;245m%s\033[0m' "__cat:${cat}" "$bar" "$arrow" "$name" "$meter" "$extra"
+}
+
+# Ten cells: the installed share in the category color, the rest dim.
+category_meter() {
+  local cat="$1" n_inst="$2" n_abs="$3" total filled cells='' rest='' i=0
+  total=$((n_inst + n_abs))
+  filled=0
+  [ "$total" -gt 0 ] && filled=$(((n_inst * 10 + total / 2) / total))
+  # Any installed tool shows one cell; a gap keeps one cell empty.
+  [ "$n_inst" -gt 0 ] && [ "$filled" -eq 0 ] && filled=1
+  [ "$n_abs" -gt 0 ] && [ "$filled" -eq 10 ] && filled=9
+  while [ "$i" -lt 10 ]; do
+    if [ "$i" -lt "$filled" ]; then cells="${cells}━"; else rest="${rest}━"; fi
+    i=$((i + 1))
+  done
+  printf '%s%s\033[38;5;238m%s\033[0m' "$(catalog_ansi "$cat")" "$cells" "$rest"
 }
 
 detected_source_summary() {
@@ -3142,7 +3270,6 @@ app_path_for_cask() {
     notion) app='Notion.app' ;;
     windsurf) app='Windsurf.app' ;;
     devin-desktop) app='Devin.app' ;;
-    chatgpt-atlas) app='ChatGPT Atlas.app' ;;
     kiro) app='Kiro.app' ;;
     coderabbit) app='CodeRabbit.app' ;;
     auto-claude) app='Auto Claude.app' ;;
@@ -3257,7 +3384,6 @@ brew_extra_label() {
     copilot-cli) printf 'GitHub Copilot CLI (Homebrew cask)\n' ;;
     cursor-cli) printf 'Cursor Agent CLI cask\n' ;;
     claude-code) printf 'Claude Code cask\n' ;;
-    chatgpt-atlas) printf 'ChatGPT Atlas\n' ;;
     kiro) printf 'Kiro IDE\n' ;;
     warp-agent-cli) printf 'Warp Agent CLI cask\n' ;;
     coderabbit) printf 'CodeRabbit AI review\n' ;;
@@ -3335,31 +3461,29 @@ format_brew_extra_display() {
   local id="$1"
   local state="$2"
   local label="$3"
-  local kind name reset bar cat_txt state_txt id_txt child
+  local kind name reset bar child
   reset=$'\033[0m'
   case "$id" in
     bc:*) kind=cask; name="${id#bc:}" ;;
     bf:*) kind=formula; name="${id#bf:}" ;;
     *) kind=formula; name="$id" ;;
   esac
-  local child
+  local id_color label_color
   child="$(catalog_category "$id")"
   [ -n "$child" ] || child='homebrew'
   bar="$(catalog_ansi "$child")▌${reset}"
-  cat_txt="$(catalog_ansi "$child")$(printf '%-16s' "${child##*/}")${reset}"
-  if [ "$state" = 'installed' ]; then
-    state_txt=$'\033[1;38;2;57;255;20m'"$(printf '%-14s' 'installed')"${reset}
-  elif [ "$state" = 'on-disk' ]; then
-    state_txt=$'\033[1;38;2;57;255;20m'"$(printf '%-14s' 'on disk')"${reset}
-    case "$label" in
-      *'not via Homebrew'*) ;;
-      *) label="${label} · already on your Mac, not via Homebrew" ;;
-    esac
-  else
-    state_txt=$'\033[38;5;245m'"$(printf '%-14s' 'not installed')"${reset}
-  fi
-  id_txt="$(printf '%-18s' "${kind}:${name}")"
-  printf '%s     %s %s %s %s' "$bar" "$cat_txt" "$state_txt" "$id_txt" "$label"
+  case "$state" in
+    installed) id_color=$'\033[1;38;5;255m'; label_color=$'\033[38;5;252m' ;;
+    on-disk)
+      id_color=$'\033[1;38;5;255m'; label_color=$'\033[38;5;252m'
+      case "$label" in
+        *'not via Homebrew'*) ;;
+        *) label="${label} · already on your Mac, not via Homebrew" ;;
+      esac
+      ;;
+    *) id_color=$'\033[38;5;246m'; label_color=$'\033[38;5;243m' ;;
+  esac
+  printf '%s       %s %s%-22s%s \033[38;5;240m%-8s\033[0m %s%s%s' "$bar" "$(row_state_mark "$state")" "$id_color" "$name" "$reset" "$kind" "$label_color" "$label" "$reset"
 }
 
 scan_brew_index() {
@@ -4395,20 +4519,21 @@ elif unavailable:
 else:
     title = "Updates · all verified items current"
 
-reset = "\033[0m"; green = "\033[38;5;82m"; dim = "\033[38;5;245m"
-rendered = [f"__cat:updates\t{green}▌{reset} ▸ {green}{title}{reset}\n"]
+reset = "\033[0m"; green = "\033[38;5;82m"; dim = "\033[38;5;245m"; faint = "\033[38;5;240m"
+bold = "\033[1m"; white = "\033[1;38;5;255m"; amber = "\033[38;5;214m"
+rendered = [f"__cat:updates\t{green}▌{reset} ▸ {bold}{green}{title}{reset}\n"]
 if eligible:
-    rendered.append(f"__updates:all\t{green}▌{reset}     {green}Update all verified items · {len(eligible)}{reset}\n")
+    rendered.append(f"__updates:all\t{green}▌{reset}   {bold}{green}⇡{reset} {bold}{green}Update all verified items · {len(eligible)}{reset}\n")
 for canonical, installed, available, status, eligibility, lifecycle, action, label, cache_identity in newer:
-    review = " · manual review" if eligibility != "eligible" else ""
-    rendered.append(f"__update:{canonical}\t{green}▌{reset} {canonical:<18.18} {installed} → {available} · update{review} · {label}\n")
+    review = f"  {amber}manual review{reset}" if eligibility != "eligible" else ""
+    rendered.append(f"__update:{canonical}\t{green}▌{reset}   {green}⇡{reset} {white}{canonical:<18.18}{reset} {dim}{installed}{reset} {faint}→{reset} {bold}{green}{available}{reset}  {dim}{label}{reset}{review}\n")
 for canonical, installed, available, status, eligibility, lifecycle, action, label, cache_identity in records:
     if status not in {"unavailable", "checking"}: continue
     text = "Could not check for updates" if status == "unavailable" else "Checking for updates…"
     if status == "unavailable" and canonical in {"brew", "npm", "uv", "grok", "antigravity"}: text = "Checked during a normal update"
-    rendered.append(f"__updates:status:{canonical}\t{dim}▌{reset}     {canonical} · {text}\n")
+    rendered.append(f"__updates:status:{canonical}\t{dim}▌{reset}   {faint}·{reset} {dim}{canonical:<18.18}{reset} {faint}{text}{reset}\n")
 if not newer and not checking and not unavailable:
-    rendered.append(f"__updates:status:empty\t{dim}▌{reset}     No updates found in completed checks.\n")
+    rendered.append(f"__updates:status:empty\t{dim}▌{reset}   {faint}·{reset} {dim}No updates found in completed checks.{reset}\n")
 rendered.append(base_path.read_text(encoding="utf-8"))
 rows_path.write_text("".join(rendered), encoding="utf-8")
 
@@ -6082,16 +6207,24 @@ PY
 }
 
 tui_fast_helper_render() {
-  local output="$1"
-  python3 - "$output" "$AVAILABLE_VERSION_CACHE_DIR" "$AVAILABLE_VERSION_CACHE_TTL" "$AVAILABLE_VERSION_FAILURE_TTL" <<'PY'
+  local output="$1" cat child categories=''
+  for cat in updates "${CATEGORY_ORDER[@]}"; do
+    categories="${categories}${cat}"$'\t'"$(category_display_name "$cat")"$'\t'"$(catalog_category_blurb "$cat")"$'\n'
+  done
+  for child in "${HOMEBREW_CHILD_ORDER[@]}"; do
+    categories="${categories}homebrew/${child}"$'\t'"$(category_display_name "homebrew/${child}")"$'\t'"$(catalog_category_blurb "homebrew/${child}")"$'\n'
+  done
+  python3 - "$output" "$AVAILABLE_VERSION_CACHE_DIR" "$AVAILABLE_VERSION_CACHE_TTL" "$AVAILABLE_VERSION_FAILURE_TTL" "$categories" <<'PY'
 import json, pathlib, sys
 path = pathlib.Path(sys.argv[1])
 cache_config = json.dumps([sys.argv[2], int(sys.argv[3]), int(sys.argv[4])])
+categories = json.dumps({row[0]: row[1:3] for row in (line.split("\t") for line in sys.argv[5].splitlines()) if len(row) >= 3})
 path.write_text(r'''#!/usr/bin/env python3
 import csv, hashlib, os, pathlib, sys, time, re
 
 root = pathlib.Path(__file__).resolve().parent
 CACHE_DIR, CACHE_TTL, FAILURE_TTL = @AIUP_CACHE_CONFIG@
+CATEGORIES = @AIUP_CATEGORIES@
 def fail():
     # A panel or header left blank reads as a hang; say what to do instead.
     if len(sys.argv) > 1 and sys.argv[1] in ("preview", "header", "keys"):
@@ -6194,7 +6327,7 @@ def category_of(item):
     return ""
 def emit_rows(query=""):
     (root / "query").write_text(query, encoding="utf-8")
-    opened, show, lines = expanded(), False, []
+    opened, show, lines, owners, category = expanded(), False, [], [], ""
     filt, view = os.environ.get("AIUP_CATEGORY_FILTER", ""), os.environ.get("AIUP_VIEW_MODE", "overview")
     with (root / "rows-expanded.tsv").open(encoding="utf-8") as handle:
         for line in handle:
@@ -6205,8 +6338,8 @@ def emit_rows(query=""):
                 if (filt == "homebrew" or filt.startswith("homebrew/") or view == "available") and category.startswith("homebrew"):
                     show = True
                 line = line.replace("▸", "▾" if show else "▸", 1).replace("▾", "▾" if show else "▸", 1)
-                lines.append(line)
-            elif show: lines.append(line)
+                lines.append(line); owners.append(category)
+            elif show: lines.append(line); owners.append(category)
     if query.strip():
         q=query.casefold().strip()
         terms=q.split()
@@ -6216,16 +6349,26 @@ def emit_rows(query=""):
                  'mochi-diffusion':'stable diffusion image generation', 'stability-matrix':'stable diffusion image generation',
                  'sox-ng':'sox audio conversion effects', 'handy':'dictation speech-to-text', 'voiceink':'dictation speech-to-text',
                  'wispr-flow':'dictation speech-to-text', 'hf':'huggingface hugging face models', 'devin-desktop':'windsurf',
-                 'ffmpeg':'ffprobe video audio encoding', 'audacity':'audio recording editing'}
+                 'ffmpeg':'ffprobe video audio encoding', 'audacity':'audio recording editing',
+                 'comfyui':'comfy stable diffusion flux image video', 'mflux':'flux image generation',
+                 'hex':'dictation speech-to-text', 'fluidvoice':'dictation speech-to-text parakeet',
+                 'granola':'meeting notes transcription', 'meetily':'meeting notes transcription',
+                 'anarlog':'meeting notes hyprnote char', 'tei':'embeddings text-embeddings-router',
+                 'claude-squad':'cs tmux worktrees sessions', 'claude-code-router':'ccr models providers',
+                 'beads':'bd issues tasks memory', 'backlog-md':'backlog kanban tasks', 'specify':'spec kit spec-kit',
+                 'srt':'sandbox-runtime', 'container':'docker linux vm', 'orbstack':'docker linux vm',
+                 'codewhale':'deepseek tui', 'forgecode':'forge', 'ast-grep':'sg structural search',
+                 'mkvtoolnix':'mkvmerge matroska mkv', 'ctx7':'context7 docs', 'dia':'arc browser',
+                 'comet':'perplexity browser', 'apfel':'apple intelligence foundation model'}
         with manifest.open(encoding='utf-8') as handle:
             for row in csv.reader((l for l in handle if not l.startswith('#')),delimiter='\t'):
-                if len(row)>=6: labels[row[0]]=' '.join([row[0],row[4],row[6] if len(row)>6 else '',aliases.get(row[0],'')])
+                if len(row)>=6: labels[row[0]]=' '.join([row[0],row[4],row[6] if len(row)>6 else '',aliases.get(row[0],''),CATEGORIES.get(row[1],[''])[0]])
         for filename in ('brew-index.tsv','inventory-index.tsv'):
             with (root/filename).open(encoding='utf-8') as handle:
                 for row in csv.reader(handle,delimiter='\t'):
                     if len(row)>=4: labels[row[2]]=row[2]+' '+row[3]
         matches=[]; seen=set()
-        for line in lines:
+        for line, owner in zip(lines, owners):
             item=line.split('\t',1)[0]
             canonical=item[len('__update:'):] if item.startswith('__update:') else item
             if item.startswith('__cat:') or canonical in seen: continue
@@ -6233,7 +6376,9 @@ def emit_rows(query=""):
             if not all(t in text for t in terms): continue
             name=(canonical[3:] if canonical.startswith(('bf:','bc:')) else canonical).casefold()
             score=0 if q==name else 1 if q in aliases.get(canonical,'').split() else 2 if name.startswith(q) else 3 if q in name else 4
-            matches.append((score,name,line));seen.add(canonical)
+            # Headers are hidden while searching, so each hit names its category.
+            where=CATEGORIES.get(owner,[owner])[0]
+            matches.append((score,name,line.rstrip('\n')+f"  \033[38;5;240m· {where}\033[0m\n"));seen.add(canonical)
         lines=[line for _,_,line in sorted(matches)]
     temp = root / f"list.tsv.next.{os.getpid()}"
     temp.write_text("".join(lines), encoding="utf-8")
@@ -6251,8 +6396,11 @@ def mutate(mode, item, query=""):
 def preview(item):
     if item.startswith("__cat:"):
         category = item[6:]; is_open = category in expanded()
+        name, blurb = (CATEGORIES.get(category) or [category, ""])[:2]
+        print(f"\033[1m{name}\033[0m")
+        if blurb: print(blurb)
+        print()
         print(f"category  {category}")
-        print(f"state     {'expanded' if is_open else 'collapsed'}")
         print(f"action    {'collapse' if is_open else 'expand'} this category")
         print("keys     enter/ctrl-e toggle · pgup/pgdn category · ctrl-g jump")
         return
@@ -6379,7 +6527,7 @@ def main():
     elif command == "nav" and len(args) >= 2: nav(args[0], args[1])
     else: fail()
 if __name__ == "__main__": main()
-'''.replace("@AIUP_CACHE_CONFIG@", cache_config), encoding="utf-8")
+'''.replace("@AIUP_CACHE_CONFIG@", cache_config).replace("@AIUP_CATEGORIES@", categories), encoding="utf-8")
 path.chmod(0o700)
 PY
 }
@@ -7688,6 +7836,7 @@ uv_tool_install_args() {
   case "$1" in
     open-webui) printf '%s\n' --python 3.12 "$2" ;;
     markitdown) printf '%s\n' "$2[all]" ;;
+    mlx-audio) printf '%s\n' "$2[all]" ;;
     *) printf '%s\n' "$2" ;;
   esac
 }
@@ -8939,8 +9088,7 @@ print_list() {
       [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$n_inst" -eq 0 ] && continue
       [ "$n_inst" -eq 0 ] && [ "$n_abs" -eq 0 ] && continue
     fi
-    display_cat="$cat"
-    [ "$cat" = 'detected' ] && display_cat='detected software'
+    display_cat="$(category_display_name "$cat") ($cat)"
     printf '\n== %s ==\n' "$display_cat"
     if [ "$cat" != 'detected' ]; then
       printf '%-18s %-18s %s\n' 'tool' 'state/action' 'label'
@@ -8957,7 +9105,7 @@ print_list() {
         if [ "$LIST_VIEW_MODE" = 'installed' ] && [ "$child" = 'available' ]; then
           continue
         fi
-        printf '\n-- homebrew/%s --\n' "$child"
+        printf '\n-- %s (homebrew/%s) --\n' "$(category_display_name "homebrew/${child}")" "$child"
         if [ "$child" = 'fonts' ] && ! homebrew_available_loaded; then
           printf '%s\n' "Installed font casks are shown here. Full available font catalog loads with: aiup list --view available"
         fi
@@ -9104,10 +9252,10 @@ print_catalog_definition() {
     printf 'VERSION\t%s\n' "$AIUP_VERSION"
     for cat in "${CATEGORY_ORDER[@]}"; do
       [ "$cat" = 'detected' ] && continue
-      printf 'CAT\t%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "$cat")" "$(catalog_category_blurb "$cat")"
+      printf 'CAT\t%s\t%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "$cat")" "$(catalog_category_blurb "$cat")" "$(category_display_name "$cat")"
     done
     for cat in "${HOMEBREW_CHILD_ORDER[@]}"; do
-      printf 'CAT\thomebrew/%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "homebrew/${cat}")" "$(catalog_category_blurb "homebrew/${cat}")"
+      printf 'CAT\thomebrew/%s\t%s\t%s\t%s\n' "$cat" "$(catalog_category_emoji "homebrew/${cat}")" "$(catalog_category_blurb "homebrew/${cat}")" "$(category_display_name "homebrew/${cat}")"
     done
     for tool in "${TOOLS_CATALOG[@]}"; do
       printf 'TOOL\t%s\t%s\t%s\t%s\t%s\t%s\n' \
@@ -9139,7 +9287,8 @@ for line in sys.stdin:
     if kind == "VERSION":
         version = parts[1]
     elif kind == "CAT":
-        item = {"id": parts[1], "emoji": parts[2], "blurb": parts[3] if len(parts) > 3 else ""}
+        item = {"id": parts[1], "name": parts[4] if len(parts) > 4 and parts[4] else parts[1],
+                "emoji": parts[2], "blurb": parts[3] if len(parts) > 3 else ""}
         cats.append(item)
         cat_index[item["id"]] = item
         item["tools"] = []
@@ -9153,7 +9302,7 @@ for line in sys.stdin:
             "label": parts[6] if len(parts) > 6 else parts[1],
         }
         tools.append(tool)
-        cat_index.setdefault(tool["category"], {"id": tool["category"], "emoji": "", "blurb": "", "tools": []})
+        cat_index.setdefault(tool["category"], {"id": tool["category"], "name": tool["category"], "emoji": "", "blurb": "", "tools": []})
         cat_index[tool["category"]]["tools"].append(tool)
     elif kind == "REC":
         recs.append({"kind": parts[1], "id": parts[2], "label": parts[3] if len(parts) > 3 else parts[2]})
@@ -9692,11 +9841,9 @@ emit_brew_available_rows() {
         kind = "formula"
         name = substr(id, 4)
       }
-      color = "\033[38;5;250m"
+      color = (wanted == "homebrew/fonts" ? "\033[38;5;176m" : "\033[38;5;250m")
       reset = "\033[0m"
-      state = "\033[38;5;245m" sprintf("%-14s", "not installed") reset
-      category = color sprintf("%-16s", (wanted == "homebrew/fonts" ? "fonts" : "available")) reset
-      printf "%s\t%s %s %s %s %s%s\n", id, color "▌" reset, category, state, sprintf("%-18s", kind ":" name), $4, ""
+      printf "%s\t%s       \033[38;5;240m○\033[0m \033[38;5;246m%-22s\033[0m \033[38;5;240m%-8s\033[0m \033[38;5;243m%s\033[0m\n", id, color "▌" reset, name, kind, $4
     }
   ' "$BREW_INDEX"
 }
@@ -9816,6 +9963,8 @@ sort_fzf_rows() {
     NF >= 2 {
       key = (mode == "label" ? $2 : $1)
       gsub(/\033\[[0-9;]*m/, "", key)
+      # A label sort skips the bar, state mark and id that start each row.
+      if (mode == "label") sub(/^[^ ]+ +[^ ]+ +[^ ]+ +/, "", key)
       printf "%08d\t1\t%s\t%s\n", group, key, $0
     }
   ' | LC_ALL=C sort -t $'\t' -k1,1n -k2,2n -k3,3 | cut -f4-
@@ -9920,13 +10069,14 @@ pick_catalog_tools() {
     [ -n "$initial_pos" ] && fzf_state_args+=(--bind "start:pos($initial_pos)")
     [ -z "$last_query" ] || "$AIUP_TUI_SESSION_DIR/fast-helper.py" rows "$last_query" > /dev/null
     tui_prefetch_start
-    selected="$(FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --disabled --no-sort --multi --delimiter=$'\t' --with-nth=2 \
+    # aiup's look goes first, so colors and borders in FZF_DEFAULT_OPTS still win.
+    selected="$(FZF_DEFAULT_OPTS="$(catalog_fzf_style) ${FZF_DEFAULT_OPTS:-} --no-height" fzf --ansi --disabled --no-sort --multi --delimiter=$'\t' --with-nth=2 \
       --track --id-nth=1 \
       --listen-unsafe="$AIUP_TUI_LISTEN_SOCKET" \
       --no-height \
       --no-hscroll \
       --print-query \
-      --prompt "aiup ${mode}> " \
+      --prompt "aiup ${mode} ❯ " \
       --header "$header_text" \
       --preview "$fast preview {1}" \
       --preview-window "$(catalog_preview_window)" \

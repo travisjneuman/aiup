@@ -1,6 +1,6 @@
 # Catalog research review
 
-The complete dated disposition record for the 83-entry starting catalog is [Catalog accuracy audit (2026-08-25)](catalog-accuracy-2026-08-25.md). This file remains the standing policy and candidate notebook.
+The complete dated disposition record for the 83-entry starting catalog is [Catalog accuracy audit (2026-08-25)](catalog-accuracy-2026-08-25.md). This file remains the standing policy and candidate notebook. The newest full pass is the [2026-10-14 catalog review](catalog-review-2026-10-14.md).
 
 This is the review log for expanding aiup's managed catalog. The catalog is deliberately split into two evidence lanes:
 
@@ -31,13 +31,17 @@ Channel and target fixes: `pnpm` and `wrangler` now install from their official 
 
 Added, each verified against Homebrew, npm or PyPI metadata and a release in the last three months: coding agents `devin-cli`, `auggie`, `junie`, `letta`, `qoder`; adapters `claude-acp`, `codex-acp`; editors `devin-desktop` (formerly Windsurf), `kiro-ide`, `jetbrains-air`; workspaces `conductor`, `emdash`, `superset`, `amp-app`, `factory-app`, `antigravity-app`; chat `gemini-app`, `cherry-studio`, `msty-studio`, `boltai`, `chatbox`, `lobehub`; local AI `localai`, `ramalama`, `osaurus`, `mlx-vlm`, `hf`, `open-webui`; media `whisperkit`, `handy`, `voiceink`, `wispr-flow`, `stability-matrix`, `mochi-diffusion`, `sox-ng`; infrastructure `mise`; LLM utilities `repomix`, `markitdown`.
 
-Candidates for a later review: ToolHive Studio, kitty, claude-squad, ccusage, Trae, Dia, Poe and ComfyUI Desktop (confirm its current source first). Not added: the Kimi desktop cask (an installer wrapper, not the app), casks that are disabled or discontinued (`codex-app`, `chatgpt-atlas`, `msty`, `alacritty`), inactive projects (`@google/jules`, `vibe-kanban`, `@iflow-ai/iflow-cli`, exo, Wave, WezTerm, vllm-metal, mlx-whisper), and Codebuff while it moves to `freebuff`.
+Candidates for a later review: ToolHive Studio, kitty, claude-squad, ccusage, Trae, Dia, Poe and ComfyUI Desktop (confirm its current source first). All but Poe were added on 2026-10-14. Not added: the Kimi desktop cask (an installer wrapper, not the app), casks that are disabled or discontinued (`codex-app`, `chatgpt-atlas`, `msty`, `alacritty`), inactive projects (`@google/jules`, `vibe-kanban`, `@iflow-ai/iflow-cli`, exo, Wave, WezTerm, vllm-metal, mlx-whisper), and Codebuff while it moves to `freebuff`.
+
+## 2026-10-14 review
+
+87 entries added across eight new categories (`agent-tools`, `mcp`, `sandboxes`, `browsers`, `local-apps`, `voice`, `image-gen`, `media-tools`), existing desktop model apps and media tools moved into them, and `gemini` set to sunset after Homebrew deprecated its formula. Tools that need a new tap, install a browser automation runtime, or only offer an unreviewed installer are held. The full record, with every addition's channel and each held tool's reason, is the [2026-10-14 catalog review](catalog-review-2026-10-14.md).
 
 ## Confirmed existing coverage
 
 - Amazon Q Developer's command-line documentation now says that the Q CLI has become the Kiro CLI, so aiup manages it as the `kiro` entry. There is no separate `amazon-q` entry, since it would be a stale duplicate. See [AWS's upgrade note](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/upgrade-to-kiro.html).
 - GitHub Copilot CLI is already represented by `copilot`; its official repository documents macOS support, the official installer, Homebrew formula, and npm package. See [GitHub Copilot CLI](https://github.com/github/copilot-cli).
-- `whisper.cpp` is now managed through Homebrew's `whisper-cpp` formula. aiup updates the engine and leaves model-file selection/download to the user; it does not silently fetch large model weights. See [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and [the formula](https://formulae.brew.sh/formula/whisper-cpp).
+- `whisper.cpp` is managed through Homebrew's `whisper.cpp` formula (renamed from `whisper-cpp`). aiup updates the engine and leaves model-file selection/download to the user; it does not silently fetch large model weights. See [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and [the formula](https://formulae.brew.sh/formula/whisper.cpp).
 
 ## Review rules for future additions
 
@@ -47,3 +51,5 @@ Candidates for a later review: ToolHive Studio, kitty, claude-squad, ccusage, Tr
 4. Reject entries whose only practical path is an unreviewed source clone, an arbitrary third-party script, or a destructive replacement.
 5. Remove products that are archived, declared unmaintained or end of life, or inactive for more than a year; the catalog carries only maintained software. The lifecycle column stays for short, documented transitions.
 6. Keep research candidates in this document until the update/remove contract is complete; local discovery still makes installed candidates visible immediately.
+7. A tool that only ships from its own Homebrew tap waits until I approve that tap.
+8. Put a macOS floor stricter than macOS 14, or an Apple silicon requirement, in the label.

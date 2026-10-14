@@ -6,7 +6,10 @@ copies all six assets byte-for-byte into `site/media/`, and
 duration, continuous-playback, semantic-sequence, or provenance drift.
 
 The current set was captured from source commit
-`c15f3366dc96d3b8440e2359ef46d64ec229e87b`. Reproduce and verify it with:
+`c15f3366dc96d3b8440e2359ef46d64ec229e87b`. It predates the 2026-10-14 list
+layout (category names, installed bars, state marks and the framed picker), so
+it shows the earlier look until the next capture. The capture fixture's
+categories also predate the 2026-10-14 split. Reproduce and verify it with:
 
 ```bash
 NO_COLOR=1 scripts/capture-media --source-commit c15f3366dc96d3b8440e2359ef46d64ec229e87b

@@ -20,7 +20,52 @@ Front door for `docs/`: find the right aiup document in one read. Up: [README](.
 | product media, GIF, screenshots, provenance | [media/README.md](media/README.md) | Canonical media source and mirror rules |
 | contributing (docs path) | [contributing.md](contributing.md) | Pointer to the root guide |
 
-## Dated reviews
+## Map
+
+```mermaid
+graph LR
+  RD[README] --> DX[docs/README]
+  DX --> IN[install]
+  DX --> ST[status]
+  DX --> PV[privacy]
+  DX --> SC[scripting]
+  SC --> NT[notify]
+  DX --> HB[homebrew]
+  DX --> CT[catalog]
+  CT --> PF[public-catalog-facts]
+  CT --> CR[catalog-research]
+  CR --> CI[command-insights]
+  DX --> TR[tui-research]
+  DX --> MD[media/README]
+  DX --> DR[dated reviews]
+```
+
+## Contents
+
+### Use aiup
+
+- [install.md](install.md): install, launcher, offline use and uninstall.
+- [scripting.md](scripting.md): JSON output, exit status, export and import.
+- [notify.md](notify.md): `aiup notify` and scheduling it yourself.
+- [homebrew.md](homebrew.md): how aiup works with Homebrew.
+- [privacy.md](privacy.md): what is scanned and what stays local.
+- [status.md](status.md): current version, scope and next work.
+
+### Catalog
+
+- [catalog.md](catalog.md): generated list of catalog entries.
+- [public-catalog-facts.md](public-catalog-facts.md): how published catalog numbers are counted.
+- [catalog-research.md](catalog-research.md): catalog policy and candidate notebook.
+- [catalog-review-2026-10-14.md](catalog-review-2026-10-14.md): the newest full catalog pass, with every addition's install channel.
+- [command-insights.md](command-insights.md): how detected commands are recognized.
+
+### Design and media
+
+- [tui-research.md](tui-research.md): picker layout, navigation and search.
+- [media/README.md](media/README.md): product media source, capture and mirror rules.
+- [contributing.md](contributing.md): pointer to the root contribution guide.
+
+### Dated reviews
 
 Point-in-time records; they keep their original text. Newer runtime facts live in [status.md](status.md) and [catalog.md](catalog.md). The `scripts/test-*` files some of them mention were removed on 2026-10-14; git history keeps them.
 
@@ -34,8 +79,9 @@ Point-in-time records; they keep their original text. Newer runtime facts live i
 | 2026-09-04 | [maintenance-and-performance-2026-09-04.md](maintenance-and-performance-2026-09-04.md) | `aiup check` / `aiup explain` and efficiency review |
 | 2026-09-04 | [media-and-maintenance-2026-09-04.md](media-and-maintenance-2026-09-04.md) | Category review and media maintenance |
 | 2026-09-04 | [media-expansion-2026-09-04.md](media-expansion-2026-09-04.md) | Media catalog expansion |
+| 2026-10-14 | [catalog-review-2026-10-14.md](catalog-review-2026-10-14.md) | 87 additions, eight new categories, held and left-out tools |
 
-## Elsewhere in the repository
+### Elsewhere in the repository
 
 | Path | What it is |
 | --- | --- |
