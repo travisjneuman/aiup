@@ -41,6 +41,7 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - run vendor install scripts only after an HTTPS-only download to a private file succeeds and is non-empty;
 - name a tool's settings and session data before `aiup remove` takes it, and move that data to Trash;
 - carry only maintained catalog entries, installing each from the official channel that publishes first;
+- let one setting (`aiup channel --policy newest|keep|brew`) choose the install channel for every tool without a per-tool pick, and note in the check and update reports when another channel has a newer release;
 - keep generated catalog documentation synchronized with the manifest;
 - install publicly without probing a maintainer checkout or personal path;
 - run the latest published release: check a one-line release pointer on each run, download the runtime and catalog pinned to that release's commit only when it changes, and validate the pair before atomically activating one generation;

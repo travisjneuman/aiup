@@ -28,7 +28,7 @@ Homebrew answers "is there a newer version?" from a local copy of its package me
 
 aiup reports the version Homebrew can install, which can trail the vendor's own release by a few hours or days while Homebrew packages it. Tools that aiup installs outside Homebrew are compared with their vendor's release channel instead.
 
-That lag is why many tools default to npm, PyPI or their own installer, with Homebrew as an alternate. `aiup channel TOOL brew` moves a tool to Homebrew if you prefer it there, and `aiup channel TOOL default` moves it back. The next `aiup only TOOL` makes the switch and removes the old copy.
+That lag is why many tools default to npm, PyPI or their own installer, with Homebrew as an alternate. `aiup channel TOOL brew` moves a tool to Homebrew if you prefer it there, and `aiup channel TOOL default` moves it back. The next `aiup only TOOL` makes the switch and removes the old copy. To put every tool that Homebrew has on Homebrew, run `aiup channel --policy brew`; `aiup channel --policy keep` leaves each tool where it is installed now, and `aiup channel --policy newest` goes back to the default. A per-tool pick always wins over the policy.
 
 Update candidates include auto-updating casks (aiup then compares the installed app, so a self-updated app is not downgraded) but not unversioned `:latest` casks, which would otherwise reinstall on every run. If Homebrew's metadata for an app cask cannot be read during an update run, the upgrade is deferred so it never runs unchecked; `aiup resume` picks it up.
 

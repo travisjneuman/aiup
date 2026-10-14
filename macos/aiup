@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.10.14-04"
+AIUP_VERSION="2026.10.14-05"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -34,9 +34,12 @@ SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
 CATEGORY_ORDER=(infra coding-agents agent-tools workspaces editors terminals mcp sandboxes adapters chat browsers automation local-ai local-apps voice image-gen media media-tools llm-utils dev-utils homebrew detected)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
-# Chosen install channels (tool<TAB>brew|npm|uv|vendor), set with `aiup channel`.
+# Chosen install channels (tool<TAB>brew|npm|uv|vendor), set with `aiup channel`,
+# plus an optional *<TAB>keep|brew line for the channel policy.
 CHANNELS_FILE="${AIUP_CHANNELS_FILE:-$STATE_DIR/channels.tsv}"
 AIUP_CHANNEL_MAP='|'
+AIUP_CHANNEL_PICKED='|'
+AIUP_CHANNEL_POLICY=newest
 CATALOG_INDEX="${AIUP_CATALOG_INDEX:-$STATE_DIR/catalog-index.tsv}"
 BREW_INDEX="${AIUP_BREW_INDEX:-$STATE_DIR/brew-index.tsv}"
 BREW_AVAILABLE_MARKER="${AIUP_BREW_AVAILABLE_MARKER:-$STATE_DIR/brew-available.loaded}"
@@ -2392,40 +2395,49 @@ catalog_uv_pkg() {
 # here as kind<TAB>target. Defaults point at the channel that ships releases
 # first; Homebrew alternates trade freshness for one package manager.
 catalog_alt_channels() {
+  catalog_alt_channels_set "$1"
+  [ -z "$AIUP_ALT_CHANNELS" ] || printf '%s\n' "$AIUP_ALT_CHANNELS"
+}
+
+# Sets AIUP_ALT_CHANNELS to catalog_alt_channels' lines (no trailing newline),
+# so a loop over the whole catalog needs no subshells.
+catalog_alt_channels_set() {
+  local t=$'\t' n=$'\n'
+  AIUP_ALT_CHANNELS=''
   case "$1" in
     # Vendor installers by default; npm and Homebrew ship the same releases.
-    claude) printf 'aiup-npm\t@anthropic-ai/claude-code\nbrew-cask\tclaude-code@latest\n' ;;
-    opencode) printf 'aiup-npm\t@opencode/cli\nbrew-formula\topencode\n' ;;
-    antigravity) printf 'brew-cask\tantigravity-cli\n' ;;
-    warp) printf 'brew-cask\twarp-agent-cli\n' ;;
-    cursor) printf 'brew-cask\tcursor-cli\n' ;;
-    droid) printf 'aiup-npm\tdroid\nbrew-cask\tdroid\n' ;;
+    claude) AIUP_ALT_CHANNELS="aiup-npm${t}@anthropic-ai/claude-code${n}brew-cask${t}claude-code@latest" ;;
+    opencode) AIUP_ALT_CHANNELS="aiup-npm${t}@opencode/cli${n}brew-formula${t}opencode" ;;
+    antigravity) AIUP_ALT_CHANNELS="brew-cask${t}antigravity-cli" ;;
+    warp) AIUP_ALT_CHANNELS="brew-cask${t}warp-agent-cli" ;;
+    cursor) AIUP_ALT_CHANNELS="brew-cask${t}cursor-cli" ;;
+    droid) AIUP_ALT_CHANNELS="aiup-npm${t}droid${n}brew-cask${t}droid" ;;
     # Hermes' installer tracks the main branch; the formula tracks tagged releases.
-    hermes) printf 'brew-formula\thermes-agent\n' ;;
+    hermes) AIUP_ALT_CHANNELS="brew-formula${t}hermes-agent" ;;
     # npm by default; Homebrew follows hours (casks) to about a day (formulae) later.
-    codex) printf 'brew-cask\tcodex\n' ;;
-    copilot) printf 'brew-cask\tcopilot-cli\n' ;;
-    pi) printf 'brew-formula\tpi-coding-agent\n' ;;
-    qwen) printf 'brew-formula\tqwen-code\n' ;;
-    letta) printf 'brew-formula\tletta-code\n' ;;
-    codex-acp) printf 'brew-formula\tcodex-acp\n' ;;
-    wrangler) printf 'brew-formula\tcloudflare-wrangler\n' ;;
+    codex) AIUP_ALT_CHANNELS="brew-cask${t}codex" ;;
+    copilot) AIUP_ALT_CHANNELS="brew-cask${t}copilot-cli" ;;
+    pi) AIUP_ALT_CHANNELS="brew-formula${t}pi-coding-agent" ;;
+    qwen) AIUP_ALT_CHANNELS="brew-formula${t}qwen-code" ;;
+    letta) AIUP_ALT_CHANNELS="brew-formula${t}letta-code" ;;
+    codex-acp) AIUP_ALT_CHANNELS="brew-formula${t}codex-acp" ;;
+    wrangler) AIUP_ALT_CHANNELS="brew-formula${t}cloudflare-wrangler" ;;
     vercel|ctx7|pnpm|defuddle|rulesync|skills|mise|repomix|mcp-remote|mcpc|openspec|ccusage|claude-code-router|mcp-inspector|ast-grep)
-      printf 'brew-formula\t%s\n' "$1" ;;
-    openclaw) printf 'brew-formula\topenclaw-cli\n' ;;
-    kimi) printf 'brew-formula\tkimi-code\n' ;;
-    backlog-md) printf 'brew-formula\tbacklog-md\n' ;;
-    crush) printf 'brew-formula\tcharmbracelet/tap/crush\n' ;;
-    e2b|promptfoo|peekaboo) printf 'brew-formula\t%s\n' "$1" ;;
-    mcporter|oracle) printf 'brew-formula\tsteipete/tap/%s\n' "$1" ;;
+      AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
+    openclaw) AIUP_ALT_CHANNELS="brew-formula${t}openclaw-cli" ;;
+    kimi) AIUP_ALT_CHANNELS="brew-formula${t}kimi-code" ;;
+    backlog-md) AIUP_ALT_CHANNELS="brew-formula${t}backlog-md" ;;
+    crush) AIUP_ALT_CHANNELS="brew-formula${t}charmbracelet/tap/crush" ;;
+    e2b|promptfoo|peekaboo) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
+    mcporter|oracle) AIUP_ALT_CHANNELS="brew-formula${t}steipete/tap/$1" ;;
     # PyPI by default; the formulae are built from the same packages later.
-    vibe) printf 'brew-formula\tmistral-vibe\n' ;;
-    specify|rapid-mlx|gptme|mcp-proxy|pocket-tts|hf) printf 'brew-formula\t%s\n' "$1" ;;
+    vibe) AIUP_ALT_CHANNELS="brew-formula${t}mistral-vibe" ;;
+    specify|rapid-mlx|gptme|mcp-proxy|pocket-tts|hf) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
     # Homebrew by default (plugins, extras or a bundled runtime live there).
-    llm|ramalama|yt-dlp) printf 'uv-tool\t%s\n' "$1" ;;
-    bun) printf 'aiup-npm\tbun\n' ;;
-    agent-browser|playwright-cli|playwright-mcp|chrome-devtools-mcp) printf 'brew-formula\t%s\n' "$1" ;;
-    *) return 0 ;;
+    llm|ramalama|yt-dlp) AIUP_ALT_CHANNELS="uv-tool${t}$1" ;;
+    bun) AIUP_ALT_CHANNELS="aiup-npm${t}bun" ;;
+    agent-browser|playwright-cli|playwright-mcp|chrome-devtools-mcp) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
+    *) ;;
   esac
 }
 
@@ -2485,15 +2497,24 @@ channel_active_name() {
   fi
 }
 
-# Reads CHANNELS_FILE. Entries must name a listed alternate; anything else is
-# ignored, so a stale or edited file can only fall back to the default.
+# Reads CHANNELS_FILE: tool<TAB>channel picks and an optional *<TAB>policy
+# line. A pick holds the tool on that channel whatever the policy says; one that
+# names no alternate (the default, or a stale or edited entry) holds it on its
+# default. The policy then fills in the tools without a pick.
 channels_load() {
   AIUP_CHANNEL_MAP='|'
+  AIUP_CHANNEL_PICKED='|'
+  AIUP_CHANNEL_POLICY=newest
   [ -f "$CHANNELS_FILE" ] && [ ! -L "$CHANNELS_FILE" ] || return 0
-  local tool name kind target map='|'
+  local tool name kind target map='|' picked='|' policy=newest
   while IFS=$'\t' read -r tool name _; do
+    if [ "$tool" = '*' ]; then
+      case "$name" in newest|keep|brew) policy="$name" ;; esac
+      continue
+    fi
     case "$tool" in ''|*[!a-z0-9-]*) continue ;; esac
-    case "$map" in *"|$tool="*) continue ;; esac
+    case "$picked" in *"|$tool|"*) continue ;; esac
+    picked="${picked}${tool}|"
     while IFS=$'\t' read -r kind target; do
       case "$kind:$name" in
         brew-formula:brew|brew-cask:brew|aiup-npm:npm|uv-tool:uv) ;;
@@ -2505,6 +2526,72 @@ channels_load() {
     done < <(catalog_alt_channels "$tool")
   done < "$CHANNELS_FILE"
   AIUP_CHANNEL_MAP="$map"
+  AIUP_CHANNEL_PICKED="$picked"
+  AIUP_CHANNEL_POLICY="$policy"
+  [ "$policy" = newest ] || channels_apply_policy
+}
+
+# The channel policy for tools without a pick. "brew" moves every tool that has
+# a Homebrew channel there. "keep" holds a tool on an alternate channel when that
+# is where its only copy is, so nothing moves; tools with a default copy, or
+# none, follow the default. This runs before every command, so it reads only
+# the catalog and the disk (Homebrew's Cellar and Caskroom, not brew itself).
+channels_apply_policy() {
+  local i tool kind target alts default_kind default_target brew_root=''
+  catalog_manifest_load 2>/dev/null || return 0
+  if [ "$AIUP_CHANNEL_POLICY" = keep ]; then
+    brew_root="$(command -v brew 2>/dev/null)" && brew_root="${brew_root%/bin/brew}" || brew_root=''
+  fi
+  for ((i=0; i<${#CATALOG_IDS[@]}; i++)); do
+    tool="${CATALOG_IDS[$i]}"
+    case "$AIUP_CHANNEL_PICKED" in *"|$tool|"*) continue ;; esac
+    catalog_alt_channels_set "$tool"
+    alts="$AIUP_ALT_CHANNELS"
+    [ -n "$alts" ] || continue
+    default_kind="${CATALOG_KINDS[$i]}"
+    if [ "$default_kind" = special ]; then
+      default_kind="$(AIUP_CHANNEL_MAP='|' preferred_method_of "$tool")"
+      case "$default_kind" in aiup-npm|brew-formula) ;; *) default_kind=vendor ;; esac
+    fi
+    if [ "$AIUP_CHANNEL_POLICY" = brew ]; then
+      case "$default_kind" in brew-formula|brew-cask) continue ;; esac
+    else
+      case "$default_kind" in
+        aiup-npm) default_target="$(catalog_npm_pkg "$tool")" ;;
+        brew-formula) default_target="$(catalog_brew_formula "$tool")" ;;
+        brew-cask) default_target="$(catalog_brew_cask "$tool")" ;;
+        uv-tool) default_target="$(catalog_uv_pkg "$tool")" ;;
+        *) default_target='' ;;
+      esac
+      channel_copy_on_disk "$tool" "$default_kind" "$default_target" "$brew_root" && continue
+    fi
+    while IFS=$'\t' read -r kind target; do
+      case "$target" in ''|*'|'*|*'='*) continue ;; esac
+      if [ "$AIUP_CHANNEL_POLICY" = brew ]; then
+        case "$kind" in brew-formula|brew-cask) ;; *) continue ;; esac
+      else
+        channel_copy_on_disk "$tool" "$kind" "$target" "$brew_root" || continue
+      fi
+      AIUP_CHANNEL_MAP="${AIUP_CHANNEL_MAP}${tool}=${kind}=${target}|"
+      break
+    done <<< "$alts"
+  done
+}
+
+# channel_copy_present without starting Homebrew: a formula or cask counts as
+# installed when its folder exists under BREW_ROOT (the 4th argument).
+channel_copy_on_disk() {
+  case "$2" in
+    brew-formula) [ -n "$3" ] && [ -n "$4" ] && [ -d "$4/Cellar/${3##*/}" ] ;;
+    brew-cask) [ -n "$3" ] && [ -n "$4" ] && [ -d "$4/Caskroom/${3##*/}" ] ;;
+    uv-tool) [ -n "$3" ] && [ -f "${UV_TOOL_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/uv/tools}/$3/uv-receipt.toml" ] ;;
+    *) channel_copy_present "$1" "$2" "$3" ;;
+  esac
+}
+
+channel_picked() {
+  case "$AIUP_CHANNEL_PICKED" in *"|$1|"*) return 0 ;; esac
+  return 1
 }
 
 # The vendor installer's launcher for TOOL, when it has one.
@@ -2535,8 +2622,9 @@ channel_copy_present() {
 
 # After TOOL updates on its active channel, take away the copy another channel
 # left: every other channel's copy when the channel was picked with
-# `aiup channel`, otherwise only the copy aiup itself last installed (PREV, the
-# recorded method), as when a default moves to a fresher channel. Only places
+# `aiup channel` or set by the brew policy, otherwise only the copy aiup itself
+# last installed (PREV, the recorded method), as when a default moves to a
+# fresher channel. The keep policy removes nothing. Only places
 # aiup manages are touched: its npm prefix, Homebrew, uv tools and the vendor
 # launcher, which goes to Trash. Settings and data stay.
 channel_retire_others() {
@@ -2544,6 +2632,8 @@ channel_retire_others() {
   [ "$DRY_RUN" -eq 0 ] || return 0
   [ -n "$(catalog_alt_channels "$tool")" ] || return 0
   case "${AIUP_LAST_UPDATE_STATUS:-completed}" in deferred|cancelled|skipped) return 0 ;; esac
+  # The keep policy never moves a tool; only a pick made with aiup channel does.
+  [ "$AIUP_CHANNEL_POLICY" != keep ] || channel_picked "$tool" || return 0
   active="$(channel_active_name "$tool")"
   case "$prev" in
     '') ;;
@@ -2632,6 +2722,117 @@ print(f[0]["versions"]["stable"] if f else (c[0]["version"] if c else ""))' 2>/d
   printf '%s' "$input" | live_source_run print 2>/dev/null | awk -F '\t' '$2 == "newer" {print $1 "\t" $3}'
 }
 
+# For the report's "Newer on another channel" hint. Arguments: installed tools.
+# Prints tool, the channel that is ahead, its label and version, then the label
+# and version of the channel in use, for each tool whose channel in use trails
+# another of its channels. Tools held by a pick or the brew policy are left out,
+# since their channel was chosen on purpose. npm, PyPI and vendor sources are
+# read in one parallel pass, Homebrew's index in one brew info call per kind.
+channel_ahead_rows() {
+  local tool name kind target spec active rows='' live='' input=''
+  capture_fixture_enabled && return 0
+  [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] || return 0
+  [ "$AIUP_CHANNEL_POLICY" != brew ] || return 0
+  for tool in "$@"; do
+    catalog_alt_channels_set "$tool"
+    [ -n "$AIUP_ALT_CHANNELS" ] || continue
+    ! channel_picked "$tool" || continue
+    active="$(channel_active_name "$tool")"
+    while IFS=$'\t' read -r name kind target; do
+      rows="${rows}${tool}"$'\t'"${name}"$'\t'"$([ "$name" = "$active" ] && printf 1 || printf 0)"$'\t'"${kind}"$'\t'"${target}"$'\n'
+      case "$kind" in
+        aiup-npm) spec="npm"$'\t'"$target" ;;
+        uv-tool) spec="pypi"$'\t'"$target" ;;
+        brew-formula|brew-cask) continue ;;
+        *) spec="$(AIUP_CHANNEL_MAP='|' live_source_spec "$tool")" || continue ;;
+      esac
+      input="${input}${tool}:${name}"$'\t'"0"$'\t'"${spec}"$'\n'
+    done < <(tool_channels "$tool")
+  done
+  [ -n "$rows" ] || return 0
+  [ -z "$input" ] || live="$(printf '%s' "$input" | live_source_run print 2>/dev/null)"
+  printf '%s' "$rows" | AIUP_AHEAD_LIVE="$live" python3 -c "$AIUP_VERSION_PY"'
+import json, os, re, subprocess, sys
+from concurrent.futures import ThreadPoolExecutor
+LABELS = {"brew": "Homebrew", "npm": "npm", "uv": "PyPI", "vendor": "the official installer"}
+rows = [line.split("\t") for line in sys.stdin.read().splitlines() if line.count("\t") == 4]
+found = {}
+for line in os.environ.get("AIUP_AHEAD_LIVE", "").splitlines():
+    key, status, value = (line.split("\t") + ["", ""])[:3]
+    if status == "newer" and value: found[tuple(key.split(":", 1))] = value
+env = dict(os.environ, HOMEBREW_NO_AUTO_UPDATE="1", HOMEBREW_NO_ENV_HINTS="1")
+def brew_info(flag, names):
+    try:
+        out = subprocess.run(["brew", "info", "--json=v2", flag, *names], capture_output=True, timeout=60, env=env)
+        if out.returncode != 0: return None
+        data = json.loads(out.stdout)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    result = {}
+    for record in data.get("formulae") or []:
+        version = (record.get("versions") or {}).get("stable")
+        for name in (record.get("name"), record.get("full_name")): result[name] = version
+    for record in data.get("casks") or []:
+        for name in (record.get("token"), record.get("full_token")): result[name] = record.get("version")
+    return result
+for kind, flag in (("brew-formula", "--formula"), ("brew-cask", "--cask")):
+    names = sorted({r[4] for r in rows if r[3] == kind and r[4]})
+    if not names: continue
+    versions = brew_info(flag, names)
+    if versions is None:
+        # One unknown name (an untapped tap, say) fails the whole call.
+        versions = {}
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for part in pool.map(lambda n: brew_info(flag, [n]) or {}, names): versions.update(part)
+    for r in rows:
+        value = versions.get(r[4]) if r[3] == kind else None
+        if isinstance(value, str) and value: found[(r[0], r[1])] = value.split(",")[0]
+def numeric(value):
+    match = re.match(r"v?(\d+(?:\.\d+)+)", value or "")
+    return match.group(1) if match else None
+order = []
+for r in rows:
+    if r[0] not in order: order.append(r[0])
+for tool in order:
+    mine = [r for r in rows if r[0] == tool]
+    active = next((r[1] for r in mine if r[2] == "1"), None)
+    current = numeric(found.get((tool, active)))
+    if not current: continue
+    best = None
+    for r in mine:
+        if r[1] == active: continue
+        other = numeric(found.get((tool, r[1])))
+        if other and version_cmp(other, current) > 0 and (best is None or version_cmp(other, best[1]) > 0):
+            best = (r[1], other)
+    if best:
+        print(tool, best[0], LABELS.get(best[0], best[0]), best[1], LABELS.get(active, active), current, sep="\t")
+' 2>/dev/null
+}
+
+# The "Newer on another channel" lines under a check or update report. A hint
+# only: nothing switches until you run the aiup channel command it names.
+print_channel_hints() {
+  local row tool status before after name label version active_label active_version seen='|' shade='' reset='' out
+  local -a tools=()
+  [ "$AIUP_INTERRUPTED" -eq 0 ] || return 0
+  for row in ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"}; do
+    IFS=$'\t' read -r tool status before after _ <<< "$row"
+    case "$seen" in *"|$tool|"*) continue ;; esac
+    [ "$before" != 'not installed' ] || [ "$after" != 'not installed' ] || continue
+    seen="${seen}${tool}|"
+    tools+=("$tool")
+  done
+  [ "${#tools[@]}" -gt 0 ] || return 0
+  out="$(channel_ahead_rows "${tools[@]}")"
+  [ -n "$out" ] || return 0
+  if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then shade=$'\033[38;5;81m'; reset=$'\033[0m'; fi
+  printf '\n  %sNewer on another channel%s\n' "$shade" "$reset"
+  while IFS=$'\t' read -r tool name label version active_label active_version; do
+    [ -n "$tool" ] || continue
+    printf '  %s%s%s · %s has %s, %s has %s · aiup channel %s %s\n' "$shade" "$tool" "$reset" "$label" "$version" "$active_label" "$active_version" "$tool" "$name"
+  done <<< "$out"
+}
+
 catalog_channel_preview() {
   local name active out=''
   [ -n "$(catalog_alt_channels "$1")" ] || return 0
@@ -2643,19 +2844,67 @@ catalog_channel_preview() {
   printf 'channel  %s · switch: aiup channel %s\n' "$out" "$1"
 }
 
+channel_policy_summary() {
+  case "$1" in
+    keep) printf 'keep: each tool updates from the channel it is installed from, and nothing moves. New installs use the default.\n' ;;
+    brew) printf 'brew: tools with a Homebrew channel install and update from Homebrew; the rest use their default.\n' ;;
+    *) printf 'newest: each tool installs and updates from the channel that ships its releases first.\n' ;;
+  esac
+}
+
+# Why TOOL uses the channel it does, for aiup channel TOOL.
+channel_reason() {
+  if channel_picked "$1"; then
+    printf 'You picked it (aiup channel %s default follows the %s policy again).\n' "$1" "$AIUP_CHANNEL_POLICY"
+  elif channel_overridden "$1"; then
+    case "$AIUP_CHANNEL_POLICY" in
+      brew) printf 'The brew policy.\n' ;;
+      *) printf 'The keep policy: the only copy here is on this channel.\n' ;;
+    esac
+  else
+    printf 'Its default, the channel that ships its releases first.\n'
+  fi
+}
+
+cmd_channel_policy() {
+  local choice="${1:-}"
+  if [ -z "$choice" ]; then
+    printf 'Channel policy · %s\n' "$(channel_policy_summary "$AIUP_CHANNEL_POLICY")"
+    printf 'Change with: aiup channel --policy newest|keep|brew. A pick made with aiup channel TOOL always wins.\n'
+    return 0
+  fi
+  case "$choice" in
+    newest) channels_write '*' '' || return 1 ;;
+    keep|brew) channels_write '*' "$choice" || return 1 ;;
+    *) usage_error 'expected: aiup channel --policy newest|keep|brew'; return 2 ;;
+  esac
+  tui_cache_invalidate
+  [ "$DRY_RUN" -eq 1 ] && return 0
+  info "Channel policy · $(channel_policy_summary "$choice")"
+  case "$choice" in
+    brew) info "Your next aiup run moves those tools to Homebrew and removes each old copy once the Homebrew one is in place (settings stay). aiup channel lists where each tool goes." ;;
+  esac
+  return 0
+}
+
 cmd_channel() {
-  local tool="${1:-}" choice="${2:-}" name kind target active latest versions found=0 id
+  local tool="${1:-}" choice="${2:-}" name kind target active latest versions found=0 id default_name
+  if [ "$tool" = --policy ]; then
+    cmd_channel_policy "$choice"
+    return $?
+  fi
   if [ -z "$tool" ]; then
     catalog_manifest_load || return 1
-    printf 'Tools with more than one install channel (in use first):\n'
+    printf 'Channel policy · %s\n' "$(channel_policy_summary "$AIUP_CHANNEL_POLICY")"
+    printf 'Tools with more than one install channel (in use first, + marks your picks):\n'
     for id in "${CATALOG_IDS[@]}"; do
       [ -n "$(catalog_alt_channels "$id")" ] || continue
       active="$(channel_active_name "$id")"
-      printf '  %-18s %s' "$id" "$active"
+      printf '  %-18s %s%s' "$id" "$active" "$(channel_picked "$id" && printf '+')"
       while IFS=$'\t' read -r name _ _; do [ "$name" = "$active" ] || printf ' · %s' "$name"; done < <(tool_channels "$id")
       printf '\n'
     done
-    printf 'Details and versions: aiup channel TOOL · switch: aiup channel TOOL brew|npm|uv|vendor|default\n'
+    printf 'Details and versions: aiup channel TOOL · pick: aiup channel TOOL brew|npm|uv|vendor|default · policy: aiup channel --policy newest|keep|brew\n'
     return 0
   fi
   catalog_manifest_field "$tool" 1 >/dev/null 2>&1 || { error "Unknown tool: $tool"; return 1; }
@@ -2672,13 +2921,24 @@ cmd_channel() {
       [ -n "$target" ] || target='official installer'
       printf '%s %-7s %-34s %s\n' "$([ "$name" = "$active" ] && printf '*' || printf ' ')" "$name" "$target" "${latest:-unknown}"
     done < <(tool_channels "$tool")
-    printf 'Switch with: aiup channel %s <channel>, then aiup only %s\n' "$tool" "$tool"
+    printf 'In use because: %s\n' "$(channel_reason "$tool")"
+    printf 'Pick with: aiup channel %s <channel>, then aiup only %s\n' "$tool" "$tool"
     return 0
   fi
-  case "$choice" in default) choice="$(tool_channels "$tool" | sed -n '1s/\t.*//p')" ;; esac
+  default_name="$(tool_channels "$tool" | sed -n '1s/\t.*//p')"
+  if [ "$choice" = default ]; then
+    channels_write "$tool" '' || return 1
+    tui_cache_invalidate
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    channels_load
+    info "$tool follows the $AIUP_CHANNEL_POLICY policy again: $(channel_active_name "$tool"). Run aiup only $tool to apply it now."
+    return 0
+  fi
   while IFS=$'\t' read -r name _ _; do [ "$name" != "$choice" ] || found=1; done < <(tool_channels "$tool")
   [ "$found" -eq 1 ] || { error "$tool has no $choice channel; aiup channel $tool lists them"; return 1; }
-  if [ "$choice" = "$(tool_channels "$tool" | sed -n '1s/\t.*//p')" ]; then
+  # Under the newest policy a pick of the default changes nothing, so it is
+  # not stored; under the others it holds the tool on its default.
+  if [ "$choice" = "$default_name" ] && [ "$AIUP_CHANNEL_POLICY" = newest ]; then
     channels_write "$tool" '' || return 1
   else
     channels_write "$tool" "$choice" || return 1
@@ -9166,6 +9426,7 @@ else:
   [ "$AIUP_JSON" -eq 0 ] || AIUP_JSON_PRINTED=1
   rm -f "${UPDATE_REPORT_LOG}.active"
   if [ "$UPDATE_REPORT_MODE" = check ]; then rm -f "$UPDATE_REPORT_LOG"; fi
+  [ "$AIUP_JSON" -eq 1 ] || [ "$AIUP_CHECK_SILENT" = 1 ] || print_channel_hints || true
   [ "$UPDATE_REPORT_MODE" != update ] || run_history prune
 }
 
@@ -11638,6 +11899,8 @@ Preferences:
   aiup settings cleanup auto|review  Clean removed-app records automatically, or review first
   aiup channel [TOOL [CHANNEL]]  Tools with more than one install channel, each channel's
                                  latest version, or pick one: brew, npm, uv, vendor, default
+  aiup channel --policy [newest|keep|brew]  Where tools without a pick install from: the
+                                 newest channel, where each is now, or Homebrew where it can
 
 Other Macs and schedules:
   aiup export [FILE]       Save your tools, Homebrew packages and preferences as JSON
@@ -12638,7 +12901,7 @@ parse_args() {
       preferences show
       ;;
     channel)
-      [ "${#args[@]}" -le 3 ] || { usage_error 'expected: aiup channel [TOOL [brew|npm|uv|vendor|default]]'; return 2; }
+      [ "${#args[@]}" -le 3 ] || { usage_error 'expected: aiup channel [TOOL [brew|npm|uv|vendor|default]] or aiup channel --policy [newest|keep|brew]'; return 2; }
       cmd_channel "${args[1]:-}" "${args[2]:-}"
       ;;
     exclude|include|unhold)

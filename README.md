@@ -135,6 +135,10 @@ Normal package updates are unattended: Homebrew package confirmations are accept
 
 Each tool installs from the official channel that gets new releases first. Homebrew often trails a vendor's release by a few hours to a day, so tools such as Codex, Copilot and Kimi install from npm, Spec Kit and gptme from PyPI, and Claude Code and OpenCode from their own installers. Where a tool has more than one official package, the others are alternates. `aiup channel` lists those tools, `aiup channel TOOL` shows each channel's package and latest version, and `aiup channel TOOL brew|npm|uv|vendor|default` picks one. The next `aiup only TOOL` installs from that channel and then removes the old copy; settings stay.
 
+One setting covers every tool: `aiup channel --policy newest|keep|brew`. `newest` is the default and works as described above. `keep` updates each tool from wherever it is installed now and never moves it; new installs use the default channel. `brew` uses Homebrew wherever Homebrew has the tool and the default channel everywhere else; the next `aiup` run moves those tools and removes each old copy once the Homebrew one is in place. A pick made with `aiup channel TOOL` always wins over the policy, and `aiup channel TOOL default` hands the tool back to it. `aiup channel --policy` on its own shows the current setting.
+
+When another channel has a newer release than the one a tool uses, the `aiup check` and `aiup` reports end with a hint such as "codex · npm has 0.163.0, Homebrew has 0.162.1 · aiup channel codex npm". It is only a hint: nothing switches until you run the command. Tools you picked a channel for, and tools under the `brew` policy, get no hint.
+
 Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; aiup replaces only its app bundle and does not remove its configured settings or capture paths.
 
 ## ✨ Ground rules
@@ -246,7 +250,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.10.14-04** · **261** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.10.14-05** · **261** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -312,6 +316,7 @@ The current macOS tool, public repository, minimal site, and six-state media are
 | `aiup owners` | Local installation ownership, paths and maintenance guidance; observations persist locally |
 | `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
 | `aiup channel [TOOL [brew\|npm\|uv\|vendor\|default]]` | Lists tools with more than one install channel, shows a tool's channels and latest versions, or picks the one it installs from |
+| `aiup channel --policy [newest\|keep\|brew]` | Shows or sets the install channel policy for every tool without a pick |
 | `aiup resume` | Retries tools whose newest saved result is pending, deferred (app was open), cancelled or failed, across all retained runs, rechecking current state |
 | `aiup settings cleanup auto` / `review` | Automatic cleanup or review-first mode; exclusions also accept `bc:`/`bf:` IDs |
 | `aiup cleanup history` | Cleanup results from retained structured run history |

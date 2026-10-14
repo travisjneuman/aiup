@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2026.10.14-05
+
+- New: `aiup channel --policy newest|keep|brew` sets one install channel rule for every tool. `newest` (the default) installs each tool from the channel that ships its releases first. `keep` updates each tool from wherever it is installed now and never moves or removes a copy; new installs use the default. `brew` uses Homebrew wherever it has the tool, and the next run moves those tools and removes each old copy once the Homebrew one is in place. A pick made with `aiup channel TOOL` always wins, and `aiup channel TOOL default` hands the tool back to the policy. Under `keep` or `brew`, picking a tool's default channel by name now holds it there.
+- New: the `aiup check` and `aiup` reports end with "Newer on another channel" when a tool's channel trails another one, for example "codex · npm has 0.163.0, Homebrew has 0.162.1 · aiup channel codex npm". It is a hint only. Tools with a pick, and tools under the `brew` policy, are left out.
+- `aiup channel` now shows the policy and marks your picks with `+`, and `aiup channel TOOL` says why a tool uses the channel it does.
+
 ## 2026.10.14-04
 
 - An npm tool update no longer gets a "Setup scripts need review" warning just because your `.npmrc` has its own `allow-scripts` line. npm prints a notice that aiup's reviewed list replaces that line for the one install, and aiup read the notice as a warning. Scripts npm actually holds back are still named in the report.

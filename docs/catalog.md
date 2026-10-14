@@ -1,4 +1,4 @@
-# Catalog (2026.10.14-04)
+# Catalog (2026.10.14-05)
 
 Generated from `macos/aiup` via `scripts/sync-public-docs` (one `catalog --json` export).
 
