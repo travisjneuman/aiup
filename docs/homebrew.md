@@ -14,7 +14,13 @@ No current catalog item comes from a third-party tap. When a package is already 
 
 Before the first Homebrew upgrade in a run, aiup downloads every outdated formula and cask it is about to upgrade with one `brew fetch`, so `HOMEBREW_DOWNLOAD_CONCURRENCY` can download them in parallel. Casks whose app is open, apps that updated themselves and held or excluded tools are left out. The upgrades still run one tool at a time and reuse the downloads. `AIUP_BREW_PREFETCH=0` turns this off.
 
-After an update run, aiup runs `brew cleanup --prune=all -s`, then deletes the downloaded bottles and installers Homebrew keeps for the installed versions, and the dangling links they leave. Homebrew's package metadata (`api/`) stays, so the next check does not download it again. The cleanup is skipped while another `brew` is running. `AIUP_CLEANUP_CACHES=0` keeps the downloads.
+While Homebrew upgrades run, plain npm tools and uv tools update in two background lanes. Tools that only touch Homebrew keep running in the foreground beside them; any other tool waits until the lanes finish. If Node is about to be upgraded, the npm lane is not started, and if uv or a Python is about to be upgraded, the uv lane is not started, so no tool is installed with a runtime that is being replaced. `AIUP_PARALLEL=0` runs everything one at a time.
+
+After an update run, aiup runs `brew cleanup --prune=all -s`, then deletes the downloaded bottles and installers Homebrew keeps for the installed versions, and the dangling links they leave. Homebrew's package metadata (`api/`) stays, so the next check does not download it again. The cleanup also removes the older installed versions of upgraded formulae and casks, so only the current one stays on disk. The cleanup is skipped while another `brew` is running. `AIUP_CLEANUP_CACHES=0` keeps the downloads.
+
+## Bottle attestations
+
+Homebrew can check that each bottle was built by Homebrew's own build service, using a signed attestation stored on GitHub. That check needs the GitHub CLI (`gh`) signed in. When `gh` is installed and `gh auth status` succeeds, aiup turns the check on for the run (`HOMEBREW_VERIFY_ATTESTATIONS=1`). Without `gh` or a sign-in it stays off, because Homebrew would otherwise try to install `gh` by itself. Set `AIUP_BREW_ATTESTATIONS=0` to keep it off, or set `HOMEBREW_VERIFY_ATTESTATIONS` yourself and aiup leaves your setting alone.
 
 ## How current Homebrew's answer is
 

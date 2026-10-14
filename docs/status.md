@@ -1,6 +1,6 @@
 # Scope, completion, and next work
 
-Status date: **2026-09-29**
+Status date: **2026-10-13**
 
 Current version: **2026.09.29-06**
 
@@ -29,7 +29,14 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - stop the running command on Ctrl-C, print the results, and let `aiup resume` rerun the interrupted and unreached tools using each tool's newest saved result;
 - report a version that went down as `downgraded`;
 - download the run's outdated Homebrew formulae and casks in one parallel `brew fetch` before upgrading them one at a time, leaving out open and self-updated apps;
-- clear Homebrew, npm and uv download caches after an update run unless another process is using them (`AIUP_CLEANUP_CACHES=0` keeps them);
+- clear Homebrew, npm and uv download caches after an update run unless another process is using them, delete previous tool versions that installers keep, and prune pnpm's package store once a day (`AIUP_CLEANUP_CACHES=0` keeps them);
+- update plain npm tools and uv tools in two background lanes while Homebrew upgrades run (`AIUP_PARALLEL=0` turns this off);
+- ask before installing an npm release that lost the provenance record its installed version had, allow only the install scripts each npm tool needs, and turn on Homebrew bottle attestations when `gh` is signed in;
+- show release notes for each available update in `aiup check` and `aiup plan`, cached per version;
+- print results as JSON with `--json`, use exit status 0, 1, 2 and 130, and answer a mistyped command with one line;
+- check for updates and show a macOS notification with `aiup notify`, for a schedule the user sets up;
+- move a setup to another Mac with `aiup export` and `aiup import`;
+- page `aiup logs` output through `less` in a terminal;
 - run vendor install scripts only after an HTTPS-only download to a private file succeeds and is non-empty;
 - name a tool's settings and session data before `aiup remove` takes it, and move that data to Trash;
 - carry only maintained catalog entries, installing each from the official channel that publishes first;

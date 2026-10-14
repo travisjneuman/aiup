@@ -27,7 +27,7 @@ The interactive catalog also builds a local-only inventory of app bundle identif
 The network lanes are separate:
 
 1. **Launcher refresh:** a public installation requests the small release pointer from `raw.githubusercontent.com` before every invocation, and downloads the runtime and catalog manifest only when a new release is published. Those requests do not contain the local inventory. If a request fails or a download fails validation, aiup runs the last validated release. An explicit `AIUP_SOURCE_PATH` development run skips this refresh.
-2. **Homebrew and vendor maintenance:** actions that inspect remote versions, install, or update software may contact Homebrew, npm registries, PyPI, GitHub releases, or the selected vendor's documented metadata/download endpoints. `aiup check` and the picker's update preview ask each installed tool's own release source for its newest version (one request per tool, naming only that tool's package or channel), and refresh Homebrew's package metadata when it is older than 15 minutes. These requests are made only by the relevant action; their remote services have their own logging and privacy policies.
+2. **Homebrew and vendor maintenance:** actions that inspect remote versions, install, or update software may contact Homebrew, npm registries, PyPI, GitHub releases, or the selected vendor's documented metadata/download endpoints. `aiup check` and the picker's update preview ask each installed tool's own release source for its newest version (one request per tool, naming only that tool's package or channel), and refresh Homebrew's package metadata when it is older than 15 minutes. `aiup check` and `aiup plan` also look up release notes for each tool that has an update: the project's GitHub repository comes from its docs link, or from the npm registry or PyPI record of that package, and aiup asks the GitHub API (without a login) for the matching release. Each answer is cached per version, so a version is looked up once; `AIUP_RELEASE_NOTES=0` skips these requests. Before an npm update, aiup reads the registry records of the installed and the new version to compare their provenance (`AIUP_NPM_PROVENANCE_CHECK=0` skips that). When `gh` is installed and signed in, Homebrew checks bottle attestations through GitHub with that sign-in (`AIUP_BREW_ATTESTATIONS=0` turns it off). `aiup notify` makes the same requests as a check, without the release notes. These requests are made only by the relevant action; their remote services have their own logging and privacy policies.
 3. **User-opened links:** `aiup docs` or the picker docs key opens a catalog URL. A detected-only item opens a Google search only after the user deliberately chooses that action. Merely scanning local inventory does not open those links.
 
 The aiup CLI itself does not require an aiup account or upload local inventory to an aiup server. Individual catalog tools may require their own accounts.
@@ -37,11 +37,11 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | Path | Purpose |
 |---|---|
 | `~/.local/share/aiup/methods/` | Last known install method per tool |
-| `~/.local/share/aiup/generations/<id>/aiup` | Runtime of a validated release; generations other than the current, the previous, and any less than a day old are pruned |
+| `~/.local/share/aiup/generations/<id>/aiup` | Runtime of a validated release; generations other than the current one and any less than a day old are pruned |
 | `~/.local/share/aiup/generations/<id>/manifest.tsv` | Catalog paired with that generation's runtime; never mixed across generations |
 | `~/.local/share/aiup/generations/<id>/release` | Commit of the published release this generation came from |
 | `~/.local/share/aiup/current-generation` | Atomically replaced pointer selecting the active pair after refresh |
-| `~/.local/share/aiup/previous-generation` | Pointer to the release that was active before the current one |
+| `~/.local/share/aiup/previous-generation` | Records which release was active before the current one; that release itself is not kept |
 | `~/.local/share/aiup/launcher-notice.stamp` | Limits the reinstall notice for pre-release launchers to once a day |
 | `~/.local/share/aiup/brew-metadata.stamp` | When aiup last refreshed Homebrew's package metadata for a check |
 | `~/.local/share/aiup/available-versions/` | Short-lived cache of each installed tool's newest release; hidden temporaries older than an hour are swept |
@@ -53,14 +53,17 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 | `~/.local/share/aiup/brew-index.tsv` | Last scan of Homebrew extras |
 | `~/.local/share/aiup/inventory-index.tsv` | Last local-only inventory of un-managed apps and CLIs |
 | `~/.local/share/aiup/inventory-cache.meta` | Timestamp and local source fingerprint for the inventory cache |
+| `~/.local/share/aiup/release-notes/` | Release-note summary and link per tool, kept per version |
+| `~/.local/share/aiup/notify-last.txt` | The list of updates `aiup notify` last told you about |
+| `~/.local/share/aiup/pnpm-store-prune.stamp` | When aiup last pruned pnpm's package store (once a day at most) |
 | `~/.local/share/aiup/list-query` / `list-category` | Last picker query and selected category, stored locally to resume navigation |
 
 These are local cache, not a cloud profile.
 
 ## Local run history
 
-Update runs save private logs and structured version/result records under the AIUP state directory. `aiup history` and `aiup logs` read them locally; nothing is uploaded. The latest 20 completed runs are retained by default, with active and recent legacy runs protected. Logs can contain provider output and local paths. See the README for `AIUP_LOG_LIMIT` and per-tool log access.
+Update runs save private logs and structured version/result records under the AIUP state directory. `aiup history` and `aiup logs` read them locally; nothing is uploaded. While a run updates npm and uv tools in background lanes, their output goes to a private `<log>.lanes` folder and is merged into the run log, then the folder is removed. The latest 20 completed runs are retained by default, with active and recent legacy runs protected. Logs can contain provider output and local paths. See the README for `AIUP_LOG_LIMIT` and per-tool log access.
 
 ## Local preferences and diagnostics
 
-`preferences.json` contains only explicitly chosen tool exclusions, hold dates, and named groups. `doctor`, `coverage`, and `project` display local installation/dependency information; they do not upload it. Project inspection requires an explicit directory and executes no scripts. New history records include per-tool durations.
+`preferences.json` contains only explicitly chosen tool exclusions, hold dates, named groups and the cleanup setting. `aiup export` writes the installed catalog tools, your own Homebrew formulae and apps, and these preferences to a file you name (readable only by you, never overwriting a file); it holds no paths, host names or account details, and aiup never sends it anywhere. `doctor`, `coverage`, and `project` display local installation/dependency information; they do not upload it. Project inspection requires an explicit directory and executes no scripts. New history records include per-tool durations.

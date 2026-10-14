@@ -11,6 +11,8 @@ Front door for `docs/`: find the right aiup document in one read. Up: [README](.
 | Homebrew, taps, casks, adopt, cleanup | [homebrew.md](homebrew.md) | How aiup uses Homebrew |
 | privacy, scan, network requests, what stays local | [privacy.md](privacy.md) | Scanning and network boundaries |
 | status, scope, version, next work, limitations | [status.md](status.md) | Current scope and completion record |
+| JSON, exit status, scripts, export, import, another Mac | [scripting.md](scripting.md) | Using aiup from scripts |
+| notify, notifications, cron, launchd, schedule | [notify.md](notify.md) | `aiup notify` and how to schedule it yourself |
 | detected commands, ownership, version evidence | [command-insights.md](command-insights.md) | How detected commands are recognized |
 | public counts, showcase, site metrics | [public-catalog-facts.md](public-catalog-facts.md) | Definitions behind published catalog numbers |
 | catalog policy, candidates, managed vs detected | [catalog-research.md](catalog-research.md) | Standing catalog policy and candidate notebook |

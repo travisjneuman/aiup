@@ -29,7 +29,7 @@
         "catalogCommand": "macos/aiup catalog --json",
         "population": "top-level tools: curated manifest entries",
         "runtimeVersion": "2026.09.29-06",
-        "runtimeSha256": "1779cfd48c486908b53a200589052607a650f2b29e48bd9a548a6e70dcb9cf34",
+        "runtimeSha256": "b94ff32e489c939623d323e99ecadd28aa5422453c9187fe86e551d9e394e7b9",
         "manifestSha256": "222adba350ec47514006ee257ae567bc810304744832b5a1f986d29ceb6675b7",
         "exportSha256": "4b24c8d768d7355d3d6b12c488b7674d8678c76444341ce1f9fbee2e8377d023"
       }

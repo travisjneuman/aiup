@@ -56,19 +56,26 @@ aiup list
 |---|---|
 | `aiup` | 🔍 Ensure fzf → update installed catalog tools **and Homebrew extras** |
 | `aiup list` | 🎛️ Full-screen catalog |
-| `aiup check` | Read-only availability report; accepts optional tool names |
+| `aiup check` | Read-only availability report with what's new in each update; accepts optional tool names |
+| `aiup notify` | Check, then show a macOS notification when updates are ready ([schedule it yourself](docs/notify.md)) |
 | `aiup explain remotion` | Show detection, manager, location, and next action |
 | `aiup history` | Recent update results; optionally filter by tool |
-| `aiup logs remotion` | Read just that tool’s output from its latest saved run |
+| `aiup logs remotion` | Read just that tool’s output from its latest saved run, in a pager |
 | `aiup only grok` | 📦 Install or update one tool |
 | `aiup remove grok` | 🗑️ Remove one managed tool; its settings and sessions are named first and moved to Trash |
 | `aiup doctor` | 🩺 Conflicts and setup warnings; `--details` retains full detection detail |
 
 Normal `aiup`, `aiup full`, `aiup core`, and `aiup check` include installed Homebrew formulae, libraries, fonts, and casks outside the curated catalog. Catalog aliases appear once, retaining their exclusions and holds. Detected-only software and manual-update apps still require their owning updater. `aiup only` and named groups remain scoped.
 
-Installed-version reads run concurrently (half the Mac's cores, 2 to 6 workers; `AIUP_CHECK_WORKERS` overrides). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Before the first Homebrew upgrade, aiup downloads every outdated formula and cask it is about to upgrade in one `brew fetch`, so Homebrew downloads them in parallel; the upgrades themselves still run one at a time, and open apps are left out of that download (`AIUP_BREW_PREFETCH=0` turns it off). App shutdown and replacement can still dominate a run; `--timings` exposes those phases.
+Installed-version reads run concurrently (half the Mac's cores, 2 to 6 workers; `AIUP_CHECK_WORKERS` overrides). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Before the first Homebrew upgrade, aiup downloads every outdated formula and cask it is about to upgrade in one `brew fetch`, so Homebrew downloads them in parallel; the upgrades themselves still run one at a time, and open apps are left out of that download (`AIUP_BREW_PREFETCH=0` turns it off). Once Homebrew's upgrades start, plain npm tools and uv tools update in two background lanes beside them, one tool at a time in each, and their results join the report in the usual order. Tools with their own updater still run one at a time, and a lane is not started when the run upgrades what it runs on (Node for npm; uv or a Python for uv). `AIUP_PARALLEL=0` runs everything one at a time. App shutdown and replacement can still dominate a run; `--timings` exposes those phases.
 
-After each update run, aiup clears the download caches it filled: Homebrew's old versions and downloaded installers, npm's package cache and its debug logs, and uv's cache. It skips a cache while another brew, npm or uv process is using it, and the last line says how much space came back. Set `AIUP_CLEANUP_CACHES=0` to keep them.
+After each update run, aiup clears the download caches it filled: Homebrew's old versions and downloaded installers, npm's package cache and its debug logs, and uv's cache. It also deletes previous versions that installers keep beside the current one (older Claude Code and Cursor Agent versions, Antigravity's `agy.*.old` copies), and once a day prunes pnpm's shared package store of packages no project uses. It skips a cache while another brew, npm, uv or pnpm process is using it, and leaves a version that is still open in a running program for the next run. The last line says how much space came back. Set `AIUP_CLEANUP_CACHES=0` to keep them.
+
+Supply-chain checks during a run:
+
+- **npm provenance.** If the installed version of an npm tool was published with a provenance record (a signed note from the build service saying which source and build made it) and the new version has none, aiup explains that, names who published each version, links the release page and asks before installing. Without a terminal it leaves the tool alone and says so. `AIUP_NPM_PROVENANCE_CHECK=0` turns this off.
+- **npm install scripts.** npm 11.19 and newer hold back install scripts by default. aiup lets through only the ones each tool needs (for example esbuild and workerd for Wrangler).
+- **Homebrew attestations.** When the GitHub CLI (`gh`) is installed and signed in, aiup has Homebrew check each bottle's signed build attestation. Without `gh` or a sign-in it stays off, so Homebrew never installs `gh` on its own. `AIUP_BREW_ATTESTATIONS=0` turns it off.
 
 Each update run ends with one color-coded table. Current rows (unchanged tools and apps that updated themselves) are hidden by default; warnings, changes, skips, and failures stay visible. A tool whose version went down, which Homebrew can do when it repoints a formula, shows as `downgraded`. Use `aiup --show-unchanged` for the full table; saved history always retains every result. The last line suggests `aiup resume` only when something is unfinished and `aiup attention` only when something needs a look.
 
@@ -97,7 +104,12 @@ aiup group check video
 aiup group run video               # update installed members; honor preferences
 aiup retry                         # retry failed or deferred tools from the latest inactive run
 aiup project /path/to/project       # read declared npm dependency ranges only
+aiup export my-mac.json            # save tools, Homebrew packages and preferences
+aiup import my-mac.json            # on another Mac: show what it adds, ask, install
+aiup check --json                  # results as JSON for your own scripts
 ```
+
+`--json` prints a run's or a check's results as JSON on stdout. Exit status is 0 when everything worked, 1 when something failed, 2 for a mistyped command and 130 after Ctrl-C. A mistyped command gets one line pointing to `aiup help`. See [scripting and moving to another Mac](docs/scripting.md).
 
 Preferences are local in `~/.local/share/aiup/preferences.json`. Exclusions and holds apply to CLI and picker updates, including `--force`; remove a preference explicitly to resume. Holds expire after the indicated local calendar date. A held missing prerequisite stops dependent work. Named groups do not install absent members by default. `--dry-run` also prevents preference writes. No preferences are enabled on your behalf. `retry` may reinstall a failed absent tool; use `--no-install retry` to prevent that.
 
@@ -105,15 +117,15 @@ Search ranks exact names, aliases, name prefixes, then descriptions. Multiple wo
 
 The **media** category starts with Remotion and includes managed tools for AI image generation, transcription/dictation, video editing, animation, audio, and image processing. Its current curated total is in the generated catalog table below. It also recognizes five installed media apps with **manual update** guidance: Final Cut Pro, Motion, Pixelmator Pro, Darkroom, and Luminar AI. Those remain inspect-only, are excluded from managed counts, and never enter automated updates. `--view managed` hides manual rows; `--view detected` retains them in the inventory. AI creation/transcription tools and supporting media utilities are labeled distinctly. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md) and [media expansion review](docs/media-expansion-2026-09-04.md).
 
-AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section. Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
+AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section (in `less` when the output is a terminal; `AIUP_NO_PAGER=1` prints it straight through). Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
 
 Npm packages are not reinstalled when fresh provider metadata exactly matches a healthy installation in AIUP’s prefix. Homebrew no-op upgrades are skipped only after a valid post-refresh outdated snapshot. Missing, broken, newer, or unverifiable installations keep the existing update path; `--force` bypasses these shortcuts for repairs. Native updaters and manager-switch rules remain in effect.
 
-`aiup check [tools…]` checks versions without updating software or changing shell profiles. Each tool is compared with the source it installs from: Homebrew's metadata (refreshed when older than 15 minutes) or the vendor's release channel, npm or PyPI, all fetched in one concurrent pass. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
+`aiup check [tools…]` checks versions without updating software or changing shell profiles. Each tool is compared with the source it installs from: Homebrew's metadata (refreshed when older than 15 minutes) or the vendor's release channel, npm or PyPI, all fetched in one concurrent pass. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. Each tool with an update gets a "What's new" line: the release title and first lines from the project's GitHub release, with a link. Release notes are fetched once per version without a GitHub login and cached; `AIUP_RELEASE_NOTES=0` skips them. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
 
 ### 🔄 How releases reach your Mac
 
-The installed command runs the latest published release. Each run makes one small request for the release pointer (`macos/release` on `main`), which names the exact commit whose runtime and catalog form the release. Files addressed by commit never change, so the runtime and catalog always match, and work landing on `main` between releases never reaches your Mac. When the release is unchanged, aiup starts immediately with no download. A new release is downloaded, validated, staged as one pair, and activated by atomically switching a single `current-generation` pointer; `previous-generation` keeps the former pair. If GitHub is unreachable or a new download fails validation, aiup says so and runs the last validated release. Only a first run with nothing installed yet needs network access.
+The installed command runs the latest published release. Each run makes one small request for the release pointer (`macos/release` on `main`), which names the exact commit whose runtime and catalog form the release. Files addressed by commit never change, so the runtime and catalog always match, and work landing on `main` between releases never reaches your Mac. When the release is unchanged, aiup starts immediately with no download. A new release is downloaded, validated, staged as one pair, and activated by atomically switching a single `current-generation` pointer. The former release is deleted once it is more than a day old (an open picker may still use it); `previous-generation` only records which release it was. If GitHub is unreachable or a new download fails validation, aiup says so and runs the last validated release. Only a first run with nothing installed yet needs network access.
 
 Repository contributors can opt into an offline local checkout for one invocation by deliberately setting `AIUP_SOURCE_PATH` to that checkout's `macos/aiup` file. No checkout path is guessed or probed by default.
 
@@ -274,7 +286,7 @@ The current macOS tool, public repository, minimal site, and six-state media are
 |---|---|
 | `aiup welcome` | First-run guide with cleanup choices and readable command examples |
 | `aiup attention` | Missing/moved apps, last-run problems, duplicate commands and ownership gaps with next steps |
-| `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes. Shows self-updated apps and apps that must be quit first; download sizes remain updater-dependent |
+| `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes. Runs a read-only check first, so each tool with an update gets its own card with its release notes. Shows self-updated apps and apps that must be quit first; download sizes remain updater-dependent |
 | `aiup owners` | Local installation ownership, paths and maintenance guidance; observations persist locally |
 | `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
 | `aiup resume` | Retries tools whose newest saved result is pending, deferred (app was open), cancelled or failed, across all retained runs, rechecking current state |
@@ -302,6 +314,8 @@ AIUP remembers bundle identities observed at their installed locations, scans co
 | Homebrew, taps, adoption | [docs/homebrew.md](docs/homebrew.md) |
 | Privacy and network boundaries | [docs/privacy.md](docs/privacy.md) |
 | Scope, version, next work | [docs/status.md](docs/status.md) |
+| JSON, exit status, export and import | [docs/scripting.md](docs/scripting.md) |
+| Update notifications, cron, launchd | [docs/notify.md](docs/notify.md) |
 | Contribute, report a bug, security | [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) · [SECURITY.md](SECURITY.md) |
 | Release history | [CHANGELOG.md](CHANGELOG.md) |
 
