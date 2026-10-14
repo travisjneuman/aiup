@@ -132,12 +132,11 @@ for label, key in (('Catalog tools', 'tools'), ('macOS', 'platform'), ('Daemons'
 metric = owned_metrics['tools']
 # Validate owned text slots now as well as while rendering them below.
 readme_pattern = r'<!-- CATALOG:START -->.*?<!-- CATALOG:END -->'
-visible_pattern = r'<!-- CATALOG-COUNT:START -->.*?<!-- CATALOG-COUNT:END -->'
 json_ld_pattern = r'(<script type="application/ld\+json">\s*)(.*?)(\s*</script>)'
 llms_pattern = r'Version [^\s]+ contains \d+ reviewed entries\.'
 alt_patterns = [rf'(<meta {attr}="{key}" content=")[^"]*("\s*/>)'
                 for attr, key in (('property', 'og:image:alt'), ('name', 'twitter:image:alt'))]
-for name, pattern in [('README.md', readme_pattern), ('site/index.html', visible_pattern),
+for name, pattern in [('README.md', readme_pattern),
                       ('site/index.html', json_ld_pattern), ('site/llms.txt', llms_pattern),
                       *(('site/index.html', p) for p in alt_patterns)]:
     replace_once(inputs[name], pattern, lambda m: m[0], name)
@@ -274,9 +273,6 @@ properties.append({'@type': 'PropertyValue', 'propertyID': 'catalog-tools',
 software[0]['additionalProperty'] = properties
 site = replace_once(inputs['site/index.html'], json_ld_pattern,
                     lambda m: m[1] + json.dumps(structured, indent=2, ensure_ascii=False) + m[3], 'site/index.html')
-site = replace_once(site, visible_pattern,
-                    f'<!-- CATALOG-COUNT:START --><span class="catalog-count" data-catalog-tools="{count}">{count} curated catalog tools</span><!-- CATALOG-COUNT:END -->',
-                    'site/index.html')
 # The social alt describes the card scripts/build-social-cards makes. The card
 # carries no tool count, so the alt carries none either.
 alt = html.escape('aiup logo and the words Your tool stack. One list. next to the aiup catalog list in macOS Terminal.', quote=True)

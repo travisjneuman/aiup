@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 PRODUCTION = "https://aiup.neuman.dev/"
 REPOSITORY = "https://github.com/travisjneuman/aiup"
-CACHE_VERSION = "20261014-03"
+CACHE_VERSION = "20261014-04"
 GIF_SEQUENCE = [
     {"state": "collapsed-overview", "duration_ms": 1040},
     {"state": "gemini-search-update", "duration_ms": 2070},

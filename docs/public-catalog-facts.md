@@ -46,8 +46,8 @@ The same exported data supplies all these text outputs:
   Existing unrelated provenance fields are retained. Reviewed label mappings
   also assign `macOS` to `key: platform` and `Daemons` to `key: background`;
 - `site/index.html`: software version, a `catalog-tools` JSON-LD PropertyValue,
-  the visible `CATALOG-COUNT` marker span and its `data-catalog-tools` value,
-  and catalog context in Open Graph/Twitter alt text;
+  and the Open Graph/Twitter alt text. The page shows no visible count (removed
+  2026-10-14);
 - `site/llms.txt`: the version and reviewed-entry total.
 
 Status, summary, links, and platform/background evidence stay unchanged. Adding

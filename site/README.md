@@ -13,8 +13,9 @@ The homepage is intentionally minimal and points to GitHub:
 - `index.html` presents the aiup lockup with the continuously looping TUI
   animation small beneath it (and its reduced-motion poster), a short video
   about aiup in the main column (it plays on load, muted, with controls, and
-  does not loop), one GitHub repository destination, and an exported
-  curated-catalog total;
+  does not loop), and one GitHub repository link in the footer with the aiup
+  mark on the left and a GitHub icon on the right. The page shows no tool
+  count;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;
 - `catalog.json` remains generated from `macos/aiup` for machine-readable
@@ -29,8 +30,8 @@ The homepage is intentionally minimal and points to GitHub:
 `README.md` is where installation, product behavior, catalog scope, lifecycle,
 and safety are explained. `scripts/sync-public-docs`
 generates README/catalog documentation, `site/catalog.json`, the Catalog tools
-metric in `showcase.json`, and site JSON-LD, social alt catalog context, `llms.txt`,
-and the small visible catalog total from one local JSON export. It does not add
+metric in `showcase.json`, site JSON-LD, social alt text and `llms.txt` from
+one local JSON export. Nothing it writes is visible on the page. It does not add
 a catalog table or marketing sections. The default also mirrors accepted media;
 `--skip-media` leaves all media untouched. No invocation regenerates images.
 See [public catalog facts](../docs/public-catalog-facts.md).

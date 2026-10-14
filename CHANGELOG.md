@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 2026.10.14-03
+
+- aiup.neuman.dev: the footer no longer shows the tool count. The repository link now ends with a GitHub icon in the aiup colors, so it reads as a link to GitHub. `scripts/sync-public-docs` no longer writes a count onto the page.
+
 ## 2026.10.14-02
 
 - New website video, 32 seconds. It now shows both halves of aiup: run `aiup` and it updates every tool it finds plus your Homebrew packages (a Terminal window prints the report from a real update run), and run `aiup list` to browse, search and switch tools. The tool and category counts are rounded down to "260+" and "20+" so the video stays true as the catalog grows.
