@@ -86,7 +86,7 @@ a {
 }
 
 .identity,
-.tui {
+.film {
   min-width: 0;
 }
 
@@ -99,30 +99,28 @@ a {
   height: auto;
 }
 
-.brag {
-  display: block;
-  width: min(100%, 25rem);
-  height: auto;
-  margin-top: clamp(1rem, 2.5vw, 2rem);
-  aspect-ratio: 16 / 9;
-  border-radius: 0.6rem;
-  background: #000;
-}
-
 .tui {
-  margin: 0;
-}
-
-.tui picture {
-  width: 100%;
+  width: min(100%, 25rem);
+  margin-top: clamp(1rem, 2.5vw, 2rem);
 }
 
 .tui img {
   width: 100%;
   height: auto;
-  max-height: calc(100svh - 10rem);
-  object-fit: contain;
-  object-position: center;
+}
+
+.film {
+  margin: 0;
+}
+
+.brag {
+  display: block;
+  width: min(100%, calc((100svh - 10rem) * 16 / 9));
+  height: auto;
+  margin-inline: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.6rem;
+  background: #000;
 }
 
 .site-footer {
@@ -219,12 +217,9 @@ a {
     width: min(64vw, 20rem);
   }
 
+  .tui,
   .brag {
     width: 100%;
-  }
-
-  .tui img {
-    max-height: none;
   }
 
   .site-footer {

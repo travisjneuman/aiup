@@ -1,10 +1,10 @@
 Short (X, Bluesky, Threads):
-Every AI tool I use updates a different way. brew, npm, uv, their own installers. So I made aiup: one list in the terminal for all of them. Free for macOS. aiup.neuman.dev
+Every AI tool I use updates a different way. brew, npm, uv, their own installers. So I made aiup. Run aiup and it updates all of them. Run aiup list to browse and search 260+ tools. Free for macOS. aiup.neuman.dev
 
 Longer (LinkedIn):
 I use a lot of AI and developer tools, and each one updates its own way. Some come from Homebrew, some from npm or PyPI, some only from the vendor's installer.
 
-aiup puts all of them in one list in the macOS Terminal. You can see what you have, what needs an update, and search for any tool. Each tool installs from the official place that gets new releases first. It asks before it changes an app you already have.
+aiup handles all of them from the macOS Terminal. Run aiup and it updates every tool it finds, plus your Homebrew packages, then prints what changed. Run aiup list to browse the catalog, see what needs an update, and search for any tool. Each tool installs from the official place that gets new releases first. It asks before it changes an app you already have.
 
 It's free and open source: aiup.neuman.dev
 Code: github.com/travisjneuman/aiup

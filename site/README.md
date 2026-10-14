@@ -10,9 +10,10 @@ Do not publish it directly with Wrangler.
 
 The homepage is intentionally minimal and points to GitHub:
 
-- `index.html` presents the aiup lockup, a short video about aiup (only its
-  poster loads until you press play; no autoplay), the continuously looping TUI
-  animation, its reduced-motion poster, one GitHub repository destination, and an exported
+- `index.html` presents the aiup lockup with the continuously looping TUI
+  animation small beneath it (and its reduced-motion poster), a short video
+  about aiup in the main column (it plays on load, muted, with controls, and
+  does not loop), one GitHub repository destination, and an exported
   curated-catalog total;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;
@@ -34,8 +35,11 @@ a catalog table or marketing sections. The default also mirrors accepted media;
 `--skip-media` leaves all media untouched. No invocation regenerates images.
 See [public catalog facts](../docs/public-catalog-facts.md).
 
-The page has no JavaScript. The default GIF, reduced-motion picture source, and
+The page has no JavaScript. The GIF, reduced-motion picture source, video, and
 GitHub destination therefore remain useful without a runtime behavior layer.
+The video uses the `autoplay muted playsinline` attributes and `_headers` allows
+`autoplay=(self)`. Without a script, reduced-motion visitors still get the
+muted autoplay; the native controls let them pause it.
 The animation includes an infinite-loop NETSCAPE extension and repeats its six-state
 narrative continuously. Because its expanded narrative lasts longer than five seconds and no
 playback control is present by owner direction, the page has a known WCAG 2.2.2
@@ -58,7 +62,7 @@ when the accepted canonical media should also be copied to `site/media`.
 Do not run tests, media checks, or brand generation as an automatic refresh gate.
 
 `scripts/check-site` uses Python's standard library. It validates the minimal
-visible contract, metadata and JSON-LD, absence of animation controls and
+visible contract, metadata and JSON-LD, the video's attributes, absence of
 JavaScript, local references, image dimensions, generated catalog data,
 canonical media mirrors,
 manifest/robots/sitemap/llms/404 behavior, security headers, and public-safety
@@ -77,7 +81,8 @@ evidence, and owner acceptance as separate claims. No direct Cloudflare
 publication, new resource, analytics, tracker, cookie, external font, remote
 runtime asset, or service worker is part of this site.
 
-The sole default homepage media is `media/aiup-list.gif`; its static poster is
-used only for reduced motion. Capture and brand provenance
+The homepage media are `media/aiup-brag.mp4` (with `media/aiup-brag-poster.jpg`)
+in the main column and `media/aiup-list.gif` under the lockup; the GIF's static
+poster is used only for reduced motion. Capture and brand provenance
 live in [`docs/media/README.md`](../docs/media/README.md) and
 [`brand/README.md`](brand/README.md).

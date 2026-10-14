@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 PRODUCTION = "https://aiup.neuman.dev/"
 REPOSITORY = "https://github.com/travisjneuman/aiup"
-CACHE_VERSION = "20261014-02"
+CACHE_VERSION = "20261014-03"
 GIF_SEQUENCE = [
     {"state": "collapsed-overview", "duration_ms": 1040},
     {"state": "gemini-search-update", "duration_ms": 2070},
@@ -214,8 +214,8 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
 
     duplicates = sorted(key for key, count in Counter(document.ids).items() if count > 1)
     require(not duplicates, f"duplicate ids: {duplicates}")
-    require("main-content" in document.ids and "primary-tui" in document.ids, "main or TUI target is missing")
-    require("#primary-tui" in document.hrefs, "skip link does not target the primary TUI")
+    require({"main-content", "primary-tui", "aiup-video"} <= set(document.ids), "main, TUI or video target is missing")
+    require("#aiup-video" in document.hrefs, "skip link does not target the video")
     for href in document.hrefs:
         if href.startswith("#") and len(href) > 1:
             require(href[1:] in document.ids, f"broken internal anchor: {href}")
@@ -230,14 +230,15 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
         if urllib.parse.urlsplit(url).path.startswith("/media/")
     ]
     require(media_refs == [
-        "/media/aiup-brag-poster.jpg", "/media/aiup-brag.mp4",
         "/media/aiup-list-poster.png", "/media/aiup-list.gif",
+        "/media/aiup-brag-poster.jpg", "/media/aiup-brag.mp4",
     ], f"homepage media drifted: {media_refs}")
     videos = elements(document, "video")
     require(len(videos) == 1, "homepage must contain exactly one video")
     video = videos[0]
-    require("controls" in video and video.get("preload") == "none", "video must show controls and preload nothing")
-    require("autoplay" not in video and "muted" not in video and "loop" not in video, "video must not autoplay or loop")
+    require("controls" in video, "video must show controls so it can be paused")
+    require({"autoplay", "muted", "playsinline"} <= set(video), "video must autoplay muted and inline")
+    require("loop" not in video, "video must play once")
     require(video.get("aria-label"), "video needs an aria-label")
     primary = [
         image for image in document.images
@@ -246,7 +247,6 @@ def validate_minimal_homepage(text: str, document: Document) -> None:
     require(len(primary) == 1, "primary TUI GIF is missing")
     primary_image = primary[0]
     require(urllib.parse.urlsplit(primary_image.get("src", "")).path == "/media/aiup-list.gif", "GIF is not the default TUI image")
-    require(primary_image.get("fetchpriority") == "high", "primary GIF must use high fetch priority")
     require(primary_image.get("loading", "") != "lazy", "primary GIF must not be lazy loaded")
     require((primary_image.get("width"), primary_image.get("height")) == ("1020", "618"), "primary GIF dimensions drifted")
     require(not any(key.startswith("data-") for key in primary_image), "obsolete animation data attributes remain")

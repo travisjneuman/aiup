@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render aiup's 21.5 second launch video from the real Terminal screenshots.
+"""Render aiup's 32 second launch video from real aiup output and Terminal screenshots.
 
 Usage:
   film.py WORK MODE [--fonts DIR] [--ffmpeg PATH]
@@ -10,7 +10,9 @@ aiup-list-search.png and aiup-list-adopt.png. MODE is one of:
   audio   WORK/mix.wav only
   full    WORK/mix.wav, WORK/brag.mp4 and WORK/brag.jpg
 
-Every frame is a pure function of time. Frames go straight into ffmpeg's stdin,
+The run scene draws a Terminal window with the exact lines aiup printed for a
+real update run on 2026-10-06 (RUN_* below). The list scenes use the real
+screenshots. Every frame is a pure function of time. Frames go straight into ffmpeg's stdin,
 so no frame folder is written. Frame 0 is the poster frame, so every player
 shows it as the idle thumbnail. The score and sound effects are synthesized
 here with numpy, in A minor at 120 BPM, timed from the same constants as the
@@ -30,9 +32,10 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 
 W, H, FPS = 1920, 1080, 30
-DURATION = 21.5
+DURATION = 32.0
 FRAMES = round(DURATION * FPS)
-POSTER_T = 9.6
+POSTER_T = 12.6
+OUTRO_T = 28.0
 SR = 48000
 BEAT = 0.5
 DROP_T = 4.5
@@ -50,12 +53,14 @@ AMBER = (255, 189, 74)
 SCENES = (
     ("hook", 0.0, 3.5),
     ("reveal", 3.5, 6.5),
-    ("browse", 6.5, 10.5),
-    ("search", 10.5, 14.0),
-    ("ask", 14.0, 17.5),
-    ("outro", 17.5, DURATION),
+    ("run", 6.5, 13.5),
+    ("list", 13.5, 16.0),
+    ("browse", 16.0, 20.0),
+    ("search", 20.0, 24.0),
+    ("ask", 24.0, OUTRO_T),
+    ("outro", OUTRO_T, DURATION),
 )
-CUTS = (6.5, 10.5, 14.0, 17.5)
+CUTS = (6.5, 13.5, 16.0, 20.0, 24.0, OUTRO_T)
 
 HOOK_LINES = (
     ("brew upgrade", CYAN),
@@ -66,30 +71,72 @@ HOOK_LINES = (
 )
 HOOK_START, HOOK_STEP, HOOK_CPS = 0.45, 0.42, 38.0
 REVEAL_WORD, REVEAL_TYPE_START, REVEAL_CPS = "aiup", 3.62, 11.0
+LIST_WORD, LIST_TYPE_START, LIST_CPS = "aiup list", 13.65, 12.0
+
+# The run scene: aiup's real output for my update run of 2026-10-06 (122 tools,
+# 149 seconds), at 100 columns. RUN_TOOLS are the first 25 tools in run order
+# with the elapsed seconds summed from each tool's logged duration; the progress
+# line then cuts to the report. Only the run log path is shortened to ~.
+RUN_TOTAL = 122
+RUN_TOOLS = (
+    ("fzf", 0), ("brew", 6), ("npm", 7), ("uv", 8), ("gh", 9), ("wrangler", 9), ("deno", 11),
+    ("pnpm", 11), ("jq", 12), ("ripgrep", 12), ("fd", 12), ("claude", 12), ("codex", 16),
+    ("antigravity", 23), ("grok", 24), ("pi", 26), ("pi-acp", 33), ("chatgpt", 35),
+    ("claude-app", 72), ("grokbot", 74), ("cmux", 95), ("remotion", 122), ("macwhisper", 124),
+    ("ffmpeg", 124), ("yt-dlp", 124),
+)
+RUN_UPDATED = (
+    ("brew", "7.0.8-5-gef90f72", "7.0.8-32-g8304895", 1, False),
+    ("claude", "2.1.289", "2.1.291", 4, False),
+    ("codex", "0.160.0", "0.160.1", 7, False),
+    ("pi", "1.0.3", "1.0.4", 7, True),
+    ("chatgpt", "26.930.51102", "26.930.61225", 37, False),
+    ("grokbot", "0.66.0", "0.68.1", 21, False),
+    ("cmux", "0.64.25", "0.65.0", 27, False),
+)
+RUN_NOTE = (
+    "npm held back install scripts for esbuild, @google/genai, protobufjs (its default protection);",
+    "if pi misbehaves, aiup logs pi shows how to allow them.",
+)
+RUN_TYPE_START, RUN_CPS = 6.85, 11.0
+RUN_HEAD_T, RUN_TICK_START, RUN_TICK_STEP = 7.35, 7.6, 0.075
+RUN_REPORT_T, RUN_LINE_STEP = 9.6, 0.03
+# Highlight boxes: (time, first row, last row, first column, last column, color).
+RUN_MARKS = ((10.5, 7, 7, 2, 50, (78, 240, 196)), (11.3, 11, 19, 2, 99, (77, 224, 255)))
+TERM_COLS, TERM_ROWS, TERM_FONT, TERM_LINE = 100, 26, 23, 29
+TERM_BG, TERM_BAR = (19, 20, 19), (36, 36, 40)
+TERM_FG = (40, 254, 20)  # the Homebrew profile's text color
+XTERM = {
+    39: (0, 175, 255), 51: (0, 255, 255), 60: (95, 95, 135), 81: (95, 215, 255), 141: (175, 135, 255),
+    171: (215, 95, 255), 184: (215, 215, 0), 220: (255, 215, 0), 245: (138, 138, 138),
+}
+TERM_GREEN = (57, 255, 20)
+# Category colors from catalog_ansi: infra, coding-agents, chat, automation, terminals.
+RUN_SHADES = {"brew": 39, "claude": 171, "codex": 171, "pi": 171, "chatgpt": 51, "grokbot": 184, "cmux": 81}
 
 # Feature scenes: screenshot, headline lines, subline, push-in focus (screenshot px),
 # start and end scale, and highlight boxes (time, screenshot rect, color).
 FEATURES = {
     "browse": {
         "shot": "aiup-list-collapsed.png",
-        "head": ("261 tools.", "20 categories."),
+        "head": ("260+ tools.", "20+ categories."),
         "sub": "See what you have and what needs an update.",
         "focus": (300, 120), "scale": (1.04, 1.10),
-        "marks": ((7.5, (38, 112, 988, 137), MINT),),
+        "marks": ((17.0, (38, 112, 988, 137), MINT),),
     },
     "search": {
         "shot": "aiup-list-search.png",
         "head": ("Type to find", "any tool."),
         "sub": "Each one has its own keys to update or remove it.",
         "focus": (420, 300), "scale": (1.04, 1.10),
-        "marks": ((11.1, (22, 54, 248, 81), CYAN), (12.3, (40, 550, 838, 574), PURPLE)),
+        "marks": ((20.6, (22, 54, 248, 81), CYAN), (21.8, (40, 550, 838, 574), PURPLE)),
     },
     "ask": {
         "shot": "aiup-list-adopt.png",
         "head": ("It asks first.",),
         "sub": "Switching an app you already have waits for your yes.",
         "focus": (330, 124), "scale": (1.04, 1.14), "crop": 215,
-        "marks": ((15.0, (4, 113, 648, 137), PINK),),
+        "marks": ((25.0, (4, 113, 648, 137), PINK),),
     },
 }
 CAPTION_X, CAPTION_WIDTH = 120, 590
@@ -140,8 +187,9 @@ class Kit:
         self.background = make_background()
         self.glow = make_glow()
         self.windows = {
-            name: Window(assets / spec["shot"], spec["marks"], spec.get("crop")) for name, spec in FEATURES.items()
+            name: Window(Image.open(assets / spec["shot"]), spec["marks"], spec.get("crop")) for name, spec in FEATURES.items()
         }
+        self.terminal = Terminal(self)
 
     def font(self, kind: str, size: int) -> ImageFont.FreeTypeFont:
         key = (kind, size)
@@ -174,8 +222,8 @@ class Kit:
 class Window:
     """A real screenshot with its drop shadow and pre-drawn highlight boxes."""
 
-    def __init__(self, path: pathlib.Path, marks: tuple, crop: int | None = None) -> None:
-        self.shot = Image.open(path).convert("RGBA")
+    def __init__(self, shot: Image.Image, marks: tuple, crop: int | None = None) -> None:
+        self.shot = shot.convert("RGBA")
         if crop:
             # Keep only the top of the window, with rounded bottom corners like the real frame.
             self.shot = self.shot.crop((0, 0, self.shot.width, crop))
@@ -191,8 +239,11 @@ class Window:
         self.shadow.putalpha(mask.filter(ImageFilter.GaussianBlur(blur)))
         self.marks = [(when, highlight(self.shot.size, rect, color)) for when, rect, color in marks]
 
+    def draw(self, t: float) -> Image.Image:
+        return self.shot.copy()
+
     def render(self, t: float) -> Image.Image:
-        shot = self.shot.copy()
+        shot = self.draw(t)
         for when, overlay in self.marks:
             strength = appear(t, when, 0.35)
             if strength > 0:
@@ -200,6 +251,104 @@ class Window:
         framed = self.shadow.copy()
         framed.alpha_composite(shot, (self.pad, self.pad))
         return framed
+
+
+class Terminal(Window):
+    """A Terminal window, styled like the screenshots, that prints the real run output over time."""
+
+    def __init__(self, kit: Kit) -> None:
+        self.kit = kit
+        self.cell = kit.font("mono", TERM_FONT).getlength("M")
+        self.left, self.top, bar = 16, 44, 34
+        width = round(TERM_COLS * self.cell) + self.left * 2
+        height = self.top + TERM_ROWS * TERM_LINE + 10
+        chrome = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(chrome)
+        draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=12, fill=TERM_BG + (255,))
+        draw.rounded_rectangle((0, 0, width - 1, bar + 12), radius=12, fill=TERM_BAR + (255,))
+        draw.rectangle((0, bar, width - 1, bar + 12), fill=TERM_BG + (255,))
+        for index, color in enumerate(((255, 95, 87), (254, 188, 46), (40, 200, 64))):
+            x = 20 + index * 22
+            draw.ellipse((x - 7, bar / 2 - 7, x + 7, bar / 2 + 7), fill=color + (255,))
+        title = kit.text("aiup", "regular", 17, (170, 170, 176))
+        chrome.alpha_composite(title, (round((width - title.width) / 2), round(bar / 2 - title.height / 2)))
+        marks = tuple((when, self.cells(r0, r1, c0, c1), color) for when, r0, r1, c0, c1, color in RUN_MARKS)
+        super().__init__(chrome, marks)
+        self.report = run_report()
+
+    def cells(self, r0: int, r1: int, c0: int, c1: int) -> tuple[int, int, int, int]:
+        return (
+            round(self.left + c0 * self.cell) - 8, self.top + r0 * TERM_LINE - 3,
+            round(self.left + (c1 + 1) * self.cell) + 8, self.top + (r1 + 1) * TERM_LINE + 1,
+        )
+
+    def line(self, image: Image.Image, row: int, segments: list[tuple[str, tuple[int, int, int]]]) -> None:
+        column = 0
+        for value, color in segments:
+            if value.strip():
+                image.alpha_composite(self.kit.text(value, "mono", TERM_FONT, color), (round(self.left + column * self.cell), self.top + row * TERM_LINE))
+            column += len(value)
+
+    def draw(self, t: float) -> Image.Image:
+        image = self.shot.copy()
+        typed = int(clamp((t - RUN_TYPE_START) * RUN_CPS, 0, 4))
+        self.line(image, 0, [("$ ", TERM_FG), ("aiup"[:typed], TERM_FG)])
+        if t < RUN_HEAD_T:
+            if typed < 4 or int(t * 4) % 2 == 0:
+                self.block(image, 0, 2 + typed)
+            return image
+        self.line(image, 2, [("  aiup", XTERM[141]), (" \u00b7 tool operations", XTERM[81])])
+        self.line(image, 4, [("  Reading installed versions\u2026", TERM_FG)])
+        if t < RUN_REPORT_T:
+            index = min(len(RUN_TOOLS) - 1, int(max(0.0, t - RUN_TICK_START) / RUN_TICK_STEP))
+            if t >= RUN_TICK_START:
+                tool, elapsed = RUN_TOOLS[index]
+                text = f"  [{index + 1}/{RUN_TOTAL}] {tool} \u00b7 {elapsed}s elapsed"
+                self.line(image, 5, [(text, TERM_FG)])
+                self.block(image, 5, len(text))
+            return image
+        shown = int((t - RUN_REPORT_T) / RUN_LINE_STEP) + 1
+        for offset, segments in enumerate(self.report[:shown]):
+            self.line(image, 6 + offset, segments)
+        if shown > len(self.report):
+            row = 6 + len(self.report)
+            self.line(image, row, [("$ ", TERM_FG)])
+            if int(t * 4) % 2 == 0:
+                self.block(image, row, 2)
+        return image
+
+    def block(self, image: Image.Image, row: int, column: int) -> None:
+        x = round(self.left + column * self.cell)
+        y = self.top + row * TERM_LINE + 3
+        ImageDraw.Draw(image).rectangle((x, y, x + round(self.cell) - 1, y + TERM_LINE - 5), fill=TERM_FG + (230,))
+
+
+def run_report() -> list[list[tuple[str, tuple[int, int, int]]]]:
+    """The report lines print_update_report wrote for the 2026-10-06 run, with their colors."""
+    width = 32
+    rule = [("  " + "\u2500" * (TERM_COLS - 4), XTERM[60])]
+    lines = [
+        [("  aiup \u00b7 results", XTERM[141])],
+        [("  7 updated \u00b7 1 self-updated \u00b7 114 unchanged \u00b7 149s", XTERM[245])],
+        [("  1 tool needs a look (marked !)", XTERM[220])],
+        rule,
+        [("  " + "TOOL".ljust(width) + "RESULT".ljust(13) + "VERSION", XTERM[81])],
+    ]
+    for tool, before, after, took, warning in RUN_UPDATED:
+        status = "updated !" if warning else "updated"
+        lines.append([
+            ("  ", TERM_FG), (tool.ljust(width), XTERM[RUN_SHADES[tool]]),
+            (status.ljust(13), TERM_GREEN), (f"{before} \u2192 {after} \u00b7 {took}s", TERM_FG),
+        ])
+        if warning:
+            lines += [[("      " + part, XTERM[220])] for part in RUN_NOTE]
+    lines += [
+        rule,
+        [("  115 current tools hidden \u00b7 --show-unchanged lists them", XTERM[245])],
+        [("  Next: aiup attention", XTERM[81])],
+        [("  Run log: ~/.local/share/aiup/logs/update-20261006-082734.jKqdmy", XTERM[245])],
+    ]
+    return lines
 
 
 def highlight(size: tuple[int, int], rect: tuple[int, int, int, int], color: tuple[int, int, int]) -> Image.Image:
@@ -323,7 +472,44 @@ def scene_reveal(kit: Kit, canvas: Image.Image, t: float) -> None:
         scale = (width / kit.lockup.width) * (0.92 + 0.08 * p)
         put(canvas, kit.lockup, W / 2 - kit.lockup.width * scale / 2, 450 - kit.lockup.height * scale / 2, p * out, scale)
     q = appear(t, DROP_T + 0.3, 0.45)
-    text_center(kit, canvas, "One list for all of them.", "bold", 68, MIST, 730, q * out, (1 - q) * 24)
+    text_center(kit, canvas, "One command for all of them.", "bold", 68, MIST, 730, q * out, (1 - q) * 24)
+
+
+def scene_run(kit: Kit, canvas: Image.Image, t: float, start: float, end: float) -> None:
+    out = leave(t, end, 0.3)
+    window = kit.terminal
+    width = window.shot.width
+    x0, y0 = (W - width) / 2, 182
+    scale = 1.0 + 0.03 * ease_in_out(prog(t, start, end))
+    p = appear(t, start + 0.05, 0.5)
+    left = x0 + width * (1 - scale) / 2 - window.pad * scale
+    top = y0 - window.pad * scale + (1 - p) * 70
+    put(canvas, window.render(t), left, top, p * out, scale)
+
+    a = appear(t, start + 0.15, 0.45)
+    b = appear(t, start + 0.45, 0.45)
+    head = kit.text("Run aiup.", "bold", 64, MIST)
+    sub = kit.text("It updates your tools and Homebrew packages.", "regular", 40, MUTED)
+    ascent_head, ascent_sub = kit.font("bold", 64).getmetrics()[0], kit.font("regular", 40).getmetrics()[0]
+    put(canvas, head, x0, 64 + (1 - a) * 24, a * out)
+    put(canvas, sub, x0 + head.width + 26, 64 + ascent_head - ascent_sub + (1 - b) * 20, b * out)
+
+
+def scene_list(kit: Kit, canvas: Image.Image, t: float, start: float, end: float) -> None:
+    out = leave(t, end, 0.3)
+    size = 96
+    typed = int(clamp((t - LIST_TYPE_START) * LIST_CPS, 0, len(LIST_WORD)))
+    cell = kit.font("mono", size).getlength("M")
+    x0 = (W - (2 + len(LIST_WORD)) * cell) / 2
+    alpha = appear(t, start, 0.25) * out
+    put(canvas, kit.text("$", "mono", size, MUTED), x0, 360, alpha)
+    if typed:
+        put(canvas, kit.text(LIST_WORD[:typed], "mono", size, MIST), x0 + 2 * cell, 360, alpha)
+    if typed < len(LIST_WORD) or int(t * 4) % 2 == 0:
+        cursor(canvas, x0 + (2 + typed) * cell, 360, cell, size, alpha)
+    done = LIST_TYPE_START + len(LIST_WORD) / LIST_CPS
+    q = appear(t, done + 0.1, 0.45)
+    text_center(kit, canvas, "Opens the full catalog in one list.", "bold", 68, MIST, 600, q * out, (1 - q) * 24)
 
 
 def scene_feature(kit: Kit, canvas: Image.Image, t: float, name: str, start: float, end: float) -> None:
@@ -341,8 +527,9 @@ def scene_feature(kit: Kit, canvas: Image.Image, t: float, name: str, start: flo
     top = anchor_y - fy * scale - window.pad * scale + (1 - p) * 70
     put(canvas, window.render(t), left, top, p * out, scale)
 
-    head_size, sub_size = 84, 38
     head = spec["head"]
+    widest = max(kit.font("bold", 84).getlength(line) for line in head)
+    head_size, sub_size = min(84, int(84 * CAPTION_WIDTH / widest)), 38
     sub = kit.wrap(spec["sub"], "regular", sub_size, CAPTION_WIDTH)
     head_step, sub_step = 100, 52
     block = len(head) * head_step + 28 + len(sub) * sub_step
@@ -360,14 +547,14 @@ def scene_feature(kit: Kit, canvas: Image.Image, t: float, name: str, start: flo
 
 def scene_outro(kit: Kit, canvas: Image.Image, t: float) -> None:
     out = leave(t, DURATION, 0.5)
-    p = appear(t, 17.6, 0.55)
+    p = appear(t, OUTRO_T + 0.1, 0.55)
     put(canvas, kit.glow, (W - kit.glow.width) / 2, 330 - kit.glow.height / 2, p * 0.35 * out)
     scale = (760 / kit.lockup.width) * (0.94 + 0.06 * p)
     put(canvas, kit.lockup, W / 2 - kit.lockup.width * scale / 2, 330 - kit.lockup.height * scale / 2, p * out, scale)
     lines = (
-        ("Free and open source, for macOS.", "bold", 58, MIST, 560, 17.95),
-        ("aiup.neuman.dev", "bold", 64, CYAN, 670, 18.25),
-        ("github.com/travisjneuman/aiup", "regular", 38, MUTED, 770, 18.45),
+        ("Free and open source, for macOS.", "bold", 58, MIST, 560, OUTRO_T + 0.45),
+        ("aiup.neuman.dev", "bold", 64, CYAN, 670, OUTRO_T + 0.75),
+        ("github.com/travisjneuman/aiup", "regular", 38, MUTED, 770, OUTRO_T + 0.95),
     )
     for value, kind, size, color, y, when in lines:
         q = appear(t, when, 0.45)
@@ -384,6 +571,10 @@ def render(kit: Kit, t: float) -> Image.Image:
                 scene_hook(kit, canvas, t)
             elif name == "reveal":
                 scene_reveal(kit, canvas, t)
+            elif name == "run":
+                scene_run(kit, canvas, t, start, end)
+            elif name == "list":
+                scene_list(kit, canvas, t, start, end)
             elif name == "outro":
                 scene_outro(kit, canvas, t)
             else:
@@ -403,8 +594,7 @@ CHORDS = ((45, (57, 60, 64)), (41, (53, 57, 60)), (48, (55, 60, 64)), (43, (55, 
 
 
 def chord_at(t: float) -> tuple[int, tuple[int, int, int]]:
-    bar = int(t // 2)
-    return CHORDS[0] if bar >= 10 else CHORDS[bar % 4]
+    return CHORDS[0] if t >= OUTRO_T else CHORDS[int(t // 2) % 4]
 
 
 class Bus:
@@ -495,6 +685,8 @@ def typing_times() -> list[float]:
         start = HOOK_START + index * HOOK_STEP
         times += [start + (i + 1) / HOOK_CPS for i in range(len(command))]
     times += [REVEAL_TYPE_START + (i + 1) / REVEAL_CPS for i in range(len(REVEAL_WORD))]
+    times += [RUN_TYPE_START + (i + 1) / RUN_CPS for i in range(len("aiup"))]
+    times += [LIST_TYPE_START + (i + 1) / LIST_CPS for i in range(len(LIST_WORD))]
     return times
 
 
@@ -504,9 +696,9 @@ def build_audio(path: pathlib.Path) -> None:
     music, sfx, send = Bus(length), Bus(length), Bus(length)
 
     # Pad under everything, quieter before the drop.
-    for bar in range(11):
+    for bar in range(int(OUTRO_T // 2) + 1):
         start = bar * 2.0
-        span = DURATION - start + 0.2 if bar == 10 else 2.8
+        span = DURATION - start + 0.2 if start >= OUTRO_T else 2.8
         _, notes = chord_at(start)
         level = 0.9 if start + 1 < DROP_T else 1.0
         tone = pad_tone(notes, span)
@@ -514,13 +706,13 @@ def build_audio(path: pathlib.Path) -> None:
         send.add(start, tone, 0.10 * level)
 
     # Bass on every beat after the drop, then one long root to close.
-    for beat in np.arange(DROP_T, 19.5, BEAT):
+    for beat in np.arange(DROP_T, OUTRO_T + 2.0, BEAT):
         root, _ = chord_at(beat)
         tt = seconds(0.45)
         note = np.sin(2 * math.pi * midi(root) * tt) + 0.3 * np.sin(4 * math.pi * midi(root) * tt)
         music.add(beat, note * np.exp(-tt / 0.22) * np.clip(tt / 0.005, 0, 1), 0.16)
     tt = seconds(1.6)
-    music.add(20.0, np.sin(2 * math.pi * midi(45) * tt) * np.exp(-tt / 0.7) * np.clip(tt / 0.01, 0, 1), 0.2)
+    music.add(OUTRO_T + 2.5, np.sin(2 * math.pi * midi(45) * tt) * np.exp(-tt / 0.7) * np.clip(tt / 0.01, 0, 1), 0.2)
 
     # A soft root pulse on each beat of the hook, so the typing has a groove under it.
     for beat in np.arange(BEAT, DROP_T, BEAT):
@@ -530,7 +722,7 @@ def build_audio(path: pathlib.Path) -> None:
         send.add(beat, tone, 0.04)
 
     # Eighth-note arpeggio from the drop, panned left and right.
-    for step, at in enumerate(np.arange(DROP_T, 20.0, BEAT / 2)):
+    for step, at in enumerate(np.arange(DROP_T, OUTRO_T + 2.5, BEAT / 2)):
         _, (a, b, c) = chord_at(at)
         pattern = (a + 12, b + 12, c + 12, b + 24, c + 12, b + 12, a + 24, c + 12)
         velocity = 1.0 if step % 2 == 0 else 0.7
@@ -540,14 +732,14 @@ def build_audio(path: pathlib.Path) -> None:
         send.add(at, tone, 0.06 * velocity, -pan)
 
     # Drums: kick on the beat, soft clap on 2 and 4, quiet off-beat hats.
-    for beat in np.arange(DROP_T, 19.5, BEAT):
+    for beat in np.arange(DROP_T, OUTRO_T + 2.0, BEAT):
         music.add(beat, kick(1.6 if abs(beat - DROP_T) < 1e-6 else 1.0), 0.32)
-    for beat in np.arange(6.5, 17.5, BEAT):
+    for beat in np.arange(6.5, OUTRO_T, BEAT):
         if round(beat / BEAT) % 2 == 1:
             clap = noise_hit(rng, 0.25, 900, 3500, 0.07)
             music.add(beat, clap, 0.045)
             send.add(beat, clap, 0.05)
-    for beat in np.arange(6.5 + BEAT / 2, 19.5, BEAT):
+    for beat in np.arange(6.5 + BEAT / 2, OUTRO_T + 2.0, BEAT):
         music.add(beat, noise_hit(rng, 0.08, 6000, 15000, 0.018), 0.022, 0.2)
 
     # Typing clicks, kept under the music.
@@ -571,8 +763,19 @@ def build_audio(path: pathlib.Path) -> None:
         sfx.add(cut - 0.42, whoosh, 0.06)
         send.add(cut - 0.42, whoosh, 0.04)
 
+    # A soft tick for each tool on the progress line, then a two-note chime when the report lands.
+    for index in range(len(RUN_TOOLS)):
+        tt = seconds(0.04)
+        tick = np.sin(2 * math.pi * 2600 * tt) * np.exp(-tt / 0.006)
+        sfx.add(RUN_TICK_START + index * RUN_TICK_STEP, tick, 0.018, rng.uniform(-0.2, 0.2))
+    for offset, note in enumerate((76, 81)):
+        chime = bell(note, 1.6)
+        sfx.add(RUN_REPORT_T + offset * 0.12, chime, 0.04)
+        send.add(RUN_REPORT_T + offset * 0.12, chime, 0.05)
+
     # A soft bell on each highlight box, on a tone of the chord under it.
-    pings = [when for spec in FEATURES.values() for when, _, _ in spec["marks"]] + [18.25]
+    pings = [when for spec in FEATURES.values() for when, _, _ in spec["marks"]]
+    pings += [when for when, *_ in RUN_MARKS] + [OUTRO_T + 0.75]
     for when in pings:
         _, (_, _, top) = chord_at(when)
         chime = bell(top + 12, 1.4)
@@ -580,8 +783,8 @@ def build_audio(path: pathlib.Path) -> None:
         send.add(when, chime, 0.05)
     for note in (69, 76, 81):
         chime = bell(note, 2.5)
-        sfx.add(17.6, chime, 0.03)
-        send.add(17.6, chime, 0.05)
+        sfx.add(OUTRO_T + 0.1, chime, 0.03)
+        send.add(OUTRO_T + 0.1, chime, 0.05)
 
     # One shared room for everything, so the effects sit in the same space.
     tail = seconds(1.6)
@@ -596,7 +799,7 @@ def build_audio(path: pathlib.Path) -> None:
     left = music.left + sfx.left + 0.5 * reverb[0]
     right = music.right + sfx.right + 0.5 * reverb[1]
     left, right = band(left, 30, 18000), band(right, 30, 18000)
-    body = slice(int(DROP_T * SR), int(17.5 * SR))
+    body = slice(int(DROP_T * SR), int(OUTRO_T * SR))
     rms = math.sqrt(float(np.mean(((left[body] + right[body]) / 2) ** 2)))
     gain = 0.13 / max(rms, 1e-9)
     stereo = np.stack([left, right]) * gain
@@ -617,7 +820,10 @@ def build_audio(path: pathlib.Path) -> None:
 # ---------------------------------------------------------------- outputs
 
 
-STILL_TIMES = (0.6, 1.8, 3.1, 3.42, 3.9, 4.6, 5.6, 6.6, 7.2, 9.6, 10.62, 12.0, 13.2, 14.1, 15.4, 17.0, 17.7, 18.5, 19.8, 21.3)
+STILL_TIMES = (
+    0.6, 1.8, 3.1, 3.9, 4.6, 5.6, 6.9, 7.3, 8.5, 9.9, 10.8, 12.6,
+    13.9, 14.6, 15.4, 16.6, 18.5, 20.7, 22.5, 24.2, 25.6, 27.5, 28.6, 31.6,
+)
 
 
 def write_stills(kit: Kit, work: pathlib.Path) -> None:

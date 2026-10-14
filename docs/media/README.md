@@ -35,7 +35,8 @@ The six GIF states, 10,780 ms in total:
 6. the collapsed overview again (1,500 ms).
 
 The poster is the same image as the search still. The site and README show it
-only to visitors who ask for reduced motion. The animation runs longer than five
+only to visitors who ask for reduced motion. On the site the GIF sits small under
+the logo, next to the video. The animation runs longer than five
 seconds with no playback control, which is a known WCAG 2.2.2 limitation, so the
 site does not claim full WCAG conformance.
 
@@ -71,30 +72,39 @@ and the capture method.
 
 ## Website video (2026-10-14)
 
-`aiup-brag.mp4` is a 21.5 second video for the homepage. It opens on five
+`aiup-brag.mp4` is a 32 second video for the homepage. It opens on five
 different update commands (`brew upgrade`, an npm install, `uv tool upgrade`,
-`claude update`, `opencode upgrade`), then shows `aiup` and one list for all of
-them. Three short scenes follow, each on a real screenshot from the current
-set: the collapsed list, the Gemini search, and the `[y/N]` prompt. It ends on
-the logo, aiup.neuman.dev and the GitHub address.
+`claude update`, `opencode upgrade`), then shows `aiup` as one command for all
+of them. Next comes a Terminal window running `aiup` and printing its update
+report. Then `aiup list` types out, and three scenes on real screenshots from
+the current set follow: the collapsed list, the Gemini search, and the `[y/N]`
+prompt. It ends on the logo, aiup.neuman.dev and the GitHub address.
 
 `scripts/brag/film.py` draws every frame with Pillow and pipes them to ffmpeg.
 The music and sound effects are made in the same script with numpy, so there
 are no stock or licensed sounds. Its README has the scene plan and settings.
 
+- The run scene is drawn, not recorded, because a real recording would update
+  the recording machine's tools. Its lines are what aiup printed for my real
+  update run on 2026-10-06, taken from that run's JSON log: 122 tools in 149
+  seconds, 7 updated, 1 updated itself, 114 unchanged. The progress line shows
+  the first 25 tools with elapsed times added up from their durations, and the
+  log path is shortened to `~`. [`scripts/brag/README.md`](../../scripts/brag/README.md)
+  has the details.
+- The browse scene says "260+ tools. 20+ categories." The counts are rounded
+  down so they stay true as the catalog grows.
 - 1920×1080, 30 fps, H.264 with AAC audio, `+faststart`. Integrated loudness
   is about -18 LUFS.
-- Frame 0 is the poster frame, so every player shows the same still before you
-  press play. `aiup-brag-poster.jpg` is that frame as a JPEG.
-- The page loads only the poster. The video loads when you press play. It does
-  not autoplay or loop.
-- The counts on screen ("261 tools. 20 categories.") are from 2026-10-14. They
-  will go out of date as the catalog grows.
+- Frame 0 is the poster frame (the finished run report), so every player shows
+  the same still before the video starts. `aiup-brag-poster.jpg` is that frame
+  as a JPEG.
+- The homepage plays it on load, muted, with controls so you can pause it or
+  turn the sound on. It does not loop.
 
 | Asset | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `aiup-brag.mp4` | 2,671,285 | `3714c9ef9ce3d2b5f6a771c14e414de58acb8951ed3a59c7d0ab7bd73bd1c514` |
-| `aiup-brag-poster.jpg` | 188,871 | `d7ed0c940a6e32b46641702496fd8577c0d247975d8cac6f6a481670302e8c4c` |
+| `aiup-brag.mp4` | 3,973,235 | `4627bc63aca7178e75f377a2c0375008136c2d89cf6cedcb30e4c15f09f92ca9` |
+| `aiup-brag-poster.jpg` | 219,920 | `4e7c448b861e7e61a9bab07b550e5e288b86b381840d1fdcf573c4ec5e5953cc` |
 
 ## Capturing again
 

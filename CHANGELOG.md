@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 2026.10.14-02
+
+- New website video, 32 seconds. It now shows both halves of aiup: run `aiup` and it updates every tool it finds plus your Homebrew packages (a Terminal window prints the report from a real update run), and run `aiup list` to browse, search and switch tools. The tool and category counts are rounded down to "260+" and "20+" so the video stays true as the catalog grows.
+- aiup.neuman.dev: the video moved into the main column and plays on load, muted, with controls. It does not loop. The TUI GIF sits small under the logo. `_headers` now allows `autoplay=(self)`.
+
 ## 2026.10.14-01
 
 - Website video: aiup.neuman.dev has a 21.5 second video about aiup, made from the real screenshots with its own music. Only its poster loads with the page; it plays when you press play. `scripts/brag/film.py` renders it, and its README has the scene plan.
