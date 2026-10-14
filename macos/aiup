@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.10.14-03"
+AIUP_VERSION="2026.10.14-04"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -8852,6 +8852,10 @@ with open(sys.argv[1], "rb") as handle:
     handle.seek(int(sys.argv[2]))
     text = handle.read(max(0,int(sys.argv[3])-int(sys.argv[2]))).decode("utf-8", "replace")
 text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+# npm notes that aiup's reviewed --allow-scripts list replaces an allow-scripts
+# line in the user's .npmrc for this one install. Scripts it holds back are
+# still reported by name below, so the notice itself is not a warning.
+text = re.sub(r"(?m)^.*allow-scripts setting is being ignored because --allow-scripts was passed.*\n?", "", text)
 # Only lines that report a warning or error count; a word like "error" inside
 # brew update formula descriptions or other prose does not. aiup log lines
 # start with "[". A keg left unlinked because another version is linked is

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 2026.10.14-04
+
+- An npm tool update no longer gets a "Setup scripts need review" warning just because your `.npmrc` has its own `allow-scripts` line. npm prints a notice that aiup's reviewed list replaces that line for the one install, and aiup read the notice as a warning. Scripts npm actually holds back are still named in the report.
+
 ## 2026.10.14-03
 
 - aiup.neuman.dev: the footer no longer shows the tool count. The repository link now ends with a GitHub icon in the aiup colors, so it reads as a link to GitHub. `scripts/sync-public-docs` no longer writes a count onto the page.
