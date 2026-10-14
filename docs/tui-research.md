@@ -35,7 +35,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 - `ctrl-g` opens a searchable category palette.
 - Explicit view modes now separate `managed`, `detected`, `available`, `installed`, and `overview`.
-- Homebrew available rows remain lazy and load only when the available view is focused. The overview says “full Homebrew catalog not loaded” rather than presenting zero; the explicit view separates 2,000+ `font-*` casks into `homebrew/fonts` and labels the remaining rows as non-managed Homebrew extras.
+- Homebrew available rows remain lazy and load only when the available view is focused. The overview says “full Homebrew catalog not loaded” so it never shows a false zero; the explicit view separates 2,000+ `font-*` casks into `homebrew/fonts` and labels the remaining rows as non-managed Homebrew extras.
 
 ### Explainable maintenance
 

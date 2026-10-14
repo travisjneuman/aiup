@@ -17,6 +17,8 @@ AIUP_NPM_NODE_MODULES="$AIUP_NPM_PREFIX/lib/node_modules"
 OPENCODE_BIN_DIR="${AIUP_OPENCODE_BIN_DIR:-$HOME/.opencode/bin}"
 HERMES_HOME="${AIUP_HERMES_HOME:-$HOME/.hermes/hermes-agent}"
 HERMES_INSTALL_URL="https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh"
+CLAUDE_INSTALL_URL="https://claude.ai/install.sh"
+OPENCODE_INSTALL_URL="https://opencode.ai/install"
 ANTIGRAVITY_INSTALL_URL="https://antigravity.google/cli/install.sh"
 WARP_AGENT_CLI_INSTALL_URL="https://app.warp.dev/download/agent-cli"
 GROK_INSTALL_URL="https://x.ai/cli/install.sh"
@@ -173,6 +175,10 @@ UPDATE_REPORT_LOG_END=0
 UPDATE_REPORT_TOOL_SECONDS=0
 UPDATE_REPORT_COMPLETED=0
 UPDATE_REPORT_WARNINGS=0
+AIUP_CLEANUP_FREED_KB=0
+# Set by brew_prefetch_upgrades for the run; never read from the environment.
+AIUP_CASK_GATE_JSON=''
+AIUP_CASK_GATE_TOKENS=''
 AIUP_LOG_LIMIT="${AIUP_LOG_LIMIT:-20}"
 case "$AIUP_LOG_LIMIT" in [1-9]|[1-9][0-9]|100) ;; *) AIUP_LOG_LIMIT=20 ;; esac
 AIUP_TUI_ACTION_BASE_GENERATION=""
@@ -670,7 +676,11 @@ run_with_heartbeat() {
       if kill -0 "$pid" 2>/dev/null; then
         elapsed=$(( $(date +%s) - start_ts ))
         if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
-          printf '\r\033[2K  [%s/%s] %.24s · %ss elapsed' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$UPDATE_REPORT_CURRENT_TOOL" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+          if [ "$UPDATE_REPORT_COMPLETED" -lt "${#UPDATE_REPORT_TOOLS[@]}" ]; then
+            printf '\r\033[2K  [%s/%s] %.24s · %ss elapsed' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$UPDATE_REPORT_CURRENT_TOOL" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+          else
+            printf '\r\033[2K  %.24s · %ss elapsed' "$UPDATE_REPORT_CURRENT_TOOL" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+          fi
         fi
         info "still working: $label (${elapsed}s elapsed)"
       fi
@@ -712,9 +722,34 @@ run_with_heartbeat_interrupt() {
   sh -c 'kill -s "$1" "$PPID"' sh "$sig"
 }
 
-run_shell_with_heartbeat() {
-  local cmd="$1"
-  run_with_heartbeat "$cmd" bash -lc "$cmd"
+# Runs a vendor's official install script. The script is downloaded over HTTPS
+# only (TLS 1.2 or newer, redirects stay on HTTPS) into a private folder, and an
+# empty or failed download stops here. Piping curl into a shell would run
+# whatever part of a broken download arrived.
+# Usage: run_vendor_installer NAME URL bash|sh [VAR=value...]
+run_vendor_installer() {
+  local name="$1" url="$2" interpreter="$3" dir rc=0
+  shift 3
+  case "$url" in https://?*) ;; *) error "Refusing a non-HTTPS installer URL for $name: $url"; return 1 ;; esac
+  case "$interpreter" in bash|sh) ;; *) error "Unsupported installer interpreter for $name: $interpreter"; return 1 ;; esac
+  if [ "$DRY_RUN" -eq 1 ]; then
+    info "DRY-RUN: run the $name installer from $url"
+    return 0
+  fi
+  [ "$AIUP_INTERRUPTED" -eq 0 ] || return 130
+  [ ! -L "$STATE_DIR/downloads" ] || { error "Refusing a symbolic-link downloads folder"; return 1; }
+  ensure_dir "$STATE_DIR/downloads" || return 1
+  dir="$(mktemp -d "$STATE_DIR/downloads/installer.XXXXXX")" || return 1
+  chmod 700 "$dir" || { rm -rf "$dir"; return 1; }
+  run_with_heartbeat "download the $name installer from $url" curl --proto '=https' --proto-redir '=https' --tlsv1.2 \
+    -fsSL --retry 2 --connect-timeout 15 --max-time 300 -o "$dir/install.sh" "$url" || rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -s "$dir/install.sh" ]; then
+    error "The $name installer download from $url was empty"
+    rc=1
+  fi
+  [ "$rc" -ne 0 ] || run_with_heartbeat "$name installer" env ${1+"$@"} "$interpreter" "$dir/install.sh" || rc=$?
+  rm -rf "$dir"
+  return "$rc"
 }
 
 which_all_unique_list() {
@@ -1320,6 +1355,10 @@ cask_effective_version() {
 cask_update_gate() {
   local tool="$1" cask="$2" raw row='' eligible='' record latest='' bundle='' app='' rel_latest='' name target
   if [ "$DRY_RUN" -eq 1 ] && row="$(cask_bundle_row "$cask")"; then :
+  elif [ -n "${AIUP_CASK_GATE_JSON:-}" ] && [ -f "$AIUP_CASK_GATE_JSON" ] && [[ "${AIUP_CASK_GATE_TOKENS:-}" == *"|${cask##*/}|"* ]]; then
+    # Metadata read for every outdated cask in one call after this run's brew
+    # update; the app bundles are still read now.
+    row="$(cask_bundle_rows "$AIUP_CASK_GATE_JSON" | awk -F '\t' -v name="${cask##*/}" '$1==name {print; exit}')"
   else
     row=''
     ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || true
@@ -1379,8 +1418,18 @@ cask_update_gate() {
 # but not unversioned :latest casks, which have nothing to compare and would
 # otherwise reinstall on every run. Unsupported metadata never skips work.
 brew_target_current() {
-  local kind="$1" target="${2##*/}" raw
+  local kind="$1" target="${2##*/}"
   [ "$AIUP_FORCE" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ] || return 1
+  brew_outdated_snapshot_load
+  [ "$AIUP_BREW_OUTDATED_TARGETS" != unknown ] || return 1
+  case "$AIUP_BREW_OUTDATED_TARGETS" in *"|$kind:$target|"*) return 1 ;; esac
+  return 0
+}
+
+# Sets AIUP_BREW_OUTDATED_TARGETS once per run: "|formula:a|cask:b|", or
+# "unknown" when Homebrew's answer could not be read.
+brew_outdated_snapshot_load() {
+  local raw
   if [ "${AIUP_BREW_OUTDATED_READY:-0}" -eq 0 ]; then
     AIUP_BREW_OUTDATED_READY=1
     AIUP_BREW_OUTDATED_TARGETS='unknown'
@@ -1406,9 +1455,6 @@ PYOUTDATED
     fi
     rm -f "$raw"
   fi
-  [ "$AIUP_BREW_OUTDATED_TARGETS" != unknown ] || return 1
-  case "$AIUP_BREW_OUTDATED_TARGETS" in *"|$kind:$target|"*) return 1 ;; esac
-  return 0
 }
 
 brew_formula_installed() {
@@ -1461,8 +1507,7 @@ scan_friendly_name() {
   local label
   label="$(catalog_label "$tool" 2>/dev/null || true)"
   [ -n "$label" ] || label="$tool"
-  label="${label%% — *}"
-  label="${label%% —*}"
+  label="${label%%: *}"
   printf '%s' "$label"
 }
 
@@ -1625,7 +1670,16 @@ brew_ensure_target_tap() {
   local tool="$1"
   local target="$2"
   local target_kind="$3"
-  local tap remote
+  local tap remote installed=1
+  # An installed package's tap is installed too, and brew_review_installed_taps
+  # trusts each installed tap once per run. Upgrades skip the brew info lookup.
+  if [ -z "$(catalog_brew_tap "$tool")" ]; then
+    case "$target_kind" in
+      formula) brew_formula_installed "${target##*/}" || installed=0 ;;
+      *) brew_cask_installed "${target##*/}" || installed=0 ;;
+    esac
+    if [ "$installed" -eq 1 ]; then brew_review_installed_taps; return $?; fi
+  fi
   tap="$(brew_target_tap "$tool" "$target" "$target_kind")"
   case "$tap" in
     ''|homebrew/core|homebrew/cask|homebrew/bundle|homebrew/services) return 0 ;;
@@ -1853,7 +1907,7 @@ catalog_category_blurb() {
     homebrew/fonts) printf 'Fonts installed via Homebrew, plus available font casks in the full catalog view\n' ;;
     homebrew/formulae) printf 'CLI formulae Homebrew already installed on your Mac\n' ;;
     homebrew/libraries) printf 'Libraries Homebrew already installed on your Mac\n' ;;
-    homebrew/recommended) printf 'Popular extras you can add — aiup does not pass --zap or directly delete ~/Library; Homebrew/vendor behavior can vary\n' ;;
+    homebrew/recommended) printf 'Popular extras you can add. aiup does not pass --zap or directly delete ~/Library; Homebrew/vendor behavior can vary\n' ;;
     homebrew/available) printf 'Formulae and non-font casks available from your installed Homebrew taps\n' ;;
     *) printf '\n' ;;
   esac
@@ -2611,7 +2665,7 @@ format_inventory_display() {
     bar="$(catalog_ansi media)▌${reset}"
   fi
   if [[ "$id" == di:path:* ]]; then
-    source="${label#* — }"
+    source="${label#*: }"
     label="${id#di:path:}"
     path=''
   fi
@@ -3075,7 +3129,7 @@ brew_extra_label() {
     warp-agent-cli) printf 'Warp Agent CLI cask\n' ;;
     coderabbit) printf 'CodeRabbit AI review\n' ;;
     auto-claude) printf 'Auto Claude\n' ;;
-    monet) printf 'Monet — mission control for coding agents\n' ;;
+    monet) printf 'Monet: mission control for coding agents\n' ;;
     ollamac) printf 'Ollamac local chat\n' ;;
     notesollama) printf 'NotesOllama\n' ;;
     insomnia) printf 'Insomnia API client\n' ;;
@@ -3124,7 +3178,7 @@ brew_extra_label() {
     git) printf 'git\n' ;;
     ripgrep) printf 'ripgrep (rg)\n' ;;
     fd) printf 'fd file finder\n' ;;
-    fzf) printf 'fzf fuzzy finder — required interactive catalog\n' ;;
+    fzf) printf 'fzf fuzzy finder: required interactive catalog\n' ;;
     tmux) printf 'tmux\n' ;;
     starship) printf 'Starship prompt\n' ;;
     eza) printf 'eza (ls)\n' ;;
@@ -5212,13 +5266,13 @@ def info(raw):
             if n=='yai' and b'github.com/ekkinox/yai' in b:
                 owner='Yai';desc='AI assistant for terminal commands';guide='Review the upstream release and installation instructions; AIUP has not verified an automatic updater.';docs='https://github.com/ekkinox/yai'
             elif n=='uvx' and (b'uv tool' in b or b'uv_tool' in b or b'astral-sh/uv' in b or b'Could not determine the location of the `uvx` binary' in b):
-                v='helper';owner='Astral uv';desc='Runs Python tools in isolated environments';guide='Companion to uv; update uv rather than this command separately.';docs='https://docs.astral.sh/uv/guides/tools/'
+                v='helper';owner='Astral uv';desc='Runs Python tools in isolated environments';guide='Companion to uv. Update uv; this command does not need a separate update.';docs='https://docs.astral.sh/uv/guides/tools/'
     return v,owner,desc,guide,docs,str(r)
 rows=list(csv.reader(index.read_text().splitlines(),delimiter='\t'))
 for row in rows:
     if len(row)<7 or not row[2].startswith('di:path:'):continue
     values=tuple(clean(v) for v in info(row[6]))
-    if mode=='enrich':row[4]=values[0];row[3]='[path] '+row[2][8:]+' — '+values[2]
+    if mode=='enrich':row[4]=values[0];row[3]='[path] '+row[2][8:]+': '+values[2]
     else:print('\t'.join((row[2],)+values))
 if mode=='enrich':
     with index.open('w') as handle:csv.writer(handle,delimiter='\t',lineterminator='\n').writerows(rows)
@@ -6604,7 +6658,7 @@ update_brew() {
     return 1
   }
   info "Starting Homebrew's official interactive installer (it may request confirmation and administrator authentication)"
-  installer="$(curl -fsSL "$HOMEBREW_INSTALL_URL")" || {
+  installer="$(curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL "$HOMEBREW_INSTALL_URL")" || {
     error "Could not fetch Homebrew's official installer"
     return 1
   }
@@ -6703,11 +6757,11 @@ update_claude() {
       brew_update_once || true
       run_with_heartbeat "brew uninstall --cask claude-code@latest" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall --cask claude-code@latest || true
     fi
-    run_shell_with_heartbeat "curl -fsSL https://claude.ai/install.sh | bash" || return 1
+    run_vendor_installer "Claude Code" "$CLAUDE_INSTALL_URL" bash || return 1
   else
     if ! run_with_heartbeat "claude update" claude update; then
       warn "Claude native self-update failed; falling back to the native installer"
-      run_shell_with_heartbeat "curl -fsSL https://claude.ai/install.sh | bash" || return 1
+      run_vendor_installer "Claude Code" "$CLAUDE_INSTALL_URL" bash || return 1
     fi
   fi
 
@@ -6794,7 +6848,7 @@ update_antigravity() {
       ;;
   esac
 
-  run_shell_with_heartbeat "curl -fsSL $ANTIGRAVITY_INSTALL_URL | bash" || return 1
+  run_vendor_installer "Antigravity CLI" "$ANTIGRAVITY_INSTALL_URL" bash || return 1
   ensure_managed_paths
   [ "$DRY_RUN" -eq 1 ] && return 0
   hash_refresh
@@ -6825,10 +6879,10 @@ update_opencode() {
       if [ -x "$direct" ]; then
         if ! run_with_heartbeat "$direct upgrade --method curl" "$direct" upgrade --method curl; then
           warn "OpenCode self-upgrade failed; falling back to installer refresh"
-          run_shell_with_heartbeat "curl -fsSL https://opencode.ai/install | env XDG_BIN_DIR=\"$LOCAL_BIN\" bash" || return 1
+          run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash XDG_BIN_DIR="$LOCAL_BIN" || return 1
         fi
       else
-        run_shell_with_heartbeat "curl -fsSL https://opencode.ai/install | env XDG_BIN_DIR=\"$LOCAL_BIN\" bash" || return 1
+        run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash XDG_BIN_DIR="$LOCAL_BIN" || return 1
       fi
       ;;
     *)
@@ -6838,7 +6892,7 @@ update_opencode() {
         run_with_heartbeat "brew uninstall opencode" env HOMEBREW_NO_ENV_HINTS=1 brew uninstall opencode || true
       fi
       npm_uninstall_system_pkg_if_distinct opencode-ai || true
-      run_shell_with_heartbeat "curl -fsSL https://opencode.ai/install | env XDG_BIN_DIR=\"$OPENCODE_BIN_DIR\" bash" || return 1
+      run_vendor_installer OpenCode "$OPENCODE_INSTALL_URL" bash XDG_BIN_DIR="$OPENCODE_BIN_DIR" || return 1
       ;;
   esac
 
@@ -6936,12 +6990,12 @@ update_hermes() {
       info "Hermes installer path detected; using built-in self-update"
       if ! run_with_heartbeat "hermes update" hermes update; then
         warn "Hermes self-update failed; falling back to installer refresh"
-        run_shell_with_heartbeat "curl -fsSL $HERMES_INSTALL_URL | bash" || return 1
+        run_vendor_installer Hermes "$HERMES_INSTALL_URL" bash || return 1
       fi
       ;;
     *)
       warn "Installing Hermes via the official installer to $HERMES_HOME"
-      run_shell_with_heartbeat "curl -fsSL $HERMES_INSTALL_URL | bash" || return 1
+      run_vendor_installer Hermes "$HERMES_INSTALL_URL" bash || return 1
       ;;
   esac
 
@@ -7011,7 +7065,7 @@ update_grok() {
   info "Grok detected install method: $method"
   if [ "$method" = 'missing' ] || [ ! -x "$grok_bin" ]; then
     info "Installing Grok Build via the official installer"
-    run_shell_with_heartbeat "curl -fsSL $GROK_INSTALL_URL | bash" || return 1
+    run_vendor_installer "Grok Build" "$GROK_INSTALL_URL" bash || return 1
     [ "$DRY_RUN" -eq 1 ] && return 0
     hash_refresh
     set_state_method grok installer
@@ -7035,7 +7089,7 @@ update_warp() {
   info "Warp Agent CLI detected install method: $method"
   if [ "$method" = 'missing' ]; then
     info "Installing Warp Agent CLI via the official installer"
-    run_shell_with_heartbeat "curl -fsSL $WARP_AGENT_CLI_INSTALL_URL | bash" || return 1
+    run_vendor_installer "Warp Agent CLI" "$WARP_AGENT_CLI_INSTALL_URL" bash || return 1
     [ "$DRY_RUN" -eq 1 ] && return 0
     hash_refresh
     set_state_method warp installer
@@ -7049,7 +7103,7 @@ update_warp() {
       ;;
     *)
       info "Refreshing Warp Agent CLI via the official installer"
-      run_shell_with_heartbeat "curl -fsSL $WARP_AGENT_CLI_INSTALL_URL | bash" || return 1
+      run_vendor_installer "Warp Agent CLI" "$WARP_AGENT_CLI_INSTALL_URL" bash || return 1
       ;;
   esac
   [ "$DRY_RUN" -eq 1 ] && return 0
@@ -7098,7 +7152,7 @@ update_aider() {
     run_with_heartbeat "uv tool upgrade aider-chat" uv tool upgrade aider-chat || \
       run_with_heartbeat "uv tool install --force --python python3.12 aider-chat@latest" uv tool install --force --python python3.12 aider-chat@latest || return 1
   else
-    run_shell_with_heartbeat "curl -LsSf $AIDER_INSTALL_URL | sh" || return 1
+    run_vendor_installer Aider "$AIDER_INSTALL_URL" sh || return 1
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
   hash_refresh
@@ -7124,7 +7178,7 @@ update_goose() {
       run_with_heartbeat "brew install block-goose-cli" env HOMEBREW_NO_ENV_HINTS=1 brew install --yes block-goose-cli || return 1
     fi
   else
-    run_shell_with_heartbeat "curl -fsSL $GOOSE_INSTALL_URL | bash" || return 1
+    run_vendor_installer Goose "$GOOSE_INSTALL_URL" bash || return 1
     recorded=installer
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
@@ -7135,7 +7189,7 @@ update_goose() {
 update_cursor() {
   ensure_managed_paths
   info "Refreshing Cursor Agent CLI via the official installer"
-  run_shell_with_heartbeat "curl -fsS $CURSOR_INSTALL_URL | bash" || return 1
+  run_vendor_installer "Cursor Agent CLI" "$CURSOR_INSTALL_URL" bash || return 1
   [ "$DRY_RUN" -eq 1 ] && return 0
   hash_refresh
   if ! command_exists cursor-agent && [ ! -x "$LOCAL_BIN/cursor-agent" ]; then
@@ -7468,7 +7522,7 @@ update_by_kind() {
         return 0
       fi
       [ -n "$url" ] || { error "No installer URL for $tool"; return 1; }
-      run_shell_with_heartbeat "curl -fsSL $url | bash" || return 1
+      run_vendor_installer "$tool" "$url" bash || return 1
       set_state_method "$tool" installer
       ;;
     uv-tool)
@@ -7747,13 +7801,13 @@ for line in sys.stdin:
 
 cmd_welcome() {
   {
-    printf 'Welcome · maintain your Mac with confidence\tAIUP updates supported installed tools and Homebrew packages. It does not install the entire catalog.\n'
+    printf 'Welcome to aiup\tAIUP updates supported installed tools and Homebrew packages. It does not install the entire catalog.\n'
     printf '1 · Look before changing anything\taiup plan shows intended actions; aiup attention brings problems and next steps together.\n'
     printf '2 · Choose your cleanup preference\tAutomatic: aiup settings cleanup auto. Review first: aiup settings cleanup review. Cleanup finishes Homebrew uninstall for confirmed missing apps; it does not purge personal preferences.\n'
     printf '3 · Run maintenance\taiup updates installed tools. Downloads may be needed and app updaters may ask running apps to close. Save your work first.\n'
     printf '4 · Browse and recover\taiup list browses tools. aiup resume retries unfinished work after interruption. aiup history and aiup cleanup history show saved results.\n'
-    printf 'Make it comfortable\tUse --plain to turn off colors, --show-unchanged for complete results, and aiup settings to review preferences. Status words remain readable without color.\n'
-    printf 'Coverage is explicit\tDetected software is not automatically manageable. aiup owners shows evidence; aiup coverage explains support. No software is removed just because two copies exist.\n'
+    printf 'Display and preferences\tUse --plain to turn off colors, --show-unchanged for complete results, and aiup settings to review preferences. Status words remain readable without color.\n'
+    printf 'What aiup manages\taiup manages catalog tools; detected software is only listed. aiup owners shows ownership and paths, and aiup coverage shows what aiup supports. Finding two copies never makes aiup remove one.\n'
   } | ui_cards 'getting started'
 }
 
@@ -8825,7 +8879,7 @@ print_catalog_contracts() {
   done
 }
 
-# Catalog definition only — no scan of your Mac. Used by the public site/README.
+# Catalog definition only: no scan of your Mac. Used by the public site/README.
 print_catalog_definition() {
   local mode="${1:---json}"
   local tool cat rec
@@ -8951,6 +9005,81 @@ remove_file_if_exists() {
   done
 }
 
+# Move one path to ~/.Trash under a unique aiup- name so it stays recoverable.
+move_to_trash() {
+  local path="$1" leaf target
+  [ -e "$path" ] || [ -L "$path" ] || return 0
+  if [ "$DRY_RUN" -eq 1 ]; then info "DRY-RUN: move to Trash: $path"; return 0; fi
+  ensure_dir "$HOME/.Trash" || return 1
+  leaf="$(basename "$path")"
+  target="$HOME/.Trash/aiup-$(date +%Y%m%d%H%M%S)-$leaf"
+  while [ -e "$target" ] || [ -L "$target" ]; do
+    target="$HOME/.Trash/aiup-$(date +%Y%m%d%H%M%S)-$$-$RANDOM-$leaf"
+  done
+  if mv "$path" "$target"; then
+    info "Moved to Trash: $path"
+  else
+    error "Could not move to Trash: $path"
+    return 1
+  fi
+}
+
+# Settings, sessions and history that removing a tool also takes away.
+# Prints only paths that exist; a path inside one already listed is skipped.
+tool_user_data_paths() {
+  local p listed='|'
+  local -a candidates=()
+  case "$1" in
+    kilo) candidates=("$HOME/.config/kilo" "$HOME/.local/share/kilo" "$HOME/.local/state/kilo" "$HOME/.cache/kilo") ;;
+    gsd2) candidates=("$HOME/.gsd") ;;
+    opencode) candidates=("$HOME/.opencode" "$HOME/.local/share/opencode" "$HOME/.local/state/opencode") ;;
+    hermes) candidates=("$HOME/.hermes" "$HERMES_HOME") ;;
+    warp)
+      candidates=("$HOME/.warp" "$HOME/.warp_cli" \
+        "$HOME/Library/Caches/dev.warp.Warp-Stable" \
+        "$HOME/Library/Logs/warp-cli" \
+        "$HOME/Library/Group Containers/2BBY89MBSN.dev.warp" \
+        "$HOME/Library/Application Scripts/2BBY89MBSN.dev.warp" \
+        "$HOME/Library/Preferences/dev.warp.Warp-Stable.plist" \
+        "$HOME/Library/Preferences/warp.plist")
+      ;;
+    *) return 0 ;;
+  esac
+  for p in "${candidates[@]}"; do
+    [ -e "$p" ] || [ -L "$p" ] || continue
+    case "$listed" in *"|$p|"*) continue ;; esac
+    case "$p" in "$HOME/.hermes/"*) case "$listed" in *"|$HOME/.hermes|"*) continue ;; esac ;; esac
+    listed="${listed}${p}|"
+    printf '%s\n' "$p"
+  done
+}
+
+move_tool_user_data_to_trash() {
+  local path rc=0
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    move_to_trash "$path" || rc=1
+  done < <(tool_user_data_paths "$1")
+  return "$rc"
+}
+
+# Name the data a remove will move to Trash. Returns 1 when there is none.
+remove_user_data_preview() {
+  local tool path found=0
+  for tool in "$@"; do
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      if [ "$found" -eq 0 ]; then
+        printf 'Removing also moves this data (settings, sessions, history) to Trash:\n'
+        found=1
+      fi
+      printf '  %s\t%s\t%s\n' "$tool" "$(du -sh "$path" 2>/dev/null | awk '{print $1}')" "$path"
+    done < <(tool_user_data_paths "$tool")
+  done
+  [ "$found" -eq 1 ] || return 1
+  printf 'It stays recoverable from %s until you empty it.\n' "$HOME/.Trash"
+}
+
 DETECTED_CLEANUP_SEEN='|'
 
 detected_cleanup_add() {
@@ -8961,6 +9090,22 @@ detected_cleanup_add() {
   esac
   DETECTED_CLEANUP_SEEN="${DETECTED_CLEANUP_SEEN}${path}|"
   printf '%s\n' "$path"
+}
+
+# Names that become one ~/Library path component. A bundle id is reverse-DNS
+# characters only; a display name may have spaces but never a slash, a leading
+# dot or a control character.
+cleanup_bundle_id_safe() {
+  case "$1" in
+    ''|.*|*..*) return 1 ;;
+    *[!A-Za-z0-9._-]*) return 1 ;;
+  esac
+}
+
+cleanup_support_name_safe() {
+  case "$1" in
+    ''|.*|*/*|*[[:cntrl:]]*) return 1 ;;
+  esac
 }
 
 detected_cleanup_paths() {
@@ -8982,11 +9127,12 @@ detected_cleanup_paths() {
   DETECTED_CLEANUP_SEEN='|'
   detected_cleanup_add "$app"
   for support_name in "$app_leaf" "$(inventory_item_name "$label")"; do
-    [ -n "$support_name" ] || continue
+    cleanup_support_name_safe "$support_name" || continue
     detected_cleanup_add "$HOME/Library/Application Support/$support_name"
     detected_cleanup_add "$HOME/Library/Caches/$support_name"
     detected_cleanup_add "$HOME/Library/Logs/$support_name"
   done
+  cleanup_bundle_id_safe "$bundle_id" || return 0
   detected_cleanup_add "$HOME/Library/Application Support/$bundle_id"
   detected_cleanup_add "$HOME/Library/Caches/$bundle_id"
   detected_cleanup_add "$HOME/Library/Logs/$bundle_id"
@@ -9046,7 +9192,7 @@ cmd_cleanup_homebrew() {
 }
 
 cmd_cleanup() {
-  local id="${1:-}" apply="${2:-0}" record label version source app name path leaf target
+  local id="${1:-}" apply="${2:-0}" record label version source app name path
   local -a paths=()
   if [ -z "$id" ]; then
     error "usage: aiup cleanup <detected-app-id> [--apply]"
@@ -9103,18 +9249,8 @@ cmd_cleanup() {
     tui_cache_invalidate
     return 0
   }
-  ensure_dir "$HOME/.Trash"
   for path in "${paths[@]}"; do
-    leaf="$(basename "$path")"
-    target="$HOME/.Trash/aiup-$(date +%Y%m%d%H%M%S)-$leaf"
-    while [ -e "$target" ] || [ -L "$target" ]; do
-      target="$HOME/.Trash/aiup-$(date +%Y%m%d%H%M%S)-$$-$leaf"
-    done
-    if mv "$path" "$target"; then
-      info "Moved to Trash: $path"
-    else
-      error "Could not move to Trash: $path"
-    fi
+    move_to_trash "$path" || true
   done
   tui_cache_invalidate
   printf 'Cleanup complete. Files remain recoverable in %s.\n' "$HOME/.Trash"
@@ -9174,7 +9310,7 @@ remove_pi() {
 remove_kilo() {
   remove_aiup_npm_pkg @kilocode/cli
   npm_uninstall_system_pkg_if_distinct @kilocode/cli || true
-  remove_dir_if_exists "$HOME/.config/kilo" "$HOME/.local/share/kilo" "$HOME/.local/state/kilo" "$HOME/.cache/kilo"
+  move_tool_user_data_to_trash kilo
 }
 
 remove_gsd2() {
@@ -9182,28 +9318,23 @@ remove_gsd2() {
   remove_aiup_npm_pkg gsd-pi
   npm_uninstall_system_pkg_if_distinct @opengsd/gsd-pi || true
   npm_uninstall_system_pkg_if_distinct gsd-pi || true
-  remove_dir_if_exists "$HOME/.gsd"
+  move_tool_user_data_to_trash gsd2
 }
 
 remove_opencode() {
   remove_file_if_exists "$LOCAL_BIN/opencode" "$OPENCODE_BIN_DIR/opencode"
   npm_uninstall_system_pkg_if_distinct opencode-ai || true
-  remove_dir_if_exists "$HOME/.opencode" "$HOME/.local/share/opencode" "$HOME/.local/state/opencode"
+  move_tool_user_data_to_trash opencode
 }
 
 remove_hermes() {
   remove_file_if_exists "$LOCAL_BIN/hermes"
-  remove_dir_if_exists "$HOME/.hermes" "$HERMES_HOME"
+  move_tool_user_data_to_trash hermes
 }
 
 remove_warp() {
   remove_file_if_exists "$LOCAL_BIN/warp"
-  remove_dir_if_exists "$HOME/.warp" "$HOME/.warp_cli" \
-    "$HOME/Library/Caches/dev.warp.Warp-Stable" \
-    "$HOME/Library/Logs/warp-cli" \
-    "$HOME/Library/Group Containers/2BBY89MBSN.dev.warp" \
-    "$HOME/Library/Application Scripts/2BBY89MBSN.dev.warp"
-  remove_file_if_exists "$HOME/Library/Preferences/dev.warp.Warp-Stable.plist" "$HOME/Library/Preferences/warp.plist"
+  move_tool_user_data_to_trash warp
 }
 
 remove_copilot() {
@@ -9510,7 +9641,7 @@ pick_catalog_tools() {
   scan_catalog_index "$filter" || return 1
 
   # Selection IDs go to stdout (often a pipe). The UI must use /dev/tty.
-  # Do not test -t 1 — `aiup install` captures this function via process
+  # Do not test -t 1: `aiup install` captures this function via process
   # substitution, so stdout is a pipe even in a real terminal.
   if ! tty_usable; then
     error "aiup $mode needs a controlling terminal (/dev/tty)"
@@ -9997,6 +10128,7 @@ apply_catalog_action() {
         fi
       fi
       [ "${#to_remove[@]}" -gt 0 ] || return 0
+      remove_user_data_preview "${to_remove[@]}" || true
       if ! confirm_tty "Uninstall ${to_remove[*]}? [y/N] "; then
         info "Uninstall cancelled"
         tui_cache_invalidate
@@ -10291,18 +10423,28 @@ cmd_explain() {
 }
 
 cmd_remove_named() {
-  local resolved tool
+  local resolved tool rc=0
+  local -a named=()
   resolved="$(resolve_tools "$@")" || return 1
-  ensure_managed_paths
   while IFS= read -r tool; do
-    [ -n "$tool" ] || continue
+    [ -n "$tool" ] && named+=("$tool")
+  done <<< "$resolved"
+  [ "${#named[@]}" -gt 0 ] || return 1
+  if remove_user_data_preview "${named[@]}" && [ "$DRY_RUN" -ne 1 ] &&
+    ! confirm_tty "Uninstall ${named[*]} and move that data to Trash? [y/N] "; then
+    info "Uninstall cancelled; nothing changed"
+    return 1
+  fi
+  ensure_managed_paths
+  for tool in "${named[@]}"; do
     if [ "$tool" = 'npm' ]; then
-      remove_npm
+      remove_npm || rc=1
       continue
     fi
-    run_tool_remove "$tool" || true
-  done <<< "$resolved"
+    run_tool_remove "$tool" || rc=1
+  done
   print_summary_versions
+  return "$rc"
 }
 
 usage() {
@@ -10492,6 +10634,166 @@ update_tool_confirmed_current() {
   esac
 }
 
+# One download pass for the Homebrew upgrades still ahead in this run. Homebrew
+# downloads several packages at once when one command names them; each tool's
+# own upgrade then installs from Homebrew's cache. Casks the gate would skip
+# (self-updated or open apps) are not downloaded. A failure here only means
+# those upgrades download for themselves.
+brew_prefetch_upgrades() {
+  [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ "$AIUP_FORCE" -eq 0 ] || return 0
+  [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ] && [ "${AIUP_BREW_PREFETCH:-1}" != 0 ] || return 0
+  command_exists brew || return 0
+  brew_outdated_snapshot_load
+  case "$AIUP_BREW_OUTDATED_TARGETS" in unknown|'||') return 0 ;; esac
+  local tool kind target policy raw i label
+  local -a formulae=() casks=() cask_tools=() fetch_casks=()
+  for tool in "$@"; do
+    case "$AIUP_REQUIRED_UPDATED" in *"|$tool|"*) continue ;; esac
+    kind="$(catalog_kind "$tool")"
+    case "$tool:$kind" in
+      bf:*|bc:*) ;;
+      npm:*) kind=brew-formula ;;
+      *:brew-formula|*:brew-cask) ! type "update_$tool" >/dev/null 2>&1 || continue ;;
+      *) continue ;;
+    esac
+    policy="$(policy_reason "$tool" 2>/dev/null)" && [ -z "$policy" ] || continue
+    if [ "$kind" = brew-formula ]; then
+      # Homebrew's node formula provides npm.
+      if [ "$tool" = npm ]; then target=node; else target="$(catalog_brew_formula "$tool")"; target="${target##*/}"; fi
+      [ -n "$target" ] && brew_formula_installed "$target" || continue
+      case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:$target|"*) formulae+=("$target") ;; esac
+    else
+      ! brew_moved_app_for_tool "$tool" >/dev/null && ! brew_missing_app_for_tool "$tool" >/dev/null || continue
+      target="$(catalog_brew_cask "$tool")"; target="${target##*/}"
+      [ -n "$target" ] && brew_cask_installed "$target" || continue
+      case "$AIUP_BREW_OUTDATED_TARGETS" in *"|cask:$target|"*) casks+=("$target"); cask_tools+=("$tool") ;; esac
+    fi
+  done
+  if [ "${#casks[@]}" -gt 0 ]; then
+    # One metadata read for every outdated cask; cask_update_gate reuses it.
+    ensure_dir "$AVAILABLE_VERSION_CACHE_DIR" || true
+    if raw="$(mktemp "$AVAILABLE_VERSION_CACHE_DIR/.cask-gate.XXXXXX" 2>/dev/null)"; then
+      if AIUP_PROVIDER_MAX_BYTES=8388608 bounded_provider_capture "$raw" "$AIUP_RUN_PROVIDER_TIMEOUT" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew info --json=v2 --cask "${casks[@]}"; then
+        AIUP_CASK_GATE_JSON="$raw"
+        AIUP_CASK_GATE_TOKENS="|$(IFS='|'; printf '%s' "${casks[*]}")|"
+        for ((i=0; i<${#casks[@]}; i++)); do
+          ( cask_update_gate "${cask_tools[$i]}" "${casks[$i]}" ) >/dev/null 2>&1 || fetch_casks+=("${casks[$i]}")
+        done
+      else
+        rm -f "$raw"
+      fi
+    fi
+  fi
+  [ $(( ${#formulae[@]} + ${#fetch_casks[@]} )) -gt 0 ] || return 0
+  label="Homebrew downloads ($(( ${#formulae[@]} + ${#fetch_casks[@]} )))"
+  UPDATE_REPORT_CURRENT_TOOL="$label"
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then
+    printf '\r\033[2K  [%s/%s] %s · %ss elapsed' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$label" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+  else
+    printf '  %s\n' "$label" >&4
+  fi
+  if [ "${#formulae[@]}" -gt 0 ]; then
+    run_with_heartbeat "brew fetch ${formulae[*]}" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew fetch --formula "${formulae[@]}" || true
+  fi
+  if [ "${#fetch_casks[@]}" -gt 0 ] && [ "$AIUP_INTERRUPTED" -eq 0 ]; then
+    run_with_heartbeat "brew fetch --cask ${fetch_casks[*]}" env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew fetch --cask "${fetch_casks[@]}" || true
+  fi
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then printf '\r\033[2K' >&4; fi
+  return 0
+}
+
+# Prints a writable cache directory, or fails for a relative path, the home or
+# root directory, a symbolic link, or a missing folder.
+cleanup_cache_dir() {
+  local dir="${1%/}"
+  case "$dir" in /*) ;; *) return 1 ;; esac
+  [ "$dir" != "$HOME" ] && [ -n "$dir" ] && [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
+  printf '%s\n' "$dir"
+}
+
+cleanup_size_kb() {
+  local path
+  local -a existing=()
+  for path in "$@"; do [ ! -e "$path" ] || existing+=("$path"); done
+  [ "${#existing[@]}" -gt 0 ] || { printf '0\n'; return 0; }
+  du -sk "${existing[@]}" 2>/dev/null | awk '{s += $1} END {print s + 0}'
+}
+
+# After an update run, remove what updates leave behind: Homebrew's downloads,
+# old versions and logs, the npm download cache and logs, and the uv cache.
+# Installed tools, npx's package folder and aiup's run history stay. A cache
+# another running Homebrew, npm or uv process may be using is left alone.
+# AIUP_CLEANUP_CACHES=0 turns this off. Sets AIUP_CLEANUP_FREED_KB.
+post_update_cleanup() {
+  AIUP_CLEANUP_FREED_KB=0
+  [ "${AIUP_CLEANUP_CACHES:-1}" != 0 ] && [ "$DRY_RUN" -eq 0 ] && [ "$AIUP_INTERRUPTED" -eq 0 ] || return 0
+  local brew_cache='' brew_logs='' npm_cache='' uv_cache='' before after
+  local -a paths=()
+  if command_exists brew && ! pgrep -qf 'Library/Homebrew/brew\.rb' 2>/dev/null; then
+    brew_cache="$(cleanup_cache_dir "$(env HOMEBREW_NO_ENV_HINTS=1 brew --cache 2>/dev/null)")" || brew_cache=''
+    [ -z "$brew_cache" ] || [ ! -L "$brew_cache/downloads" ] || brew_cache=''
+    brew_logs="$(cleanup_cache_dir "${HOMEBREW_LOGS:-$HOME/Library/Logs/Homebrew}")" || brew_logs=''
+    [ -z "$brew_cache" ] || paths+=("$brew_cache/downloads")
+    [ -z "$brew_logs" ] || paths+=("$brew_logs")
+  fi
+  if command_exists npm && ! pgrep -qf 'npm-cli\.js|/bin/npm( |$)' 2>/dev/null; then
+    npm_cache="$(cleanup_cache_dir "$(npm config get cache 2>/dev/null)")" || npm_cache=''
+    [ -z "$npm_cache" ] || paths+=("$npm_cache/_cacache" "$npm_cache/_logs")
+  fi
+  if command_exists uv; then
+    uv_cache="$(cleanup_cache_dir "$(uv cache dir 2>/dev/null)")" || uv_cache=''
+    [ -z "$uv_cache" ] || paths+=("$uv_cache")
+  fi
+  [ "${#paths[@]}" -gt 0 ] || return 0
+  before="$(cleanup_size_kb "${paths[@]}")"
+  [ "${before:-0}" -gt 1024 ] || return 0
+  UPDATE_REPORT_CURRENT_TOOL="Cleaning up caches"
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then
+    printf '\r\033[2K  Cleaning up caches · %ss elapsed' "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+  fi
+  info "========== CLEANUP START =========="
+  if [ -n "$brew_cache$brew_logs" ]; then
+    run_with_heartbeat "brew cleanup --prune=all -s" env HOMEBREW_NO_ENV_HINTS=1 brew cleanup --prune=all -s || true
+    # brew cleanup keeps the downloads of installed versions. Delete them too,
+    # never an unfinished download, then the links that pointed at them.
+    if [ -n "$brew_cache" ] && [ "$AIUP_INTERRUPTED" -eq 0 ] && [ -d "$brew_cache/downloads" ]; then
+      find "$brew_cache/downloads" -mindepth 1 -maxdepth 1 -type f ! -name '*.incomplete' -delete 2>/dev/null || true
+      find "$brew_cache" -mindepth 1 -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null || true
+      [ ! -d "$brew_cache/Cask" ] || [ -L "$brew_cache/Cask" ] || \
+        find "$brew_cache/Cask" -mindepth 1 -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null || true
+    fi
+  fi
+  if [ -n "$npm_cache" ] && [ "$AIUP_INTERRUPTED" -eq 0 ]; then
+    run_with_heartbeat "npm cache clean" npm cache clean --force --loglevel=error || true
+    [ ! -d "$npm_cache/_logs" ] || [ -L "$npm_cache/_logs" ] || \
+      find "$npm_cache/_logs" -mindepth 1 -maxdepth 1 -type f -name '*.log' -delete 2>/dev/null || true
+  fi
+  if [ -n "$uv_cache" ] && [ "$AIUP_INTERRUPTED" -eq 0 ]; then
+    # A running uv or uvx command may use cached files; then only drop unused ones.
+    if pgrep -qx 'uvx?' 2>/dev/null; then
+      run_with_heartbeat "uv cache prune" uv cache prune || true
+    else
+      run_with_heartbeat "uv cache clean" uv cache clean || true
+    fi
+  fi
+  after="$(cleanup_size_kb "${paths[@]}")"
+  [ "${after:-0}" -lt "$before" ] && AIUP_CLEANUP_FREED_KB=$((before - after))
+  info "========== CLEANUP DONE: freed ${AIUP_CLEANUP_FREED_KB} KB =========="
+  if [ -t 4 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -z "${NO_COLOR:-}" ]; then printf '\r\033[2K' >&4; fi
+  return 0
+}
+
+post_update_cleanup_line() {
+  [ "${AIUP_CLEANUP_FREED_KB:-0}" -ge 1024 ] || return 0
+  local size
+  size="$(awk -v k="$AIUP_CLEANUP_FREED_KB" 'BEGIN { if (k >= 1048576) printf "%.1f GB", k / 1048576; else printf "%d MB", k / 1024 }')"
+  if [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
+    printf '\033[38;5;245m  Freed %s of download caches · AIUP_CLEANUP_CACHES=0 keeps them\033[0m\n' "$size" >&4
+  else
+    printf '  Freed %s of download caches · AIUP_CLEANUP_CACHES=0 keeps them\n' "$size" >&4
+  fi
+}
+
 update_installed_brew_extra() {
   local tool="$1" name="${1#*:}"
   tool_is_present "$tool" || { update_status_set skipped; UPDATE_REPORT_NOTE='No longer installed through Homebrew'; return 0; }
@@ -10532,16 +10834,34 @@ main_update() {
   ensure_catalog_deps "${tools[@]}" || return 1
   # With a report, Ctrl-C stops after the current tool and still prints the
   # results; tools not reached stay pending for aiup resume.
-  local saved_traps=''
+  local saved_traps='' index=0 prefetched=0 sink
   if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
     saved_traps="$(trap -p INT TERM HUP)"
     trap 'AIUP_INTERRUPTED=1' INT TERM HUP
   fi
   for tool in "${tools[@]}"; do
+    index=$((index + 1))
     [ "$AIUP_INTERRUPTED" -eq 0 ] || break
     case "$AIUP_REQUIRED_UPDATED" in
       *"|$tool|"*) continue ;;
     esac
+    # Once this run's brew update has happened, download the remaining
+    # Homebrew upgrades together before the per-tool upgrades start.
+    if [ "$prefetched" -eq 0 ] && [ -n "${_AIUP_BREW_UPDATED:-}" ] && [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
+      prefetched=1
+      if [ "$AIUP_VERBOSE" -eq 1 ]; then
+        exec 5> >(tee -a "$UPDATE_REPORT_LOG")
+        sink=$!
+        UPDATE_REPORT_CAPTURING=1
+        brew_prefetch_upgrades "${tools[@]:$((index - 1))}" >&5 2>&1 || true
+        exec 5>&-
+        wait "$sink" 2>/dev/null || true
+        UPDATE_REPORT_CAPTURING=0
+      else
+        brew_prefetch_upgrades "${tools[@]:$((index - 1))}" >> "$UPDATE_REPORT_LOG" 2>&1 || true
+      fi
+      [ "$AIUP_INTERRUPTED" -eq 0 ] || break
+    fi
     if should_skip_install_for_missing "$tool"; then
       result_record skipped "$tool"
       if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then update_report_record "$tool" skipped; fi
@@ -10549,13 +10869,17 @@ main_update() {
     fi
     run_tool_update "$tool" || true
   done
+  [ -z "$AIUP_CASK_GATE_JSON" ] || rm -f "$AIUP_CASK_GATE_JSON"
+  AIUP_CASK_GATE_JSON=''
+  AIUP_CASK_GATE_TOKENS=''
   if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
+    [ "$UPDATE_REPORT_MODE" != update ] || post_update_cleanup >> "$UPDATE_REPORT_LOG" 2>&1 || true
     trap - INT TERM HUP
     [ -z "$saved_traps" ] || eval "$saved_traps"
   fi
   brew_cache_invalidate
   if [ "${AIUP_KEEP_UI:-0}" != 1 ]; then
-    if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then print_update_report
+    if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then print_update_report; post_update_cleanup_line
     else print_result_summary; print_summary_versions; fi
   fi
   [ "$AIUP_INTERRUPTED" -eq 0 ] || return 130
@@ -10913,6 +11237,8 @@ state_sweep_stale_temporaries() {
   find "$STATE_DIR" -maxdepth 1 -type d -name '.inventory.*' -mmin +60 -exec rm -rf {} + 2>/dev/null || true
   [ ! -d "$AVAILABLE_VERSION_CACHE_DIR" ] || [ -L "$AVAILABLE_VERSION_CACHE_DIR" ] || \
     find "$AVAILABLE_VERSION_CACHE_DIR" -maxdepth 1 -type f -name '.*' -mmin +60 -exec rm -f {} + 2>/dev/null || true
+  [ ! -d "$STATE_DIR/downloads" ] || [ -L "$STATE_DIR/downloads" ] || \
+    find "$STATE_DIR/downloads" -mindepth 1 -maxdepth 1 -type d -name 'installer.*' -mmin +60 -exec rm -rf {} + 2>/dev/null || true
   [ ! -d "$STATE_DIR/downloads/screenpipe" ] || [ -L "$STATE_DIR/downloads/screenpipe" ] || \
     find "$STATE_DIR/downloads/screenpipe" -mindepth 1 -maxdepth 1 -mmin +60 \( -name 'screenpipe-*.dmg' -o -name 'staged-*' -o -name 'mount-*' \) \
       -exec sh -c 'for d; do [ -d "$d" ] && { rmdir "$d" 2>/dev/null || case "$d" in */staged-*) rm -rf "$d" ;; esac; } || rm -f "$d"; done' sh {} + 2>/dev/null || true

@@ -139,4 +139,4 @@ Contract abbreviations:
 - Local-model and desktop products may require downloads far larger than the installer; aiup does not download model files merely by auditing or listing them.
 - No authenticated product flows, paid entitlements, first-run onboarding, or real software mutations were exercised. Those remain vendor/user acceptance lanes, separate from this source-and-metadata audit.
 
-Future catalog maintenance should rerun the primary-source checks, the executable contract report, generated-surface synchronization, and misleading-claim scan together. Unverifiable entries should be weakened or removed, not carried forward on reputation.
+Future catalog maintenance should rerun the primary-source checks, the executable contract report, generated-file sync, and misleading-claim scan together. Unverifiable entries should be weakened or removed, not carried forward on reputation.

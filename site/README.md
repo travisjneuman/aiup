@@ -6,7 +6,7 @@ Do not publish it directly with Wrangler.
 
 ## Architecture and content ownership
 
-The homepage is deliberately a minimal GitHub-first stage:
+The homepage is intentionally minimal and points to GitHub:
 
 - `index.html` presents the aiup lockup, the continuously looping TUI animation, its
   reduced-motion poster, one GitHub repository destination, and an exported
@@ -22,8 +22,8 @@ The homepage is deliberately a minimal GitHub-first stage:
   security, and routing behavior;
 - `404.html` provides the static noindex recovery page.
 
-`README.md` is the public explanatory destination for installation, product
-behavior, catalog scope, lifecycle, and safety. `scripts/sync-public-docs`
+`README.md` is where installation, product behavior, catalog scope, lifecycle,
+and safety are explained. `scripts/sync-public-docs`
 generates README/catalog documentation, `site/catalog.json`, the Catalog tools
 metric in `showcase.json`, and site JSON-LD, social alt catalog context, `llms.txt`,
 and the small visible catalog total from one local JSON export. It does not add

@@ -18,7 +18,7 @@ AIUP reads local package metadata, app bundles, installer receipts, resolved exe
 | `uvx` | uv's Python-tool launcher | Update uv. [uv tools guide](https://docs.astral.sh/uv/guides/tools/). |
 | `vp` | Vite+ development toolchain | Follow the owning Vite+ installation. [Vite+](https://viteplus.dev/). |
 | `yai` | AI terminal assistant | Its embedded module identity identifies the project; no automatic updater is assumed. [Yai repository](https://github.com/ekkinox/yai). |
-| `agent` resolving into Grok | Alternate Grok entrypoint | Maintain Grok rather than a second tool. |
+| `agent` resolving into Grok | Alternate Grok entrypoint | Update Grok itself. This is not a separate tool. |
 | `aiup`, `npm-update` | Updater launcher and shortcut | Maintain AIUP; the shortcut has no independent version. |
 | `repo_sync.py`, `t3code-pi-acp` | Local source-managed integrations | Maintain their owning repositories or integration files. |
 | `rz0`, `rz0-updater` | Locally registered Cargo packages | The registration supplies a version, not proof that a binary has never been replaced. |

@@ -1,12 +1,12 @@
 # aiup managed catalog manifest
 # aiup-runtime-version: 2026.09.29-06
 # id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
-brew	infra	special	active	Homebrew — required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
+brew	infra	special	active	Homebrew: required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node
-uv	infra	curl-installer	active	Astral uv/uvx — Python toolchain (also installs the uv-tool items)	https://github.com/astral-sh/uv
-fzf	infra	brew-formula	active	fzf fuzzy finder — required interactive catalog	https://github.com/junegunn/fzf	fzf
+uv	infra	curl-installer	active	Astral uv/uvx: Python toolchain (also installs the uv-tool items)	https://github.com/astral-sh/uv
+fzf	infra	brew-formula	active	fzf fuzzy finder: required interactive catalog	https://github.com/junegunn/fzf	fzf
 gh	dev-utils	brew-formula	active	GitHub CLI	https://github.com/cli/cli	gh
-wrangler	dev-utils	aiup-npm	active	Cloudflare Workers CLI — official npm package (wrangler)	https://github.com/cloudflare/workers-sdk	wrangler
+wrangler	dev-utils	aiup-npm	active	Cloudflare Workers CLI: official npm package (wrangler)	https://github.com/cloudflare/workers-sdk	wrangler
 deno	infra	brew-formula	active	Deno runtime	https://github.com/denoland/deno	deno
 bun	infra	brew-formula	active	Bun JavaScript runtime, bundler, test runner, and package manager	https://bun.com/	bun
 pnpm	infra	aiup-npm	active	pnpm fast, disk-efficient JavaScript package manager (official npm package)	https://pnpm.io/	pnpm
@@ -17,39 +17,39 @@ fd	dev-utils	brew-formula	active	fd fast, user-friendly find replacement	https:/
 just	dev-utils	brew-formula	active	just project command runner	https://just.systems/	just
 shellcheck	dev-utils	brew-formula	active	ShellCheck shell-script static analyzer	https://www.shellcheck.net/	shellcheck
 actionlint	dev-utils	brew-formula	active	actionlint GitHub Actions workflow checker	https://rhysd.github.io/actionlint/	actionlint
-claude	coding-agents	special	active	Claude Code — Anthropic native CLI	https://github.com/anthropics/claude-code
-copilot	coding-agents	special	active	GitHub Copilot CLI — @github/copilot	https://github.com/github/copilot-cli
-codex	coding-agents	special	active	OpenAI Codex CLI — @openai/codex	https://github.com/openai/codex
+claude	coding-agents	special	active	Claude Code: Anthropic native CLI	https://github.com/anthropics/claude-code
+copilot	coding-agents	special	active	GitHub Copilot CLI: @github/copilot	https://github.com/github/copilot-cli
+codex	coding-agents	special	active	OpenAI Codex CLI: @openai/codex	https://github.com/openai/codex
 antigravity	coding-agents	special	active	Google Antigravity CLI (agy)	https://antigravity.google/
-grok	coding-agents	special	active	Grok Build — xAI official CLI	https://x.ai/build
-gemini	coding-agents	special	active	Google Gemini CLI — official npm package (macOS 15+)	https://github.com/google-gemini/gemini-cli
-pi	coding-agents	special	active	Pi coding agent — @earendil-works/pi-coding-agent	https://github.com/earendil-works/pi
-kilo	coding-agents	special	active	Kilo Code CLI — @kilocode/cli	https://github.com/Kilo-Org/kilocode
-gsd2	coding-agents	special	active	GSD (gsd-pi) — @opengsd/gsd-pi	https://github.com/open-gsd/gsd-pi
-opencode	coding-agents	special	active	OpenCode — official installer	https://github.com/anomalyco/opencode
-hermes	automation	special	active	Hermes Agent — Nous Research	https://github.com/NousResearch/hermes-agent
+grok	coding-agents	special	active	Grok Build: xAI official CLI	https://x.ai/build
+gemini	coding-agents	special	active	Google Gemini CLI: official npm package (macOS 15+)	https://github.com/google-gemini/gemini-cli
+pi	coding-agents	special	active	Pi coding agent: @earendil-works/pi-coding-agent	https://github.com/earendil-works/pi
+kilo	coding-agents	special	active	Kilo Code CLI: @kilocode/cli	https://github.com/Kilo-Org/kilocode
+gsd2	coding-agents	special	active	GSD (gsd-pi): @opengsd/gsd-pi	https://github.com/open-gsd/gsd-pi
+opencode	coding-agents	special	active	OpenCode: official installer	https://github.com/anomalyco/opencode
+hermes	automation	special	active	Hermes Agent: Nous Research	https://github.com/NousResearch/hermes-agent
 warp	coding-agents	special	active	Warp Agent CLI (warp / Oz TUI)	https://github.com/warpdotdev/warp
-aider	coding-agents	special	active	Aider — git-native pair programming CLI	https://github.com/Aider-AI/aider
-goose	coding-agents	special	active	Goose — open-source agent CLI	https://github.com/aaif-goose/goose
+aider	coding-agents	special	active	Aider: git-native pair programming CLI	https://github.com/Aider-AI/aider
+goose	coding-agents	special	active	Goose: open-source agent CLI	https://github.com/aaif-goose/goose
 cursor	coding-agents	special	active	Cursor Agent CLI (cursor-agent / cursor-cli cask)	https://cursor.com/docs/cli/overview
-qwen	coding-agents	special	active	Qwen Code — @qwen-code/qwen-code	https://github.com/QwenLM/qwen-code
-crush	coding-agents	aiup-npm	active	Crush — Charm agentic TUI (@charmland/crush)	https://github.com/charmbracelet/crush	@charmland/crush
-amp	coding-agents	curl-installer	active	Amp — Sourcegraph frontier coding agent	https://ampcode.com/
-kiro	coding-agents	brew-cask	active	Kiro CLI — Amazon Q Developer CLI successor	https://kiro.dev/docs/cli/	kiro-cli
-droid	coding-agents	curl-installer	active	Factory Droid — Factory.ai coding agent	https://github.com/Factory-AI/factory
-kimi	coding-agents	brew-formula	active	Kimi Code CLI — Moonshot (kimi-code)	https://github.com/MoonshotAI/kimi-code	kimi-code
-openclaw	automation	brew-formula	active	OpenClaw — personal/local AI assistant CLI	https://github.com/openclaw/openclaw	openclaw-cli
-cline	coding-agents	aiup-npm	active	Cline CLI — npm cline	https://github.com/cline/cline	cline
+qwen	coding-agents	special	active	Qwen Code: @qwen-code/qwen-code	https://github.com/QwenLM/qwen-code
+crush	coding-agents	aiup-npm	active	Crush: Charm agentic TUI (@charmland/crush)	https://github.com/charmbracelet/crush	@charmland/crush
+amp	coding-agents	curl-installer	active	Amp: Sourcegraph frontier coding agent	https://ampcode.com/
+kiro	coding-agents	brew-cask	active	Kiro CLI: Amazon Q Developer CLI successor	https://kiro.dev/docs/cli/	kiro-cli
+droid	coding-agents	curl-installer	active	Factory Droid: Factory.ai coding agent	https://github.com/Factory-AI/factory
+kimi	coding-agents	brew-formula	active	Kimi Code CLI: Moonshot (kimi-code)	https://github.com/MoonshotAI/kimi-code	kimi-code
+openclaw	automation	brew-formula	active	OpenClaw: personal/local AI assistant CLI	https://github.com/openclaw/openclaw	openclaw-cli
+cline	coding-agents	aiup-npm	active	Cline CLI: npm cline	https://github.com/cline/cline	cline
 pi-acp	adapters	aiup-npm	active	Pi ACP adapter (pi-acp) for T3 Code / editors	https://www.npmjs.com/package/pi-acp	pi-acp
-llm	llm-utils	brew-formula	active	llm — Simon Willison Unix LLM CLI	https://github.com/simonw/llm	llm
-fabric	llm-utils	brew-formula	active	fabric-ai — Daniel Miessler prompt-pattern CLI	https://github.com/danielmiessler/Fabric	fabric-ai
+llm	llm-utils	brew-formula	active	llm: Simon Willison Unix LLM CLI	https://github.com/simonw/llm	llm
+fabric	llm-utils	brew-formula	active	fabric-ai: Daniel Miessler prompt-pattern CLI	https://github.com/danielmiessler/Fabric	fabric-ai
 sgpt	llm-utils	uv-tool	active	shell-gpt (sgpt) via uv	https://github.com/TheR1D/shell_gpt	shell-gpt
 ollama	local-ai	brew-formula	active	Ollama local-model CLI	https://github.com/ollama/ollama	ollama
-lm-studio	local-ai	brew-cask	active	LM Studio — local LLM desktop app	https://lmstudio.ai/	lm-studio
-jan	local-ai	brew-cask	active	Jan — local ChatGPT-style app	https://github.com/janhq/jan	jan
-anythingllm	local-ai	brew-cask	active	AnythingLLM — private local RAG/chat app	https://github.com/Mintplex-Labs/anything-llm	anythingllm
-mlx	local-ai	brew-formula	active	MLX — Apple Silicon engine for running local AI (not a chat app)	https://github.com/ml-explore/mlx	mlx
-mlx-lm	local-ai	brew-formula	active	mlx-lm — chat/generate/serve local LLMs on Apple Silicon using MLX	https://github.com/ml-explore/mlx-lm	mlx-lm
+lm-studio	local-ai	brew-cask	active	LM Studio: local LLM desktop app	https://lmstudio.ai/	lm-studio
+jan	local-ai	brew-cask	active	Jan: local ChatGPT-style app	https://github.com/janhq/jan	jan
+anythingllm	local-ai	brew-cask	active	AnythingLLM: private local RAG/chat app	https://github.com/Mintplex-Labs/anything-llm	anythingllm
+mlx	local-ai	brew-formula	active	MLX: Apple Silicon engine for running local AI (not a chat app)	https://github.com/ml-explore/mlx	mlx
+mlx-lm	local-ai	brew-formula	active	mlx-lm: chat/generate/serve local LLMs on Apple Silicon using MLX	https://github.com/ml-explore/mlx-lm	mlx-lm
 chatgpt	chat	brew-cask	active	ChatGPT desktop app (Homebrew cask)	https://chatgpt.com/	chatgpt
 claude-app	chat	brew-cask	active	Claude desktop app (not Claude Code CLI)	https://claude.com/download	claude
 copilot-app	chat	brew-cask	active	GitHub Copilot native desktop app	https://github.com/github/app	github-copilot-app
@@ -59,76 +59,76 @@ vscode-insiders	editors	brew-cask	active	VS Code Insiders	https://code.visualstu
 cursor-ide	editors	brew-cask	active	Cursor IDE app (Homebrew cask)	https://cursor.com/	cursor
 zed	editors	brew-cask	active	Zed editor app (Homebrew cask)	https://github.com/zed-industries/zed	zed
 antigravity-ide	editors	brew-cask	active	Google Antigravity IDE	https://antigravity.google/product/antigravity-ide	antigravity-ide
-t3-code	workspaces	brew-cask	active	T3 Code — desktop hub that drives Codex/Claude/Grok/OpenCode	https://github.com/pingdotgg/t3code	t3-code
-t3-nightly	workspaces	brew-cask	active	T3 Code Nightly — desktop hub (nightly build)	https://github.com/pingdotgg/t3code	t3-code@nightly
-grokbot	automation	brew-cask	active	Grok Bot — xAI teammates that work across your apps	https://x.ai/bot	grok-bot
+t3-code	workspaces	brew-cask	active	T3 Code: desktop hub that drives Codex/Claude/Grok/OpenCode	https://github.com/pingdotgg/t3code	t3-code
+t3-nightly	workspaces	brew-cask	active	T3 Code Nightly: desktop hub (nightly build)	https://github.com/pingdotgg/t3code	t3-code@nightly
+grokbot	automation	brew-cask	active	Grok Bot: xAI teammates that work across your apps	https://x.ai/bot	grok-bot
 opencode-desktop	workspaces	brew-cask	active	OpenCode desktop client	https://opencode.ai/	opencode-desktop
-hermes-desktop	workspaces	brew-cask	active	Hermes Desktop — official Nous GUI for the same agent as the Hermes CLI	https://hermes-agent.nousresearch.com/desktop	hermes-desktop
-cmux	terminals	brew-cask	active	cmux — terminal for running coding agents (not an agent itself)	https://github.com/manaflow-ai/cmux	cmux
+hermes-desktop	workspaces	brew-cask	active	Hermes Desktop: official Nous GUI for the same agent as the Hermes CLI	https://hermes-agent.nousresearch.com/desktop	hermes-desktop
+cmux	terminals	brew-cask	active	cmux: terminal for running coding agents (not an agent itself)	https://github.com/manaflow-ai/cmux	cmux
 warp-app	terminals	brew-cask	active	Warp terminal (desktop; distinct from Warp Agent CLI)	https://www.warp.dev/terminal	warp
 ghostty	terminals	brew-cask	active	Ghostty terminal	https://github.com/ghostty-org/ghostty	ghostty
 iterm2	terminals	brew-cask	active	iTerm2 terminal	https://iterm2.com/	iterm2
 ollama-app	local-ai	brew-cask	active	Ollama desktop app (Homebrew cask)	https://ollama.com/	ollama-app
-remotion	media	aiup-npm	active	Remotion CLI — React video tooling (@remotion/cli); projects need matching local dependencies	https://www.remotion.dev/docs/cli	@remotion/cli
-macwhisper	media	brew-cask	active	MacWhisper — local speech-to-text	https://goodsnooze.gumroad.com/l/macwhisper	macwhisper
-screenpipe	local-ai	app	active	screenpipe — local screen/audio capture (official stable DMG updater)	https://github.com/screenpipe/screenpipe		https://screenpipe.com/api/app-update/stable/{target}-{arch}/{current_version}
-n8n	automation	aiup-npm	active	n8n — workflow automation via the official npm package	https://github.com/n8n-io/n8n	n8n
-vibe	coding-agents	uv-tool	active	Mistral Vibe — open-source CLI coding assistant	https://github.com/mistralai/mistral-vibe	mistral-vibe
-llama-cpp	local-ai	brew-formula	active	llama.cpp — local LLM inference engine and server	https://github.com/ggml-org/llama.cpp	llama.cpp
-llama-app	local-ai	brew-cask	active	Llama — official local LLM menu-bar app	https://github.com/ggml-org/Llama-macOS	llama-app
+remotion	media	aiup-npm	active	Remotion CLI: React video tooling (@remotion/cli); projects need matching local dependencies	https://www.remotion.dev/docs/cli	@remotion/cli
+macwhisper	media	brew-cask	active	MacWhisper: local speech-to-text	https://goodsnooze.gumroad.com/l/macwhisper	macwhisper
+screenpipe	local-ai	app	active	screenpipe: local screen/audio capture (official stable DMG updater)	https://github.com/screenpipe/screenpipe		https://screenpipe.com/api/app-update/stable/{target}-{arch}/{current_version}
+n8n	automation	aiup-npm	active	n8n: workflow automation via the official npm package	https://github.com/n8n-io/n8n	n8n
+vibe	coding-agents	uv-tool	active	Mistral Vibe: open-source CLI coding assistant	https://github.com/mistralai/mistral-vibe	mistral-vibe
+llama-cpp	local-ai	brew-formula	active	llama.cpp: local LLM inference engine and server	https://github.com/ggml-org/llama.cpp	llama.cpp
+llama-app	local-ai	brew-cask	active	Llama: official local LLM menu-bar app	https://github.com/ggml-org/Llama-macOS	llama-app
 whisper-cpp	media	brew-formula	active	whisper.cpp local speech-to-text engine (model files are separate)	https://github.com/ggml-org/whisper.cpp	whisper.cpp
-ffmpeg	media	brew-formula	active	FFmpeg — audio/video conversion and encoding (media utility)	https://ffmpeg.org/	ffmpeg
-audacity	media	brew-cask	active	Audacity — audio editing and recording (media utility)	https://www.audacityteam.org/	audacity
-draw-things	media	brew-cask	active	Draw Things — local AI image generation; models downloaded separately	https://drawthings.ai/	draw-things
-superwhisper	media	brew-cask	active	Superwhisper — AI dictation and LLM reformatting; vendor licensing applies	https://superwhisper.com/	superwhisper
-buzz	media	brew-cask	active	Buzz — audio transcription and translation; models downloaded separately	https://github.com/chidiwilliams/buzz	buzz
-obs	media	brew-cask	active	OBS Studio — recording and streaming (media utility)	https://obsproject.com/	obs
-blender	media	brew-cask	active	Blender — 3D modeling, animation, and rendering (media utility)	https://www.blender.org/	blender
-losslesscut	media	brew-cask	active	LosslessCut — lossless audio/video trimming (media utility)	https://github.com/mifi/lossless-cut	losslesscut
-handbrake-app	media	brew-cask	active	HandBrake — desktop video transcoding (media utility)	https://handbrake.fr/	handbrake-app
-shotcut	media	brew-cask	active	Shotcut — video editing (media utility)	https://www.shotcut.org/	shotcut
-kdenlive	media	brew-cask	active	Kdenlive — non-linear video editing (media utility)	https://kdenlive.org/	kdenlive
-krita	media	brew-cask	active	Krita — digital painting and illustration (media utility; AI plugins are separate)	https://krita.org/	krita
-inkscape	media	brew-cask	active	Inkscape — vector graphics and SVG editing (media utility)	https://inkscape.org/	inkscape
-imagemagick	media	brew-formula	active	ImageMagick — command-line image conversion and processing (magick)	https://imagemagick.org	imagemagick
-yt-dlp	media	brew-formula	active	yt-dlp — command-line audio/video downloads (media utility)	https://github.com/yt-dlp/yt-dlp	yt-dlp
-vips	media	brew-formula	active	libvips — efficient image processing CLI/library (media utility)	https://github.com/libvips/libvips	vips
-devin-cli	coding-agents	brew-cask	active	Devin CLI — Cognition coding agent	https://docs.devin.ai/cli	devin-cli
-auggie	coding-agents	aiup-npm	active	Auggie — Augment Code CLI (@augmentcode/auggie)	https://docs.augmentcode.com/cli/overview	@augmentcode/auggie
-junie	coding-agents	aiup-npm	active	Junie CLI — JetBrains coding agent (@jetbrains/junie)	https://github.com/JetBrains/junie	@jetbrains/junie
-letta	coding-agents	aiup-npm	active	Letta Code — stateful agent CLI (@letta-ai/letta-code)	https://github.com/letta-ai/letta-code	@letta-ai/letta-code
-qoder	coding-agents	aiup-npm	active	Qoder CLI — @qoder-ai/qodercli	https://qoder.com/cli	@qoder-ai/qodercli
+ffmpeg	media	brew-formula	active	FFmpeg: audio/video conversion and encoding (media utility)	https://ffmpeg.org/	ffmpeg
+audacity	media	brew-cask	active	Audacity: audio editing and recording (media utility)	https://www.audacityteam.org/	audacity
+draw-things	media	brew-cask	active	Draw Things: local AI image generation; models downloaded separately	https://drawthings.ai/	draw-things
+superwhisper	media	brew-cask	active	Superwhisper: AI dictation and LLM reformatting; vendor licensing applies	https://superwhisper.com/	superwhisper
+buzz	media	brew-cask	active	Buzz: audio transcription and translation; models downloaded separately	https://github.com/chidiwilliams/buzz	buzz
+obs	media	brew-cask	active	OBS Studio: recording and streaming (media utility)	https://obsproject.com/	obs
+blender	media	brew-cask	active	Blender: 3D modeling, animation, and rendering (media utility)	https://www.blender.org/	blender
+losslesscut	media	brew-cask	active	LosslessCut: lossless audio/video trimming (media utility)	https://github.com/mifi/lossless-cut	losslesscut
+handbrake-app	media	brew-cask	active	HandBrake: desktop video transcoding (media utility)	https://handbrake.fr/	handbrake-app
+shotcut	media	brew-cask	active	Shotcut: video editing (media utility)	https://www.shotcut.org/	shotcut
+kdenlive	media	brew-cask	active	Kdenlive: non-linear video editing (media utility)	https://kdenlive.org/	kdenlive
+krita	media	brew-cask	active	Krita: digital painting and illustration (media utility; AI plugins are separate)	https://krita.org/	krita
+inkscape	media	brew-cask	active	Inkscape: vector graphics and SVG editing (media utility)	https://inkscape.org/	inkscape
+imagemagick	media	brew-formula	active	ImageMagick: command-line image conversion and processing (magick)	https://imagemagick.org	imagemagick
+yt-dlp	media	brew-formula	active	yt-dlp: command-line audio/video downloads (media utility)	https://github.com/yt-dlp/yt-dlp	yt-dlp
+vips	media	brew-formula	active	libvips: efficient image processing CLI/library (media utility)	https://github.com/libvips/libvips	vips
+devin-cli	coding-agents	brew-cask	active	Devin CLI: Cognition coding agent	https://docs.devin.ai/cli	devin-cli
+auggie	coding-agents	aiup-npm	active	Auggie: Augment Code CLI (@augmentcode/auggie)	https://docs.augmentcode.com/cli/overview	@augmentcode/auggie
+junie	coding-agents	aiup-npm	active	Junie CLI: JetBrains coding agent (@jetbrains/junie)	https://github.com/JetBrains/junie	@jetbrains/junie
+letta	coding-agents	aiup-npm	active	Letta Code: stateful agent CLI (@letta-ai/letta-code)	https://github.com/letta-ai/letta-code	@letta-ai/letta-code
+qoder	coding-agents	aiup-npm	active	Qoder CLI: @qoder-ai/qodercli	https://qoder.com/cli	@qoder-ai/qodercli
 claude-acp	adapters	aiup-npm	active	Claude Agent ACP adapter (@agentclientprotocol/claude-agent-acp) for Zed / editors	https://github.com/agentclientprotocol/claude-agent-acp	@agentclientprotocol/claude-agent-acp
 codex-acp	adapters	aiup-npm	active	Codex ACP adapter (@agentclientprotocol/codex-acp) for Zed / editors	https://github.com/agentclientprotocol/codex-acp	@agentclientprotocol/codex-acp
-mcp-inspector	dev-utils	brew-formula	active	MCP Inspector — visual testing tool for MCP servers	https://github.com/modelcontextprotocol/inspector	mcp-inspector
-mise	infra	brew-formula	active	mise — polyglot runtime/tool version manager	https://mise.jdx.dev/	mise
-devin-desktop	editors	brew-cask	active	Devin Desktop — agentic IDE (formerly Windsurf)	https://devin.ai/desktop	devin-desktop
-kiro-ide	editors	brew-cask	active	Kiro IDE — spec-driven agentic IDE (distinct from Kiro CLI)	https://kiro.dev/	kiro
-jetbrains-air	editors	brew-cask	active	JetBrains Air — agentic development environment	https://www.jetbrains.com/air/	jetbrains-air
-conductor	workspaces	brew-cask	active	Conductor — run parallel Claude Code/Codex agents in worktrees	https://www.conductor.build/	conductor
-emdash	workspaces	brew-cask	active	Emdash — run multiple coding agents in parallel	https://github.com/generalaction/emdash	emdash
-superset	workspaces	brew-cask	active	Superset — terminal workspace for orchestrating coding agents	https://github.com/superset-sh/superset	superset
-amp-app	workspaces	brew-cask	active	Amp desktop app — Sourcegraph agent environment (macOS 26+)	https://ampcode.com/app	amp-app
-factory-app	workspaces	brew-cask	active	Factory desktop — native interface for Factory Droids	https://factory.com/	factory
-antigravity-app	workspaces	brew-cask	active	Google Antigravity 2 — agent orchestration hub app	https://antigravity.google/product/antigravity-2	antigravity
+mcp-inspector	dev-utils	brew-formula	active	MCP Inspector: visual testing tool for MCP servers	https://github.com/modelcontextprotocol/inspector	mcp-inspector
+mise	infra	brew-formula	active	mise: polyglot runtime/tool version manager	https://mise.jdx.dev/	mise
+devin-desktop	editors	brew-cask	active	Devin Desktop: agentic IDE (formerly Windsurf)	https://devin.ai/desktop	devin-desktop
+kiro-ide	editors	brew-cask	active	Kiro IDE: spec-driven agentic IDE (distinct from Kiro CLI)	https://kiro.dev/	kiro
+jetbrains-air	editors	brew-cask	active	JetBrains Air: agentic development environment	https://www.jetbrains.com/air/	jetbrains-air
+conductor	workspaces	brew-cask	active	Conductor: run parallel Claude Code/Codex agents in worktrees	https://www.conductor.build/	conductor
+emdash	workspaces	brew-cask	active	Emdash: run multiple coding agents in parallel	https://github.com/generalaction/emdash	emdash
+superset	workspaces	brew-cask	active	Superset: terminal workspace for orchestrating coding agents	https://github.com/superset-sh/superset	superset
+amp-app	workspaces	brew-cask	active	Amp desktop app: Sourcegraph agent environment (macOS 26+)	https://ampcode.com/app	amp-app
+factory-app	workspaces	brew-cask	active	Factory desktop: native interface for Factory Droids	https://factory.com/	factory
+antigravity-app	workspaces	brew-cask	active	Google Antigravity 2: agent orchestration hub app	https://antigravity.google/product/antigravity-2	antigravity
 gemini-app	chat	brew-cask	active	Google Gemini desktop app (macOS 15+)	https://gemini.google/desktop/	google-gemini
-cherry-studio	chat	brew-cask	active	Cherry Studio — multi-provider LLM desktop client	https://github.com/CherryHQ/cherry-studio	cherry-studio
-msty-studio	chat	brew-cask	active	Msty Studio — local and online model desktop app	https://msty.ai/	mstystudio
-boltai	chat	brew-cask	active	BoltAI — native macOS AI chat client	https://boltai.com/	boltai
-chatbox	chat	brew-cask	active	Chatbox — multi-provider AI chat desktop app	https://chatboxai.app/en	chatbox
-lobehub	chat	brew-cask	active	LobeHub — open-source AI chat/agent desktop app	https://github.com/lobehub/lobehub	lobehub
-localai	local-ai	brew-formula	active	LocalAI — OpenAI-compatible local inference server	https://localai.io/	localai
-ramalama	local-ai	brew-formula	active	RamaLama — run local models via containers	https://ramalama.ai/	ramalama
-osaurus	local-ai	brew-cask	active	Osaurus — MLX-based local LLM server app (macOS 15+)	https://github.com/osaurus-ai/osaurus	osaurus
-mlx-vlm	local-ai	uv-tool	active	mlx-vlm — vision-language models on Apple Silicon via MLX	https://github.com/Blaizzy/mlx-vlm	mlx-vlm
-hf	local-ai	brew-formula	active	Hugging Face CLI (hf) — model download and hub management	https://huggingface.co/docs/huggingface_hub/guides/cli	hf
-open-webui	local-ai	uv-tool	active	Open WebUI — self-hosted chat UI for Ollama/OpenAI-compatible APIs (Python 3.11–3.12)	https://github.com/open-webui/open-webui	open-webui
-whisperkit	media	brew-formula	active	WhisperKit CLI — Argmax on-device speech recognition (models separate)	https://github.com/argmaxinc/argmax-oss-swift	whisperkit-cli
-handy	media	brew-cask	active	Handy — open-source local speech-to-text dictation	https://github.com/cjpais/Handy	handy
-voiceink	media	brew-cask	active	VoiceInk — local AI dictation (macOS 15+)	https://github.com/Beingpax/VoiceInk	voiceink
-wispr-flow	media	brew-cask	active	Wispr Flow — AI dictation; vendor account required	https://wisprflow.ai/	wispr-flow
-stability-matrix	media	brew-cask	active	Stability Matrix — Stable Diffusion package manager and inference UI	https://github.com/LykosAI/StabilityMatrix	stability-matrix
-mochi-diffusion	media	brew-cask	active	Mochi Diffusion — native Core ML Stable Diffusion (macOS 15+)	https://github.com/MochiDiffusion/MochiDiffusion	mochi-diffusion
-sox-ng	media	brew-formula	active	SoX NG — maintained SoX fork for command-line audio processing (replaces sox)	https://codeberg.org/sox_ng/sox_ng	sox_ng
-repomix	llm-utils	brew-formula	active	Repomix — pack a repository into one AI-friendly file	https://github.com/yamadashy/repomix	repomix
-markitdown	llm-utils	uv-tool	active	MarkItDown — Microsoft file-to-Markdown converter for LLMs	https://github.com/microsoft/markitdown	markitdown
+cherry-studio	chat	brew-cask	active	Cherry Studio: multi-provider LLM desktop client	https://github.com/CherryHQ/cherry-studio	cherry-studio
+msty-studio	chat	brew-cask	active	Msty Studio: local and online model desktop app	https://msty.ai/	mstystudio
+boltai	chat	brew-cask	active	BoltAI: native macOS AI chat client	https://boltai.com/	boltai
+chatbox	chat	brew-cask	active	Chatbox: multi-provider AI chat desktop app	https://chatboxai.app/en	chatbox
+lobehub	chat	brew-cask	active	LobeHub: open-source AI chat/agent desktop app	https://github.com/lobehub/lobehub	lobehub
+localai	local-ai	brew-formula	active	LocalAI: OpenAI-compatible local inference server	https://localai.io/	localai
+ramalama	local-ai	brew-formula	active	RamaLama: run local models via containers	https://ramalama.ai/	ramalama
+osaurus	local-ai	brew-cask	active	Osaurus: MLX-based local LLM server app (macOS 15+)	https://github.com/osaurus-ai/osaurus	osaurus
+mlx-vlm	local-ai	uv-tool	active	mlx-vlm: vision-language models on Apple Silicon via MLX	https://github.com/Blaizzy/mlx-vlm	mlx-vlm
+hf	local-ai	brew-formula	active	Hugging Face CLI (hf): model download and hub management	https://huggingface.co/docs/huggingface_hub/guides/cli	hf
+open-webui	local-ai	uv-tool	active	Open WebUI: self-hosted chat UI for Ollama/OpenAI-compatible APIs (Python 3.11–3.12)	https://github.com/open-webui/open-webui	open-webui
+whisperkit	media	brew-formula	active	WhisperKit CLI: Argmax on-device speech recognition (models separate)	https://github.com/argmaxinc/argmax-oss-swift	whisperkit-cli
+handy	media	brew-cask	active	Handy: open-source local speech-to-text dictation	https://github.com/cjpais/Handy	handy
+voiceink	media	brew-cask	active	VoiceInk: local AI dictation (macOS 15+)	https://github.com/Beingpax/VoiceInk	voiceink
+wispr-flow	media	brew-cask	active	Wispr Flow: AI dictation; vendor account required	https://wisprflow.ai/	wispr-flow
+stability-matrix	media	brew-cask	active	Stability Matrix: Stable Diffusion package manager and inference UI	https://github.com/LykosAI/StabilityMatrix	stability-matrix
+mochi-diffusion	media	brew-cask	active	Mochi Diffusion: native Core ML Stable Diffusion (macOS 15+)	https://github.com/MochiDiffusion/MochiDiffusion	mochi-diffusion
+sox-ng	media	brew-formula	active	SoX NG: maintained SoX fork for command-line audio processing (replaces sox)	https://codeberg.org/sox_ng/sox_ng	sox_ng
+repomix	llm-utils	brew-formula	active	Repomix: pack a repository into one AI-friendly file	https://github.com/yamadashy/repomix	repomix
+markitdown	llm-utils	uv-tool	active	MarkItDown: Microsoft file-to-Markdown converter for LLMs	https://github.com/microsoft/markitdown	markitdown

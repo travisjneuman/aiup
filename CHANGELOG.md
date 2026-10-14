@@ -9,6 +9,12 @@
 - Fewer false warnings: only lines that start with a warning or error count, so words like "error" in `brew update` formula descriptions no longer flag a tool. Homebrew's "not linked because another version is already linked" note is ignored.
 - Faster runs: the runtime and catalog are revalidated before a change only when either file changed on disk, Homebrew's installed lists are reread only when its Cellar or Caskroom changed, and exclusions and holds are read once per run instead of once per tool (about 250 Python starts on a full run).
 - Antigravity: aiup no longer downloads the official installer on every run when `agy` already works. The installer refuses to touch an existing `agy`, which updates itself.
+- Faster Homebrew updates: before the first Homebrew upgrade, aiup downloads every outdated formula and cask it is about to upgrade in one `brew fetch`, so Homebrew downloads them in parallel and each upgrade reuses its download. Open apps, self-updated apps, and held or excluded tools are left out. Upgrades still run one tool at a time. `AIUP_BREW_PREFETCH=0` turns this off. The open-app check for those casks uses one `brew info` call instead of one per cask, and an installed package no longer triggers a tap lookup before its upgrade.
+- Cleanup after a run: aiup clears Homebrew's old versions and downloaded installers, npm's package cache and debug logs, and uv's cache, skipping any cache another brew, npm or uv process is using. The results end with how much space came back. `AIUP_CLEANUP_CACHES=0` keeps the caches.
+- Vendor installers (Claude Code, OpenCode, Hermes, Grok, Warp, Aider, Goose, Cursor, Amp, Droid, uv and others) are downloaded over HTTPS only, to a private file, checked to be non-empty, and then run. Before, the installer was piped straight into a login shell, so a download that failed partway could run a partial script or count as a success.
+- `aiup remove` names the settings, sessions and history folders it would take away, with their sizes, and moves them to Trash instead of deleting them. `aiup remove <tool>` asks before moving that data and exits with status 1 when cancelled or when a removal fails.
+- App cleanup (`aiup cleanup di:app:...`) ignores a bundle id or app name that could point outside `~/Library`, such as one containing `/` or `..`.
+- Public text no longer uses em dashes, including the catalog labels.
 - `~/.zshrc` is written only when aiup's PATH block actually changes, through a temporary file and an atomic rename that keeps the file's permissions and follows a symlinked `.zshrc`. `--dry-run` no longer touches it.
 
 ## 2026.09.29-06
@@ -176,7 +182,7 @@
 - Every mutation path invalidates accelerators and revalidates the runtime, manifest, live filesystem, package metadata, and provider state immediately before work. `AIUP_PROFILE=1` reports concise stage timings on stderr.
 - Added deterministic cache/session corruption, concurrency, interruption, pair-binding, cleanup, fzf-boundary, structural, and generous performance regression coverage.
 
-## 2026-08-26 — public presence and documentation closure
+## 2026-08-26: public presence and documentation closure
 
 - Restored the owner-selected minimal, GitHub-first site: the aiup lockup, one authentic TUI animation, and one prominent repository destination. The README remains the explanatory product surface.
 - Rebuilt the primary media from the real responsive TUI at 100 × 30 with six authentic states, exact Catppuccin/indexed colors, a 10.78-second continuous loop, and a static reduced-motion poster. The site contains no playback control or JavaScript.

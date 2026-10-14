@@ -8,4 +8,4 @@
 - Catalog or tool candidate: [open a catalog/tool request](https://github.com/travisjneuman/aiup/issues/new?template=catalog-tool.yml)
 - Security vulnerability: follow [`SECURITY.md`](SECURITY.md) and do not use a public issue
 
-GitHub Issues are the support and work-intake surface. Discussions, Projects, and the wiki are not used.
+Support and work requests go through GitHub Issues. Discussions, Projects, and the wiki are not used.

@@ -54,7 +54,7 @@ No real end-user package was installed, updated, removed, adopted, or cleaned up
 
 The fast helper, fzf commands, aliases, query state, documentation URLs, state roots, and provider parsers were reviewed for shell/argument injection, tabs/newlines/control bytes, path and symlink traversal, permissions, credential reuse, synthetic-ID leakage, TOCTOU, output/process bounds, orphan work, cross-session state, and cached mutation authority.
 
-- Shell commands use `%q` quoting for exact runtime/session paths; the Python helper receives fzf arguments as argv rather than shell interpolation.
+- Shell commands use `%q` quoting for exact runtime/session paths; the Python helper receives fzf arguments as argv, with no shell interpolation.
 - Manifest and update-index IDs are grammar checked. Synthetic IDs are resolved through a validated index and rejected if they reach mutation dispatch.
 - Session roots are mode 700, tokens are cryptographically random and mode 600, and every helper binds live owner, exact runtime/manifest, snapshot, content hashes, view/filter/sort, and token.
 - Provider output is time and size bounded; provider and watchdog PIDs are killed/reaped on signals; lock recovery is owner/time bound.
@@ -72,12 +72,12 @@ No command-injection, path-traversal, credential, daemon, unbounded-worker, or c
 
 | Operation | Samples | `8c25e1e` median / p95 | `2026.08.27-02` median / p95 | Result |
 |---|---:|---:|---:|---|
-| Cold full fixture list | 9 | 2,144.4 ms / — | 2,535.9 ms / — | variable authoritative cold work; no operational ceiling |
+| Cold full fixture list | 9 | 2,144.4 ms / n/a | 2,535.9 ms / n/a | variable authoritative cold work; no operational ceiling |
 | Warm managed list | 20 | 634.2 / 672.4 ms | 704.0 / 759.3 ms | under 1 s |
 | Warm full list | 20 | 676.4 / 712.3 ms | 744.1 / 794.8 ms | under 1 s |
-| Warm interactive picker session | 9 | 1,176.3 ms / — | 1,262.1 ms / — | host makes both exceed approximate 1 s; current +85.8 ms |
-| Cold session creation | 9 | 4,347.5 ms / — | 4,058.3 ms / — | cold authoritative path |
-| Session cleanup | 9 | 124.9 ms / — | 123.7 ms / — | comparable |
+| Warm interactive picker session | 9 | 1,176.3 ms / n/a | 1,262.1 ms / n/a | host makes both exceed approximate 1 s; current +85.8 ms |
+| Cold session creation | 9 | 4,347.5 ms / n/a | 4,058.3 ms / n/a | cold authoritative path |
+| Session cleanup | 9 | 124.9 ms / n/a | 123.7 ms / n/a | comparable |
 | Preview first line | 20 | 28.1 / 28.8 ms | 30.8 / 33.0 ms | PASS |
 | Search change | 20 | 30.9 / 32.3 ms | 35.3 / 39.4 ms | PASS |
 | Category toggle | 20 | 29.8 / 30.9 ms | 34.4 / 35.9 ms | PASS |

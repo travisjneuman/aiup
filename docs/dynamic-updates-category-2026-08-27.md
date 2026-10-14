@@ -6,7 +6,7 @@ Status: implemented in runtime **2026.08.27-01**
 
 `aiup list` now places a virtual Updates category above `infra` and every catalog category. The picker still renders before remote enrichment. A valid installed-version-keyed cache can populate verified rows immediately; otherwise the category starts in a checking state and reloads from the private session as the existing two read-only provider workers complete.
 
-The header distinguishes these facts rather than collapsing them into a binary result:
+The header reports each of these separately:
 
 - `Updates · checking…`
 - `Updates available · N`

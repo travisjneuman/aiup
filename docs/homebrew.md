@@ -8,13 +8,21 @@ Before its first Homebrew operation, aiup checks installed taps using Homebrew's
 
 If a future catalog item requires a tap that is not installed, its installer must identify that tap and ask before adding and trusting it. aiup never silently adds or trusts a newly introduced tap.
 
+No current catalog item comes from a third-party tap. When a package is already installed, aiup skips the per-package tap lookup before upgrading it and only reviews the installed taps.
+
+## Downloads and cleanup
+
+Before the first Homebrew upgrade in a run, aiup downloads every outdated formula and cask it is about to upgrade with one `brew fetch`, so `HOMEBREW_DOWNLOAD_CONCURRENCY` can download them in parallel. Casks whose app is open, apps that updated themselves and held or excluded tools are left out. The upgrades still run one tool at a time and reuse the downloads. `AIUP_BREW_PREFETCH=0` turns this off.
+
+After an update run, aiup runs `brew cleanup --prune=all -s`, then deletes the downloaded bottles and installers Homebrew keeps for the installed versions, and the dangling links they leave. Homebrew's package metadata (`api/`) stays, so the next check does not download it again. The cleanup is skipped while another `brew` is running. `AIUP_CLEANUP_CACHES=0` keeps the downloads.
+
 ## How current Homebrew's answer is
 
 Homebrew answers "is there a newer version?" from a local copy of its package metadata. aiup's read-only paths run Homebrew with auto-update off, so that copy could otherwise be days old. Before `aiup check` or the picker's update preview asks Homebrew, aiup refreshes the copy with Homebrew's own fast `brew update --auto-update` when it is older than 15 minutes. If you set `HOMEBREW_NO_AUTO_UPDATE`, aiup leaves it alone.
 
 aiup reports the version Homebrew can install, which can trail the vendor's own release by a few hours or days while Homebrew packages it. Tools that aiup installs outside Homebrew are compared with their vendor's release channel instead.
 
-Update candidates include auto-updating casks (aiup then compares the installed app, so a self-updated app is not downgraded) but not unversioned `:latest` casks, which would otherwise reinstall on every run. If Homebrew's metadata for an app cask cannot be read during an update run, the upgrade is deferred rather than run unchecked; `aiup resume` picks it up.
+Update candidates include auto-updating casks (aiup then compares the installed app, so a self-updated app is not downgraded) but not unversioned `:latest` casks, which would otherwise reinstall on every run. If Homebrew's metadata for an app cask cannot be read during an update run, the upgrade is deferred so it never runs unchecked; `aiup resume` picks it up.
 
 ## Child lists
 

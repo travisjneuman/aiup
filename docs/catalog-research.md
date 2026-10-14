@@ -16,7 +16,7 @@ aiup does not turn a repository name into an updater automatically. A new manage
 | `vibe` | Managed, active | `uv tool install/upgrade mistral-vibe` | [Mistral Vibe repository](https://github.com/mistralai/mistral-vibe) documents both the macOS installer and `uv tool install mistral-vibe`. |
 | `llama-cpp` | Managed, active | Homebrew formula `llama.cpp` | [llama.cpp install guide](https://github.com/ggml-org/llama.cpp/blob/master/docs/install.md) documents `brew install llama.cpp`; Homebrew publishes the formula and its dependencies. |
 | `llama-app` | Managed, active | Homebrew cask `llama-app` | [Homebrew's Llama cask](https://formulae.brew.sh/cask/llama-app) identifies the official `ggml-org/Llama-macOS` menu-bar app and its macOS/Apple Silicon requirements. |
-| `openhands` | Managed, sunset | `uv tool install/upgrade openhands` for legacy compatibility | [OpenHands CLI repository](https://github.com/OpenHands/OpenHands-CLI) says the CLI is no longer actively maintained and directs users toward Agent Canvas. aiup exposes it with a sunset warning rather than presenting it as a current recommendation. |
+| `openhands` | Managed, sunset | `uv tool install/upgrade openhands` for legacy compatibility | [OpenHands CLI repository](https://github.com/OpenHands/OpenHands-CLI) says the CLI is no longer actively maintained and directs users toward Agent Canvas. aiup lists it with a sunset warning and does not recommend it. |
 | `bun`, `pnpm` | Managed, active | Homebrew formulae `bun` and `pnpm` | [Bun](https://formulae.brew.sh/formula/bun) and [pnpm](https://formulae.brew.sh/formula/pnpm) publish macOS bottles and package-manager install commands. Homebrew resolves pnpm's Node dependency. |
 | `jq`, `yq` | Managed, active | Homebrew formulae `jq` and `yq` | [jq](https://formulae.brew.sh/formula/jq) and [yq](https://formulae.brew.sh/formula/yq) are official Homebrew formulae for structured-data work used by development tooling. |
 | `ripgrep`, `fd`, `just` | Managed, active | Homebrew formulae `ripgrep`, `fd`, and `just` | [ripgrep](https://formulae.brew.sh/formula/ripgrep), [fd](https://formulae.brew.sh/formula/fd), and [just](https://formulae.brew.sh/formula/just) publish macOS bottles and stable upgrade paths. |
@@ -35,7 +35,7 @@ Candidates for a later review: ToolHive Studio, kitty, claude-squad, ccusage, Tr
 
 ## Confirmed existing coverage
 
-- Amazon Q Developer's command-line documentation now says that the Q CLI has become the Kiro CLI, so aiup's `kiro` entry is the current managed representation rather than adding a stale `amazon-q` duplicate. See [AWS's upgrade note](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/upgrade-to-kiro.html).
+- Amazon Q Developer's command-line documentation now says that the Q CLI has become the Kiro CLI, so aiup manages it as the `kiro` entry. There is no separate `amazon-q` entry, since it would be a stale duplicate. See [AWS's upgrade note](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/upgrade-to-kiro.html).
 - GitHub Copilot CLI is already represented by `copilot`; its official repository documents macOS support, the official installer, Homebrew formula, and npm package. See [GitHub Copilot CLI](https://github.com/github/copilot-cli).
 - `whisper.cpp` is now managed through Homebrew's `whisper-cpp` formula. aiup updates the engine and leaves model-file selection/download to the user; it does not silently fetch large model weights. See [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and [the formula](https://formulae.brew.sh/formula/whisper-cpp).
 

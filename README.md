@@ -61,12 +61,14 @@ aiup list
 | `aiup history` | Recent update results; optionally filter by tool |
 | `aiup logs remotion` | Read just that tool’s output from its latest saved run |
 | `aiup only grok` | 📦 Install or update one tool |
-| `aiup remove grok` | 🗑️ Confirm and remove one managed tool |
+| `aiup remove grok` | 🗑️ Remove one managed tool; its settings and sessions are named first and moved to Trash |
 | `aiup doctor` | 🩺 Conflicts and setup warnings; `--details` retains full detection detail |
 
 Normal `aiup`, `aiup full`, `aiup core`, and `aiup check` include installed Homebrew formulae, libraries, fonts, and casks outside the curated catalog. Catalog aliases appear once, retaining their exclusions and holds. Detected-only software and manual-update apps still require their owning updater. `aiup only` and named groups remain scoped.
 
-Installed-version reads run concurrently (two workers by default; bounded to three). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Package mutations remain sequential. Downloads and app shutdown/replacement can still dominate a run; `--timings` exposes those phases.
+Installed-version reads run concurrently (half the Mac's cores, 2 to 6 workers; `AIUP_CHECK_WORKERS` overrides). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Before the first Homebrew upgrade, aiup downloads every outdated formula and cask it is about to upgrade in one `brew fetch`, so Homebrew downloads them in parallel; the upgrades themselves still run one at a time, and open apps are left out of that download (`AIUP_BREW_PREFETCH=0` turns it off). App shutdown and replacement can still dominate a run; `--timings` exposes those phases.
+
+After each update run, aiup clears the download caches it filled: Homebrew's old versions and downloaded installers, npm's package cache and its debug logs, and uv's cache. It skips a cache while another brew, npm or uv process is using it, and the last line says how much space came back. Set `AIUP_CLEANUP_CACHES=0` to keep them.
 
 Each update run ends with one color-coded table. Current rows (unchanged tools and apps that updated themselves) are hidden by default; warnings, changes, skips, and failures stay visible. A tool whose version went down, which Homebrew can do when it repoints a formula, shows as `downgraded`. Use `aiup --show-unchanged` for the full table; saved history always retains every result. The last line suggests `aiup resume` only when something is unfinished and `aiup attention` only when something needs a look.
 
@@ -109,7 +111,7 @@ Npm packages are not reinstalled when fresh provider metadata exactly matches a 
 
 `aiup check [tools…]` checks versions without updating software or changing shell profiles. Each tool is compared with the source it installs from: Homebrew's metadata (refreshed when older than 15 minutes) or the vendor's release channel, npm or PyPI, all fetched in one concurrent pass. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
 
-### 🔄 Always current, never half-published
+### 🔄 How releases reach your Mac
 
 The installed command runs the latest published release. Each run makes one small request for the release pointer (`macos/release` on `main`), which names the exact commit whose runtime and catalog form the release. Files addressed by commit never change, so the runtime and catalog always match, and work landing on `main` between releases never reaches your Mac. When the release is unchanged, aiup starts immediately with no download. A new release is downloaded, validated, staged as one pair, and activated by atomically switching a single `current-generation` pointer; `previous-generation` keeps the former pair. If GitHub is unreachable or a new download fails validation, aiup says so and runs the last validated release. Only a first run with nothing installed yet needs network access.
 
@@ -119,14 +121,14 @@ Normal package updates are unattended: Homebrew package confirmations are accept
 
 Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; aiup replaces only its app bundle and does not remove its configured settings or capture paths.
 
-## ✨ Why people keep it
+## ✨ Ground rules
 
 <table>
 <tr>
 <td width="50%">
 
-### 🔍 Scan, don't spray
-Default `aiup` keeps optional tools from coming back, but restores required infrastructure such as fzf.
+### 🔍 Removed tools stay removed
+Default `aiup` only updates what you have. It won't bring back optional tools you removed. It does restore required infrastructure such as fzf.
 
 </td>
 <td width="50%">
@@ -139,8 +141,8 @@ aiup does not invoke `sudo` directly. Its user-prefix installs keep Node CLIs in
 <tr>
 <td>
 
-### 🍺 Homebrew, honestly
-Child lists are **your Mac**, plus a short recommended set. Not all of Homebrew.
+### 🍺 Homebrew lists
+Child lists show what's installed on **your Mac** plus a short recommended set. The rest of Homebrew loads only when you ask for it.
 
 </td>
 <td>
@@ -152,7 +154,7 @@ PATH, app bundles, and package inventory are never uploaded. Runtime and package
 </tr>
 </table>
 
-### 🔎 Your Mac, not a hardcoded demo
+### 🔎 Software aiup finds but doesn't manage
 
 The managed catalog is curated around reviewed install/update/remove contracts. The picker also discovers four kinds of software that are not yet managed: app bundles, global npm packages, uv tools, and user-facing PATH binaries. Those rows are clearly marked detected-only, counted by source, and kept separate from Homebrew's installed inventory. aiup has not verified an updater/remover contract for them yet, so it will not guess how to update them. Project-local dependencies, temporary `npx` downloads, and agent skills are not global installed tools. Remotion is managed as `@remotion/cli`; individual video projects still need their own matching Remotion dependencies.
 
@@ -183,19 +185,19 @@ The managed catalog is curated around reviewed install/update/remove contracts. 
 | <kbd>?</kbd> | Show every key in the preview pane; moving the cursor returns to the item |
 | <kbd>esc</kbd> | Leave |
 
-Type to search for contiguous text (case-insensitive) across the entire catalog, including rows inside collapsed categories; clearing the query restores the compact collapsed overview. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the final category: it is a cross-source inventory of software found on this Mac, not a managed update list or an Applications-only list. Its header shows the total plus app/npm/uv/PATH subtotals. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, path, and web-search link in the preview. App-bundle rows also support an AppCleaner-style cleanup preview; `aiup cleanup <detected-app-id>` lists exact candidates without changing anything, and `--apply` moves confirmed candidates to Trash.
+Type to search for contiguous text (case-insensitive) across the entire catalog, including rows inside collapsed categories; clearing the query restores the compact collapsed overview. The picker remembers its last query and category locally, so reopening it resumes navigation without changing the default collapsed overview. Detected is always the last category. It lists software found on this Mac from every source: apps, npm, uv, and PATH. aiup does not manage updates for these rows, and the list covers more than the Applications folder. Its header shows the total plus app/npm/uv/PATH subtotals. Use `aiup list --category detected` (or another category id) when the full catalog is too large. Detected rows show their source, version, path, and web-search link in the preview. App-bundle rows also support an AppCleaner-style cleanup preview; `aiup cleanup <detected-app-id>` lists exact candidates without changing anything, and `--apply` moves confirmed candidates to Trash.
 
 Updates is the first category. It appears immediately as checking or from a valid installed-version-keyed cache, then refreshes as the existing two provider workers finish. Verified newer items show `installed → available` while provider failures, timeouts, malformed responses, and unfinished checks remain explicitly unverified. Enter or <kbd>ctrl</kbd>+<kbd>r</kbd> updates one row; check several rows and use <kbd>ctrl</kbd>+<kbd>r</kbd> to update only those verified items. `Update all verified items · N` confirms the exact names, revalidates each live item, and runs supported updates sequentially. Cached availability identifies candidates but never authorizes a mutation.
 
 Use `--view installed` for a compact maintenance view, `--view managed` to hide local detections/Homebrew extras, `--view detected` for only software found on this Mac, or `--view available` for Homebrew's available packages. Use `--sort label` when scanning a category alphabetically; the default `--sort id` preserves manifest order. `aiup inventory` uses a five-minute source-aware cache; add `--refresh` after installing or removing software outside aiup.
 
-For Homebrew extras outside the managed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. The overview intentionally does not load thousands of Homebrew rows: it says “not loaded” rather than showing a misleading zero. The full view is generated from the Homebrew taps already on the Mac, places `font-*` casks under `Homebrew > fonts`, and delegates dependency resolution back to Homebrew; managed catalog items remain in their normal categories.
+For Homebrew extras outside the managed catalog, use `aiup list --category homebrew/available` or `aiup list --view available`. The overview intentionally does not load thousands of Homebrew rows: it says “not loaded” so you never see a misleading zero. The full view is generated from the Homebrew taps already on the Mac, places `font-*` casks under `Homebrew > fonts`, and delegates dependency resolution back to Homebrew; managed catalog items remain in their normal categories.
 
 Installed rows use **mint green**. Each category has a color bar. Categories start collapsed.
 
 ## 🍺 Already installed, just not via Homebrew?
 
-Same app. Not a second copy.
+Homebrew takes over the app you already have instead of installing a second copy.
 
 <p align="center">
   <img src="docs/media/aiup-list-adopt.png" alt="Green-on-black macOS Terminal confirmation for Raycast adoption, stating the no-zap boundary and awaiting a yes or no answer" width="1008" height="604" />
@@ -239,7 +241,7 @@ _**2026.09.29-06** · **131** tools in the main catalog. Generated from `macos/a
 
 Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**
 
-These totals count curated manifest entries, not software installed on a Mac, detected-only apps, or Homebrew recommendations. Contributors refresh this table, public catalog files, website counts, and `showcase.json` together with `scripts/sync-public-docs --skip-media`. See [public catalog facts](docs/public-catalog-facts.md).
+These totals count curated manifest entries. They don't include software installed on a Mac, detected-only apps, or Homebrew recommendations. Contributors refresh this table, public catalog files, website counts, and `showcase.json` together with `scripts/sync-public-docs --skip-media`. See [public catalog facts](docs/public-catalog-facts.md).
 
 Research notes → **[dated 83-entry accuracy audit](docs/catalog-accuracy-2026-08-25.md)** · **[catalog research](docs/catalog-research.md)** · TUI review → **[navigation research](docs/tui-research.md)**
 
@@ -257,16 +259,16 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The current macOS tool, public repository, minimal site, and six-state media are complete for this dated scope. The owner has accepted the current media and site design. aiup is not a finished cross-platform or tagged 1.0 product; Safari, physical-device, screen-reader, assistive-technology, and other formal release-acceptance lanes remain separate future work. See **[scope, completion, and next work](docs/status.md)**.
+The current macOS tool, public repository, minimal site, and six-state media are complete for this dated scope. I've accepted the current media and site design. aiup is not a finished cross-platform or tagged 1.0 product; Safari, physical-device, screen-reader, assistive-technology, and other formal release-acceptance lanes remain separate future work. See **[scope, completion, and next work](docs/status.md)**.
 
-| Surface | Status |
+| Area | Status |
 |---|---|
 | 🍎 macOS | Current daily-use implementation (`macos/aiup`) |
 | 🌐 Site | Live; desktop browser review passed, true 375px review remains unverified |
 | 🐧 Linux | Not implemented |
 | 🪟 Windows | Not implemented |
 
-## A clearer everyday workflow
+## Everyday commands
 
 | Command | What it does |
 |---|---|
@@ -307,7 +309,7 @@ AIUP remembers bundle identities observed at their installed locations, scans co
 
 [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)
 
-Owner storage policy (September 29, 2026): Screenpipe official-DMG updates retain
+Screenpipe backups (my storage policy as of September 29, 2026): official-DMG updates retain
 the prior code bundle only through activation. A failed activation restores it;
 a successful activation deletes the redownloadable code backup. Recordings,
 settings and user data are not part of this backup or cleanup.
