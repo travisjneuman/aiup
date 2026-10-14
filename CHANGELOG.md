@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Ctrl-C during an update now stops the running brew, npm or installer command instead of leaving it running after aiup exits. aiup finishes nothing else, prints the results, records the interrupted tool as `cancelled` and the tools not reached as pending, and exits with status 130. `aiup resume` picks them up.
+- `aiup resume` and `aiup retry` look at each tool's newest result across all retained runs, so a later `aiup only <tool>` run no longer hides a tool an earlier run deferred or failed.
+- A version that went down (Homebrew repointed openssl@3 from 3.6.5 to 3.5.9) is reported as `downgraded` in red and listed in `aiup attention`, instead of `updated`.
+- Results: apps that updated themselves are hidden with the other current tools. Warnings get their own line ("2 tools need a look") instead of a count mixed into the results. The Next line suggests `aiup resume` only when something is unfinished and `aiup attention` only when something needs a look. The progress line shows `[12/120] tool · 45s elapsed`, and is off with `NO_COLOR`.
+- Fewer false warnings: only lines that start with a warning or error count, so words like "error" in `brew update` formula descriptions no longer flag a tool. Homebrew's "not linked because another version is already linked" note is ignored.
+- Faster runs: the runtime and catalog are revalidated before a change only when either file changed on disk, Homebrew's installed lists are reread only when its Cellar or Caskroom changed, and exclusions and holds are read once per run instead of once per tool (about 250 Python starts on a full run).
+- Antigravity: aiup no longer downloads the official installer on every run when `agy` already works. The installer refuses to touch an existing `agy`, which updates itself.
+- `~/.zshrc` is written only when aiup's PATH block actually changes, through a temporary file and an atomic rename that keeps the file's permissions and follows a symlinked `.zshrc`. `--dry-run` no longer touches it.
+
 ## 2026.09.29-06
 
 - Faster start of every run and `aiup plan`: Homebrew's formula and cask lists are read in parallel with its installed-app metadata instead of one after another, and npm's global prefix is remembered until npm, its config files or its prefix variables change (saves starting npm, about 0.2 s).

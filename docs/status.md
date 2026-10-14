@@ -26,6 +26,8 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - report self-updating Homebrew apps that are already at or past Homebrew's version as `current (self-updated)` and skip the Homebrew download, never installing an older build over a newer one;
 - defer, never replace, an app bundle that is running, and retry deferred tools through `aiup resume`/`aiup retry`;
 - defer, never upgrade blindly, an app cask whose Homebrew metadata cannot be read during a run, and let `aiup resume` ask again about a declined or deferred switch to Homebrew;
+- stop the running command on Ctrl-C, print the results, and let `aiup resume` rerun the interrupted and unreached tools using each tool's newest saved result;
+- report a version that went down as `downgraded`;
 - carry only maintained catalog entries, installing each from the official channel that publishes first;
 - keep generated catalog documentation synchronized with the manifest;
 - install publicly without probing a maintainer checkout or personal path;

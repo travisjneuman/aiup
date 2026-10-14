@@ -6,6 +6,7 @@ AIUP_VERSION="2026.09.29-06"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
+AIUP_INTERRUPTED=0
 AIUP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_BIN="${AIUP_LOCAL_BIN:-$HOME/.local/bin}"
 STATE_DIR="${AIUP_STATE_DIR:-$HOME/.local/share/aiup}"
@@ -116,6 +117,10 @@ CATALOG_MANIFEST_LOADED=0
 CATALOG_MANIFEST_VERSION=""
 CATALOG_MANIFEST_HASH=""
 AIUP_RUNTIME_HASH=""
+AIUP_PREFLIGHT_FILES_SIG=""
+AIUP_PREFLIGHT_BREW_FP=""
+AIUP_POLICY_SIG=""
+AIUP_POLICY_REASONS=""
 SYSTEM_NPM_PREFIX=""
 SYSTEM_NPM_PREFIX_READY=0
 AIUP_TUI_SESSION_ACTIVE=0
@@ -644,9 +649,18 @@ run_with_heartbeat() {
     return 0
   fi
 
-  local start_ts pid rc elapsed hb_pid
+  local start_ts pid rc elapsed hb_pid saved_traps
+  # After Ctrl-C, start nothing new (an updater's fallback command included).
+  [ "$AIUP_INTERRUPTED" -eq 0 ] || return 130
   start_ts="$(date +%s)"
   info "START: $label"
+  # Background jobs of a non-interactive shell ignore SIGINT, so Ctrl-C would
+  # leave the command running after aiup exits. Stop it here, then pass the
+  # signal on to the outer trap (or the default exit).
+  saved_traps="$(trap -p INT TERM HUP)"
+  trap 'run_with_heartbeat_interrupt INT' INT
+  trap 'run_with_heartbeat_interrupt TERM' TERM
+  trap 'run_with_heartbeat_interrupt HUP' HUP
   "$@" </dev/null &
   pid=$!
 
@@ -655,8 +669,8 @@ run_with_heartbeat() {
       sleep "$HEARTBEAT_SECONDS"
       if kill -0 "$pid" 2>/dev/null; then
         elapsed=$(( $(date +%s) - start_ts ))
-        if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -t 4 ]; then
-          printf '\r\033[2K  › %.20s · %s done · !%s · %ss' "$UPDATE_REPORT_CURRENT_TOOL" "$UPDATE_REPORT_COMPLETED" "$UPDATE_REPORT_WARNINGS" "$elapsed" >&4
+        if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
+          printf '\r\033[2K  [%s/%s] %.24s · %ss elapsed' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$UPDATE_REPORT_CURRENT_TOOL" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
         fi
         info "still working: $label (${elapsed}s elapsed)"
       fi
@@ -668,6 +682,12 @@ run_with_heartbeat() {
   rc=$?
   kill "$hb_pid" 2>/dev/null || true
   wait "$hb_pid" 2>/dev/null || true
+  trap - INT TERM HUP
+  [ -z "$saved_traps" ] || eval "$saved_traps"
+  if [ "${AIUP_INTERRUPTED:-0}" -eq 1 ]; then
+    error "INTERRUPTED: $label ($(( $(date +%s) - start_ts ))s)"
+    return 130
+  fi
 
   if [ "$rc" -eq 0 ]; then
     info "DONE: $label ($(( $(date +%s) - start_ts ))s)"
@@ -675,6 +695,21 @@ run_with_heartbeat() {
     error "FAILED: $label (exit $rc; $(( $(date +%s) - start_ts ))s)"
   fi
   return "$rc"
+}
+
+# Runs from run_with_heartbeat's traps with its locals in scope. Re-sends the
+# signal to this shell (or subshell) so an outer trap still runs, and a shell
+# without one exits the way it would have without aiup's trap.
+run_with_heartbeat_interrupt() {
+  local sig="$1"
+  AIUP_INTERRUPTED=1
+  kill -TERM "$pid" 2>/dev/null || true
+  kill "$hb_pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  wait "$hb_pid" 2>/dev/null || true
+  trap - INT TERM HUP
+  [ -z "$saved_traps" ] || eval "$saved_traps"
+  sh -c 'kill -s "$1" "$PPID"' sh "$sig"
 }
 
 run_shell_with_heartbeat() {
@@ -737,12 +772,11 @@ zsh_block_present() {
 ensure_zsh_path_block() {
   ensure_dir "$HOME"
   local file="$HOME/.zshrc"
-  touch "$file"
 
-  python3 - <<'PYEOF' "$file" "$LOCAL_BIN" "$AIUP_NPM_BIN"
+  python3 - <<'PYEOF' "$file" "$LOCAL_BIN" "$AIUP_NPM_BIN" "$DRY_RUN"
 from pathlib import Path
-import re, sys
-file_path, local_bin, npm_bin = sys.argv[1:4]
+import os, re, sys, tempfile
+file_path, local_bin, npm_bin, dry_run = sys.argv[1:5]
 p = Path(file_path)
 text = p.read_text() if p.exists() else ""
 start = "# >>> aiup PATH >>>"
@@ -775,7 +809,25 @@ while out and out[-1] == "":
     out.pop()
 out.extend(["", *block, ""])
 new_text = "\n".join(out)
-p.write_text(new_text)
+if new_text == text:
+    raise SystemExit(0)
+if dry_run == "1":
+    print("DRY-RUN: would update the aiup PATH block in " + file_path)
+    raise SystemExit(0)
+# Write next to the real file (a dotfile manager may symlink ~/.zshrc) and
+# swap it in, so an interrupted run never leaves a half-written .zshrc.
+target = p.resolve()
+mode = target.stat().st_mode & 0o7777 if target.exists() else 0o644
+fd, temp = tempfile.mkstemp(prefix=".zshrc.aiup.", dir=str(target.parent))
+try:
+    with os.fdopen(fd, "w") as handle:
+        handle.write(new_text)
+    os.chmod(temp, mode)
+    os.replace(temp, target)
+except BaseException:
+    if os.path.exists(temp):
+        os.unlink(temp)
+    raise
 PYEOF
 }
 
@@ -828,7 +880,7 @@ ensure_managed_paths() {
   ensure_dir "$LOCAL_BIN"
   ensure_dir "$AIUP_NPM_BIN"
   ensure_dir "$AIUP_NPM_NODE_MODULES"
-  remove_legacy_path_lines >/dev/null 2>&1 || true
+  [ "$DRY_RUN" -eq 1 ] || remove_legacy_path_lines >/dev/null 2>&1 || true
   ensure_zsh_path_block
   ensure_path_active "$AIUP_NPM_BIN"
   ensure_path_active "$LOCAL_BIN"
@@ -1930,6 +1982,7 @@ ensure_catalog_deps() {
   local tool dep policy
   local -a ordered=()
   local seen="|"
+  policy_reasons_prime || true
   for tool in "$@"; do
     policy="$(policy_reason "$tool")" || return 1
     [ -z "$policy" ] || continue
@@ -6724,6 +6777,13 @@ update_antigravity() {
   info "Antigravity detected install method: $method"
   case "$method" in
     installer)
+      # The installer refuses to touch an existing agy and says agy updates
+      # itself in the background, so fetching it again only costs a download.
+      if [ -x "$LOCAL_BIN/agy" ] && "$LOCAL_BIN/agy" --version >/dev/null 2>&1; then
+        info "Antigravity CLI updates itself in the background; skipping the installer"
+        set_state_method antigravity installer
+        return 0
+      fi
       info "Refreshing Antigravity CLI via the official installer"
       ;;
     stale-app-link)
@@ -7499,7 +7559,7 @@ remove_by_kind() {
 # Preferences are data, never shell code. Atomic writes are serialized separately
 # from package-manager operations; malformed preferences fail closed.
 preferences() {
-  case "$1" in show|reason|reasons|group-read|setting) ;; *)
+  case "$1" in show|reason|reasons|reasons-map|group-read|setting) ;; *)
     if [ "$DRY_RUN" -eq 1 ]; then printf 'DRY-RUN: preferences %s\n' "$*"; return 0; fi ;;
   esac
   python3 - "$STATE_DIR" "$CATALOG_MANIFEST" "$@" <<'PYPREF'
@@ -7508,7 +7568,7 @@ from pathlib import Path
 root, manifest, action, *args = sys.argv[1:]
 root=Path(root); path=root/'preferences.json'
 if root.is_symlink() or path.is_symlink(): raise SystemExit('Refusing symbolic-link preferences')
-if action in ('reason','reasons') and not path.exists(): raise SystemExit(0)
+if action in ('reason','reasons','reasons-map') and not path.exists(): raise SystemExit(0)
 manifest_rows=[l.split('\t') for l in Path(manifest).read_text().splitlines() if l and not l.startswith('#')]
 ids={r[0] for r in manifest_rows}
 aliases={('bc:' if r[2]=='brew-cask' else 'bf:')+r[6]:r[0] for r in manifest_rows if len(r)>6 and r[6] and r[2] in ('brew-cask','brew-formula')}
@@ -7531,7 +7591,7 @@ def reason(data,tool):
     if until and until>=datetime.date.today().isoformat(): return 'Held through '+until+'; aiup unhold '+tool+' to restore'
     return ''
 try:
-    if action in ('show','reason','reasons','group-read','setting'):
+    if action in ('show','reason','reasons','reasons-map','group-read','setting'):
         data=read()
         if action=='show': print(json.dumps(dict(data,cleanup=data.get('cleanup','auto')),indent=2))
         elif action=='setting': print(data.get(args[0], 'auto' if args[0]=='cleanup' else ''))
@@ -7539,6 +7599,12 @@ try:
         elif action=='reasons':
             for tool in sorted(ids | set(data['excluded']) | set(data['holds'])):
                 if reason(data,tool): print(tool+'\t'+reason(data,tool))
+        elif action=='reasons-map':
+            # Same answers as reason for every ID policy_reason can be asked
+            # about, Homebrew aliases of catalog tools included.
+            for key in sorted(ids | set(data['excluded']) | set(data['holds']) | set(aliases)):
+                text=reason(data,aliases.get(key,key))
+                if text: print(key+'\t'+text)
         else:
             if args[0] not in data['groups']: raise ValueError('Unknown group: '+args[0])
             print('\n'.join(data['groups'][args[0]]))
@@ -7581,7 +7647,29 @@ except (ValueError, OSError, IndexError, TypeError) as e: raise SystemExit('Pref
 PYPREF
 }
 
-policy_reason() { preferences reason "$1"; }
+policy_reasons_sig() { stat -f '%i:%m:%z' "$STATE_DIR/preferences.json" 2>/dev/null || printf 'none\n'; }
+
+# Reads every exclusion and hold once into this shell. policy_reason runs in
+# command substitutions, so callers prime the cache before their loops; an
+# unprimed or outdated cache falls back to reading preferences directly.
+policy_reasons_prime() {
+  local sig
+  sig="$(policy_reasons_sig)"
+  [ "$sig" != "$AIUP_POLICY_SIG" ] || return 0
+  AIUP_POLICY_REASONS="$(preferences reasons-map)" || return 1
+  AIUP_POLICY_SIG="$sig"
+}
+
+policy_reason() {
+  local key reason
+  if [ -n "$AIUP_POLICY_SIG" ] && [ "$(policy_reasons_sig)" = "$AIUP_POLICY_SIG" ]; then
+    while IFS=$'\t' read -r key reason; do
+      [ "$key" != "$1" ] || { printf '%s\n' "$reason"; return 0; }
+    done <<< "$AIUP_POLICY_REASONS"
+    return 0
+  fi
+  preferences reason "$1"
+}
 
 cmd_project() {
   python3 - "$1" <<'PYPROJECT'
@@ -7800,8 +7888,10 @@ if logs.is_dir() and not logs.is_symlink():
     if candidates:latest=read(candidates[0],{})
 if latest:
     for r in latest.get('tools',[]):
-        if r.get('result') in ('failed','unverified','pending','deferred','cancelled') or r.get('warning'):
-            card(r['tool']+' · '+r.get('result','needs review'),r.get('note','')+' · aiup logs '+r['tool']+'; use aiup resume when the run is no longer active.');count+=1
+        if r.get('result') in ('failed','unverified','pending','deferred','cancelled','downgraded') or r.get('warning'):
+            resumable=r.get('result') in ('failed','pending','deferred','cancelled')
+            note=r.get('note','') or ('Version went from '+str(r.get('before',''))+' to '+str(r.get('after',''))+'; check that nothing you use needs the newer one' if r.get('result')=='downgraded' else '')
+            card(r['tool']+' · '+r.get('result','needs review'),note+' · aiup logs '+r['tool']+('; use aiup resume when the run is no longer active.' if resumable else ''));count+=1
 if duplicates:card(str(len(duplicates))+' commands have multiple installations','Review active paths and other copies: aiup duplicates. Nothing is removed automatically.');count+=1
 unsupported=[r for r in items if r['id'].startswith('di:path:') and (r['owner'] in ('PATH executable','unknown','Unknown') or 'no reviewed' in r['guidance'])]
 if unsupported:card(str(len(unsupported))+' commands need an ownership review','aiup owners explains known evidence; aiup coverage --all shows support gaps.');count+=1
@@ -7917,11 +8007,17 @@ if action == "warnings":
     raise SystemExit(0)
 if action in ("retry", "resume"):
     if not selected: raise SystemExit(0)
-    log,data,alive=selected[0]
-    if alive: raise SystemExit("Latest run is still active; wait for it to finish")
-    if not data: raise SystemExit("Latest run has no structured results; inspect aiup logs")
-    for row in data['tools']:
-        if row.get('result') in (('failed','pending','deferred','cancelled') if action=='resume' else ('failed','deferred','cancelled')): print(row['tool'], row.get('result'), sep='\t')
+    if selected[0][2]: raise SystemExit("Latest run is still active; wait for it to finish")
+    # Each tool's newest retained result decides, so a later partial run (aiup
+    # only X) does not hide a tool an earlier run deferred or failed.
+    wanted = ('failed','pending','deferred','cancelled') if action=='resume' else ('failed','deferred','cancelled')
+    latest = {}
+    for log, data, alive in selected:
+        if alive or not data: continue
+        for row in data.get('tools', []):
+            if isinstance(row, dict) and row.get('tool'): latest.setdefault(row['tool'], row.get('result'))
+    for tool, result in latest.items():
+        if result in wanted: print(tool, result, sep='\t')
     raise SystemExit(0)
 if action == "cleanup":
     print(ink("\naiup · cleanup history"))
@@ -7977,8 +8073,13 @@ with open(sys.argv[1], "rb") as handle:
     handle.seek(int(sys.argv[2]))
     text = handle.read(max(0,int(sys.argv[3])-int(sys.argv[2]))).decode("utf-8", "replace")
 text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
-lines = [line.strip() for line in text.splitlines() if re.search(r"\b(?:warn(?:ing)?|error)\b", line, re.I)
-         and not line.startswith("[") and not re.search("already installed|not upgrading",line,re.I)]
+# Only lines that report a warning or error count; a word like "error" inside
+# brew update formula descriptions or other prose does not. aiup log lines
+# start with "[". A keg left unlinked because another version is linked is
+# normal Homebrew coexistence (openssl@3 beside openssl@4).
+lines = [line.strip() for line in text.splitlines()
+         if re.match(r"\s*(?:==>\s*)?(?:npm\s+)?(?:warn(?:ing)?\b|error\b|err!)", line, re.I)
+         and not re.search(r"already installed|not upgrading|not linked because \S+ is already linked", line, re.I)]
 if lines:
     held = list(dict.fromkeys(re.findall(r"install-scripts\s+(@?[^@\s]+)@\S+\s+\(", text)))
     if held:
@@ -8014,7 +8115,7 @@ check_worker_count() {
 update_report_begin() {
   [ "$UPDATE_REPORT_ACTIVE" -eq 0 ] || return 0
   local tool version
-  [ "$UPDATE_REPORT_MODE" != update ] || preferences reasons >/dev/null || return 1
+  if [ "$UPDATE_REPORT_MODE" = update ]; then policy_reasons_prime || return 1; else policy_reasons_prime || true; fi
   [ "$UPDATE_REPORT_MODE" != update ] || ensure_managed_paths
   [ ! -L "$STATE_DIR/logs" ] || { error "Refusing a symbolic-link log directory"; return 1; }
   ensure_dir "$STATE_DIR/logs"
@@ -8137,7 +8238,10 @@ run_tool_update() {
         brew_cache_invalidate; brew_cache_load
       fi ;;
   esac
-  if [ "$rc" -eq 0 ]; then
+  if [ "$AIUP_INTERRUPTED" -eq 1 ]; then
+    UPDATE_REPORT_NOTE="Interrupted. aiup resume runs it again."
+    update_report_record "$tool" cancelled
+  elif [ "$rc" -eq 0 ]; then
     update_report_record "$tool" "$AIUP_LAST_UPDATE_STATUS"
   else
     update_report_record "$tool" failed
@@ -8151,7 +8255,7 @@ print_update_report() {
     [ -n "${NO_COLOR:-}" ] || color=1
     width="$(stty size </dev/tty 2>/dev/null | awk '{print $2}')"
   fi
-  printf '%s\n' ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"} | python3 -c '
+  printf '%s\n' ${UPDATE_REPORT_ROWS[@]+"${UPDATE_REPORT_ROWS[@]}"} | python3 -c "$AIUP_VERSION_PY"'
 import sys, re, textwrap, json, os, time
 from pathlib import Path
 from collections import Counter
@@ -8176,12 +8280,17 @@ for line in sys.stdin:
     known = lambda v: bool(re.fullmatch(r"(?:v?\d[0-9A-Za-z._,+-]*|r\d+)", v))
     if mode == "update" and status in ("completed", "current"):
         if before == "not installed" and known(after): status = "installed"
-        elif known(before) and known(after): status = "unchanged" if before == after else "updated"
+        elif known(before) and known(after):
+            # Homebrew can repoint a formula to an older line (openssl@3 to 3.5).
+            status = "unchanged" if before == after else "downgraded" if version_cmp(after, before) < 0 else "updated"
         else: status = "unverified"
     versions = before + " → " + after if before != after else after
     if status == "planned": versions = before
     rows[tool] = (status, versions, category, note, before, after, start, end, warning, int(fields[9]) if len(fields)>9 else 0)
 counts = Counter(row[0] for row in rows.values())
+ORDER = ("failed", "downgraded", "updated", "installed", "cleaned", "deferred", "cancelled", "pending",
+         "skipped", "unverified", "planned", "update", "self-updated", "current", "unchanged")
+counts = {state: counts[state] for state in sorted(counts, key=lambda s: ORDER.index(s) if s in ORDER else len(ORDER))}
 warning_count = sum(bool(row[8]) for row in rows.values())
 if mode == "update":
     data = {"schema": "aiup-run-v1", "started": time.time()-int(seconds), "duration": int(seconds),
@@ -8196,22 +8305,27 @@ if mode == "update":
         json.dump(data, handle, indent=2)
     os.replace(temp, target)
 if save_only: raise SystemExit(0)
-hidden = 0
+hidden = not_started = 0
 if mode == "update" and show_all != "1":
-    visible = {t:r for t,r in rows.items() if r[0] != "unchanged" or r[8] or r[3]}
-    hidden = len(rows) - len(visible)
+    # Current tools (self-updated apps included) and tools an interrupted run
+    # never reached stay out of the table; the summary still counts them.
+    quiet = lambda r: (r[0] == "unchanged" and not r[8] and not r[3]) or (r[0] == "self-updated" and not r[8]) or r[0] == "pending"
+    visible = {t:r for t,r in rows.items() if not quiet(r)}
+    hidden = sum(1 for r in rows.values() if quiet(r) and r[0] != "pending")
+    not_started = counts.get("pending", 0)
 else: visible = rows
-if warning_count: counts["with warnings"] = warning_count
 print("\n" + ink("  aiup · " + ("update check" if mode == "check" else "results"), "1;38;5;141"))
 for part in textwrap.wrap(" · ".join(str(n)+" "+state for state,n in counts.items()) + " · " + seconds + "s", width-4):
     print(ink("  " + part, "38;5;245"))
+if warning_count:
+    print(ink("  " + str(warning_count) + (" tool needs" if warning_count == 1 else " tools need") + " a look (marked !)", "38;5;220"))
 print(ink("  " + "─" * (width-4), "38;5;60"))
 tool_width = min(32, max(19, max((len(t)+2 for t in rows), default=19)))
 if width >= 76:
     print(ink("  " + "TOOL".ljust(tool_width) + "RESULT".ljust(13) + "VERSION", "38;5;81"))
 for tool, (status, versions, category, note, before, after, start, end, warning, duration) in visible.items():
     code = "38;2;57;255;20" if status in ("updated", "installed", "update", "cleaned") else "38;5;245"
-    if status in ("failed", "unverified"): code = "38;5;203"
+    if status in ("failed", "unverified", "downgraded"): code = "38;5;203"
     elif status in ("skipped", "planned", "deferred", "cancelled"): code = "38;5;220"
     if mode == "update": versions += " · " + str(duration) + "s"
     if warning: status += " !"
@@ -8231,9 +8345,15 @@ for tool, (status, versions, category, note, before, after, start, end, warning,
     if note:
         for part in textwrap.wrap(note, width-6): print(ink("      " + part, "38;5;220"))
 print(ink("  " + "─" * (width-4), "38;5;60"))
-if hidden: print(ink(f"  {hidden} unchanged tools hidden · use --show-unchanged for the full list", "38;5;245"))
+plural = lambda n: "tool" if n == 1 else "tools"
+if hidden: print(ink("  " + str(hidden) + " current " + plural(hidden) + " hidden · --show-unchanged lists them", "38;5;245"))
+if not_started: print(ink("  " + str(not_started) + " " + plural(not_started) + " not started (run interrupted)", "38;5;220"))
 if mode == "update":
-    for part in textwrap.wrap("Next: aiup attention · aiup history · aiup resume",width-4): print(ink("  "+part, "38;5;81"))
+    steps = []
+    if any(r[0] in ("failed", "deferred", "cancelled", "pending") for r in rows.values()): steps.append("aiup resume")
+    if warning_count or counts.get("downgraded"): steps.append("aiup attention")
+    if steps:
+        for part in textwrap.wrap("Next: " + " · ".join(steps), width-4): print(ink("  "+part, "38;5;81"))
     print(ink("  Run log: " + logfile, "38;5;245"))
 else:
     print(ink("  Read-only check · no tools changed", "38;5;245"))
@@ -8343,10 +8463,23 @@ run_tool_update_impl() {
 }
 
 mutation_authoritative_preflight() {
-  local operation="$1" runtime current_runtime_hash
+  local operation="$1" runtime current_runtime_hash brew_fp files_sig
   tui_cache_invalidate
-  brew_cache_invalidate
+  # Reread Homebrew only when its Cellar or Caskroom changed since the last
+  # mutation; reading the folders is much cheaper than two brew list calls.
+  brew_fp="$(brew_install_fingerprint)"
+  if [ "${AIUP_BREW_CACHE_READY:-0}" != 1 ] || [ "$brew_fp" != "${AIUP_PREFLIGHT_BREW_FP:-}" ]; then
+    brew_cache_invalidate
+    AIUP_PREFLIGHT_BREW_FP="$brew_fp"
+  fi
   runtime="$(tui_runtime_path)"
+  # Revalidate the runtime and catalog only when either file changed on disk
+  # (an atomic replace changes the inode). A long run would otherwise parse
+  # and hash both files before every tool it touches.
+  files_sig="$(stat -f '%i:%m:%z' "$runtime" "$CATALOG_MANIFEST" 2>/dev/null | tr '\n' ' ')"
+  if [ -n "$files_sig" ] && [ "$files_sig" = "${AIUP_PREFLIGHT_FILES_SIG:-}" ] && [ -n "$AIUP_RUNTIME_HASH" ]; then
+    return 0
+  fi
   require_runtime_environment || return 1
   bash -n "$runtime" || { error "Runtime revalidation failed before $operation"; return 1; }
   current_runtime_hash="$(sha256_file "$runtime")" || return 1
@@ -8354,6 +8487,7 @@ mutation_authoritative_preflight() {
   catalog_manifest_load || { error "Manifest revalidation failed before $operation"; return 1; }
   catalog_validate || { error "Catalog revalidation failed before $operation"; return 1; }
   AIUP_RUNTIME_HASH="$current_runtime_hash"
+  AIUP_PREFLIGHT_FILES_SIG="$files_sig"
   return 0
 }
 
@@ -10396,7 +10530,15 @@ main_update() {
     done
   fi
   ensure_catalog_deps "${tools[@]}" || return 1
+  # With a report, Ctrl-C stops after the current tool and still prints the
+  # results; tools not reached stay pending for aiup resume.
+  local saved_traps=''
+  if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
+    saved_traps="$(trap -p INT TERM HUP)"
+    trap 'AIUP_INTERRUPTED=1' INT TERM HUP
+  fi
   for tool in "${tools[@]}"; do
+    [ "$AIUP_INTERRUPTED" -eq 0 ] || break
     case "$AIUP_REQUIRED_UPDATED" in
       *"|$tool|"*) continue ;;
     esac
@@ -10407,11 +10549,16 @@ main_update() {
     fi
     run_tool_update "$tool" || true
   done
+  if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then
+    trap - INT TERM HUP
+    [ -z "$saved_traps" ] || eval "$saved_traps"
+  fi
   brew_cache_invalidate
   if [ "${AIUP_KEEP_UI:-0}" != 1 ]; then
     if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ]; then print_update_report
     else print_result_summary; print_summary_versions; fi
   fi
+  [ "$AIUP_INTERRUPTED" -eq 0 ] || return 130
   if [ "${#FAILED_TOOLS[@]}" -gt 0 ]; then
     printf '\nFailed tools: %s\n' "${FAILED_TOOLS[*]}" >&2
     return 1
@@ -10662,7 +10809,7 @@ parse_args() {
         retry_selected+=("$retry_tool")
         case "$retry_result" in deferred|cancelled) AIUP_RESUME_SWITCH="${AIUP_RESUME_SWITCH}|$retry_tool|" ;; esac
       done <<< "$retry_tools"
-      [ "${#retry_selected[@]}" -gt 0 ] || { printf 'No unfinished or failed tools in the latest saved run.\n'; return 0; }
+      [ "${#retry_selected[@]}" -gt 0 ] || { printf 'No unfinished or failed tools in saved runs.\n'; return 0; }
       resolve_tools "${retry_selected[@]}" >/dev/null || return 1
       if [ "${args[0]}" = resume ]; then NO_INSTALL=1
       else [ "$NO_INSTALL_EXPLICIT" -eq 1 ] || NO_INSTALL=0; fi

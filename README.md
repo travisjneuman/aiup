@@ -68,7 +68,7 @@ Normal `aiup`, `aiup full`, `aiup core`, and `aiup check` include installed Home
 
 Installed-version reads run concurrently (two workers by default; bounded to three). Homebrew availability uses one shared snapshot; confirmed-current packages avoid repeated inventory scans. Package mutations remain sequential. Downloads and app shutdown/replacement can still dominate a run; `--timings` exposes those phases.
 
-Each update run ends with one color-coded table. Ordinary unchanged rows are hidden by default; warnings, changes, skips, and failures stay visible. Use `aiup --show-unchanged` for the full table; saved history always retains every result.
+Each update run ends with one color-coded table. Current rows (unchanged tools and apps that updated themselves) are hidden by default; warnings, changes, skips, and failures stay visible. A tool whose version went down, which Homebrew can do when it repoints a formula, shows as `downgraded`. Use `aiup --show-unchanged` for the full table; saved history always retains every result. The last line suggests `aiup resume` only when something is unfinished and `aiup attention` only when something needs a look.
 
 The table shows: tool, outcome, and version. Actual changes show `before → after`; unchanged versions, skips, failures, and unavailable versions remain distinct. Skip reasons and provider warnings appear beneath the relevant row. The report uses the catalog palette, stacks neatly in narrow terminals, and respects `NO_COLOR` and redirected output.
 
@@ -275,12 +275,12 @@ The current macOS tool, public repository, minimal site, and six-state media are
 | `aiup plan` / `aiup plan --all` | Compact/full action preview; no package changes. Shows self-updated apps and apps that must be quit first; download sizes remain updater-dependent |
 | `aiup owners` | Local installation ownership, paths and maintenance guidance; observations persist locally |
 | `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
-| `aiup resume` | Retries pending, deferred (app was open) and failed tools from the latest inactive saved run, rechecking current state |
+| `aiup resume` | Retries tools whose newest saved result is pending, deferred (app was open), cancelled or failed, across all retained runs, rechecking current state |
 | `aiup settings cleanup auto` / `review` | Automatic cleanup or review-first mode; exclusions also accept `bc:`/`bf:` IDs |
 | `aiup cleanup history` | Cleanup results from retained structured run history |
 | `aiup --plain welcome` | Colorless guidance; statuses remain readable without color |
 
-Normal terminal runs show the guide once, numbered progress and elapsed time. Interrupted runs retain completed results and pending selections; resume reruns unfinished actions, rather than resuming a download at a byte offset. Existing provider updaters determine download behavior. aiup never replaces an open app: it defers that update until you quit the app, then `aiup resume` finishes it. Apps that update themselves (Claude, ChatGPT and other `auto_updates` casks) report `current (self-updated)` when they are already at or past Homebrew's version, and aiup skips the Homebrew download. Guidance wraps to the terminal width, using the picker palette when colors are enabled.
+Normal terminal runs show the guide once, numbered progress and elapsed time. Ctrl-C stops the command that is running, skips the tools not reached yet and still prints the results. The interrupted tool is recorded as `cancelled` and the rest as pending, so `aiup resume` reruns them. A download starts over; it does not continue from where it stopped. Existing provider updaters determine download behavior. aiup never replaces an open app: it defers that update until you quit the app, then `aiup resume` finishes it. Apps that update themselves (Claude, ChatGPT and other `auto_updates` casks) report `self-updated` (`current (self-updated)` in `aiup check`) when they are already at or past Homebrew's version, and aiup skips the Homebrew download. Guidance wraps to the terminal width, using the picker palette when colors are enabled.
 
 ## Apps removed with AppCleaner
 
