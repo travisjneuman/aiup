@@ -172,6 +172,7 @@ AIUP_LANE_DIR=''
 AIUP_LANE_PIDS=''
 AIUP_LANE_TOOLS=''
 AIUP_LANE_RERUN=''
+AIUP_LANE_FIRST=''
 # Per-run state, set here so an exported value from the environment is ignored.
 AIUP_CHECK_SILENT=0
 AIUP_NPM_ALLOW_SCRIPTS_OK=''
@@ -11544,8 +11545,10 @@ brew_attestations_setup() {
 # logs and report rows in order afterwards, so the log and the results look
 # the same as a one-at-a-time run. Tools with their own updater, tools that
 # would remove a Homebrew formula, and anything that needs a prompt stay in
-# the main sequence. A lane is not started when this run's Homebrew upgrades
-# include what it runs on (node for npm; uv or a Python for uv).
+# the main sequence. Node and uv update first, in the main sequence, so the
+# lanes use the new versions. A lane is not started when this run's Homebrew
+# upgrades still include what it runs on (node for npm; uv or a Python for
+# uv) or a formula those depend on, such as icu4c or openssl.
 # AIUP_PARALLEL=0 runs everything one at a time.
 
 # Prints npm or uv when TOOL can update in a lane.
@@ -11559,13 +11562,11 @@ lane_kind_for() {
   policy="$(policy_reason "$tool" 2>/dev/null)" && [ -z "$policy" ] || return 1
   case "$(catalog_kind "$tool")" in
     aiup-npm)
-      case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:node|"*) return 1 ;; esac
       formula="$(npm_retired_brew_formula "$tool")"
       [ -z "$formula" ] || ! brew_formula_installed "$formula" || return 1
       printf 'npm\n' ;;
     uv-tool)
       command_exists uv || return 1
-      case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:uv|"*|*"|formula:python@"*) return 1 ;; esac
       printf 'uv\n' ;;
     *) return 1 ;;
   esac
@@ -11579,26 +11580,82 @@ lane_safe_beside() {
   return 1
 }
 
+lanes_enabled() {
+  [ "${AIUP_PARALLEL:-1}" != 0 ] && [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ "$AIUP_VERBOSE" -eq 0 ] || return 1
+  [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ] && [ "${AIUP_KEEP_UI:-0}" != 1 ] && [ "$AIUP_INTERRUPTED" -eq 0 ] || return 1
+  [ -z "$AIUP_LANE_DIR" ] && [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] && ! capture_fixture_enabled || return 1
+  command_exists brew
+}
+
+# Runs the npm and uv runtimes (catalog ids npm and uv) before the lanes start
+# when TOOLS has lane tools of that kind, so a Node upgrade or a uv self update
+# lands first. The Homebrew snapshot is read again afterwards.
+lanes_runtimes_first() {
+  lanes_enabled || return 0
+  local runtime kind tool found
+  for runtime in npm uv; do
+    case " $* " in *" $runtime "*) ;; *) continue ;; esac
+    case "$AIUP_REQUIRED_UPDATED$AIUP_LANE_FIRST" in *"|$runtime|"*) continue ;; esac
+    kind=aiup-npm
+    [ "$runtime" = npm ] || kind=uv-tool
+    found=0
+    for tool in "$@"; do
+      if [ "$(catalog_kind "$tool")" = "$kind" ]; then found=1; break; fi
+    done
+    [ "$found" -eq 1 ] || continue
+    AIUP_LANE_FIRST="${AIUP_LANE_FIRST}|${runtime}|"
+    AIUP_LAST_UPDATE_STATUS=completed
+    main_update_tool "$runtime"
+    case "$AIUP_LAST_UPDATE_STATUS" in current|skipped) ;; *) AIUP_BREW_OUTDATED_READY=0 ;; esac
+    [ "$AIUP_INTERRUPTED" -eq 0 ] || return 0
+  done
+}
+
+# True when Homebrew is about to upgrade one of the FORMULAE, or a formula
+# one of them depends on. A failed lookup counts as true.
+lane_runtime_upgrading() {
+  local formula deps
+  for formula in "$@"; do
+    case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:$formula|"*) return 0 ;; esac
+  done
+  case "$AIUP_BREW_OUTDATED_TARGETS" in *'|formula:'*) ;; *) return 1 ;; esac
+  deps="$(env HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1 brew deps --installed --union "$@" 2>/dev/null)" || return 0
+  for formula in $deps; do
+    case "$AIUP_BREW_OUTDATED_TARGETS" in *"|formula:${formula##*/}|"*) return 0 ;; esac
+  done
+  return 1
+}
+
 lanes_start() {
-  [ "${AIUP_PARALLEL:-1}" != 0 ] && [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ "$AIUP_VERBOSE" -eq 0 ] || return 0
-  [ "${AIUP_VERIFIED_SELECTION_ONLY:-0}" != 1 ] && [ "${AIUP_KEEP_UI:-0}" != 1 ] && [ "$AIUP_INTERRUPTED" -eq 0 ] || return 0
-  [ -z "$AIUP_LANE_DIR" ] && [ -z "${AIUP_FAKE_PROVIDER_COMMAND:-}" ] && ! capture_fixture_enabled || return 0
-  command_exists brew || return 0
+  lanes_enabled || return 0
   brew_outdated_snapshot_load
   case "$AIUP_BREW_OUTDATED_TARGETS" in unknown|'') return 0 ;; esac
-  local tool lane dir
-  local -a npm_lane=() uv_lane=()
+  # Load what the lanes read once here, so they do not each ask Homebrew.
+  brew_cache_load
+  local tool lane dir formula
+  local -a npm_lane=() uv_lane=() uv_roots=()
   for tool in "$@"; do
     lane="$(lane_kind_for "$tool")" || continue
     if [ "$lane" = npm ]; then npm_lane+=("$tool"); else uv_lane+=("$tool"); fi
   done
+  if [ "${#npm_lane[@]}" -gt 0 ] && brew_formula_installed node && lane_runtime_upgrading node; then
+    info "npm lane not started: Homebrew is upgrading node or a formula it needs"
+    npm_lane=()
+  fi
+  if [ "${#uv_lane[@]}" -gt 0 ]; then
+    for formula in $AIUP_BREW_FORMULAE; do
+      case "$formula" in uv|python@*) uv_roots+=("$formula") ;; esac
+    done
+    if [ "${#uv_roots[@]}" -gt 0 ] && lane_runtime_upgrading "${uv_roots[@]}"; then
+      info "uv lane not started: Homebrew is upgrading uv, a Python, or a formula they need"
+      uv_lane=()
+    fi
+  fi
   [ "${#npm_lane[@]}" -gt 0 ] || [ "${#uv_lane[@]}" -gt 0 ] || return 0
   dir="${UPDATE_REPORT_LOG}.lanes"
   [ ! -L "$dir" ] || return 0
   rm -rf -- "$dir" 2>/dev/null || true
   (umask 077 && mkdir "$dir") 2>/dev/null || return 0
-  # Load what the lanes read once here, so they do not each ask Homebrew.
-  brew_cache_load
   ensure_system_npm_prefix
   ensure_managed_paths
   AIUP_LANE_DIR="$dir"
@@ -11773,11 +11830,13 @@ main_update() {
         UPDATE_REPORT_CAPTURING=0
       else
         brew_prefetch_upgrades "${tools[@]:$((index - 1))}" >> "$UPDATE_REPORT_LOG" 2>&1 || true
+        lanes_runtimes_first "${tools[@]:$((index - 1))}"
+        [ "$AIUP_INTERRUPTED" -eq 0 ] || break
         lanes_start "${tools[@]:$((index - 1))}" >> "$UPDATE_REPORT_LOG" 2>&1 || true
       fi
       [ "$AIUP_INTERRUPTED" -eq 0 ] || break
     fi
-    case "$AIUP_LANE_TOOLS" in *"|$tool|"*) continue ;; esac
+    case "$AIUP_LANE_TOOLS$AIUP_LANE_FIRST" in *"|$tool|"*) continue ;; esac
     # While lanes run, only Homebrew-only tools go beside them.
     if [ -n "$AIUP_LANE_PIDS" ] && ! lane_safe_beside "$tool"; then after_lanes+=("$tool"); continue; fi
     main_update_tool "$tool"
@@ -11788,6 +11847,7 @@ main_update() {
     main_update_tool "$tool"
   done
   AIUP_LANE_RERUN=''
+  AIUP_LANE_FIRST=''
   [ -z "$AIUP_CASK_GATE_JSON" ] || rm -f "$AIUP_CASK_GATE_JSON"
   AIUP_CASK_GATE_JSON=''
   AIUP_CASK_GATE_TOKENS=''
