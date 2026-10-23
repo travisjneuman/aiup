@@ -22,16 +22,16 @@
       "label": "Catalog tools",
       "source": "local export: macos/aiup catalog --json; length of top-level tools (curated manifest entries). Refresh: scripts/sync-public-docs --skip-media",
       "round": "exact",
-      "asOf": "2026-10-14",
+      "asOf": "2026-10-23",
       "key": "tools",
       "provenance": {
         "producer": "scripts/sync-public-docs",
         "catalogCommand": "macos/aiup catalog --json",
         "population": "top-level tools: curated manifest entries",
-        "runtimeVersion": "2026.10.14-05",
-        "runtimeSha256": "cb9f1272da5e732dd17aec6b6fad8ab5f36e969d4eedc2a9344e2140603bdead",
-        "manifestSha256": "ee544e8047adaf85434533a0492311c0e13fd318728082ac0c4e377873ac1df6",
-        "exportSha256": "732793a18bdc77ed4d165b32a036d390b6973cb9e4335bce0509651ec345335b"
+        "runtimeVersion": "2026.10.23-01",
+        "runtimeSha256": "00f54a829a86adde5f2a009893874ad2f42e18faa8bed93117f6d31033d07015",
+        "manifestSha256": "a5046c256e93e6a14594dff28ed5a75e4aa6eee4340614dd519210be3cbebad2",
+        "exportSha256": "cbecdca02ed367df64012500880f50e0b77c51e4f6420d98ab71e981d3f8c447"
       }
     },
     {
@@ -51,5 +51,5 @@
       "key": "background"
     }
   ],
-  "updated": "2026-10-14"
+  "updated": "2026-10-23"
 }

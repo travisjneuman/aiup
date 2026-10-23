@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 2026.10.23-01
+
+- A Homebrew cask upgrade that asks for your password through sudo no longer looks stuck. The progress line used to redraw every few seconds and wipe sudo's `Password:` prompt, so a run could wait for a password nobody could see (tailscale-app did this). Now, while any sudo runs under aiup (from any updater, the parallel npm and uv updates included), the line reads "sudo password:" and stays put until sudo is done. Type your password and press Return, as usual.
+
 ## 2026.10.14-05
 
 - New: `aiup channel --policy newest|keep|brew` sets one install channel rule for every tool. `newest` (the default) installs each tool from the channel that ships its releases first. `keep` updates each tool from wherever it is installed now and never moves or removes a copy; new installs use the default. `brew` uses Homebrew wherever it has the tool, and the next run moves those tools and removes each old copy once the Homebrew one is in place. A pick made with `aiup channel TOOL` always wins, and `aiup channel TOOL default` hands the tool back to the policy. Under `keep` or `brew`, picking a tool's default channel by name now holds it there.

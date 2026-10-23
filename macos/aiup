@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.10.14-05"
+AIUP_VERSION="2026.10.23-01"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -665,6 +665,21 @@ print_result_summary() {
   print_result_group cancelled ${RESULT_CANCELLED[@]+"${RESULT_CANCELLED[@]}"}
 }
 
+# True when a sudo process runs anywhere under PID, for example the one
+# `brew upgrade --cask` starts to remove an old app's package files.
+# $$ stays the main aiup shell inside subshells, so callers pass that.
+process_tree_has_sudo() {
+  ps -axo pid=,ppid=,comm= 2>/dev/null | awk -v root="$1" '
+    { parent[$1] = $2; name[$1] = $3 }
+    END {
+      for (p in name) {
+        if (name[p] !~ /(^|\/)sudo$/) continue
+        for (q = parent[p]; q != "" && q > 1; q = parent[q]) if (q == root) exit 0
+      }
+      exit 1
+    }'
+}
+
 run_with_heartbeat() {
   local label="$1"
   shift
@@ -691,15 +706,27 @@ run_with_heartbeat() {
   pid=$!
 
   (
+    local progress sudo_shown=0
     while kill -0 "$pid" 2>/dev/null; do
       sleep "$HEARTBEAT_SECONDS"
       if kill -0 "$pid" 2>/dev/null; then
         elapsed=$(( $(date +%s) - start_ts ))
         if [ "$UPDATE_REPORT_ACTIVE" -eq 1 ] && [ "$AIUP_VERBOSE" -eq 0 ] && [ -t 4 ] && [ -z "${NO_COLOR:-}" ]; then
           if [ "$UPDATE_REPORT_COMPLETED" -lt "${#UPDATE_REPORT_TOOLS[@]}" ]; then
-            printf '\r\033[2K  [%s/%s] %.24s · %ss elapsed' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$UPDATE_REPORT_CURRENT_TOOL" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+            progress="$(printf '[%s/%s] %.24s' "$((UPDATE_REPORT_COMPLETED + 1))" "${#UPDATE_REPORT_TOOLS[@]}" "$UPDATE_REPORT_CURRENT_TOOL")"
           else
-            printf '\r\033[2K  %.24s · %ss elapsed' "$UPDATE_REPORT_CURRENT_TOOL" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
+            progress="$(printf '%.24s' "$UPDATE_REPORT_CURRENT_TOOL")"
+          fi
+          # sudo prints its password prompt straight to the terminal, and the
+          # redraw below would wipe it every few seconds. While a sudo runs
+          # anywhere under aiup (a parallel npm or uv lane included), say so
+          # once and then leave the line alone.
+          if process_tree_has_sudo "$$"; then
+            [ "$sudo_shown" -eq 1 ] || printf '\r\033[2K  %s · sudo password: ' "$progress" >&4
+            sudo_shown=1
+          else
+            sudo_shown=0
+            printf '\r\033[2K  %s · %ss elapsed' "$progress" "$(( $(date +%s) - UPDATE_REPORT_STARTED ))" >&4
           fi
         fi
         info "still working: $label (${elapsed}s elapsed)"
