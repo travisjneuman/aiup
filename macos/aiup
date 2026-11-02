@@ -2463,7 +2463,7 @@ catalog_alt_channels_set() {
     # Homebrew by default (plugins, extras or a bundled runtime live there).
     llm|ramalama|yt-dlp) AIUP_ALT_CHANNELS="uv-tool${t}$1" ;;
     bun) AIUP_ALT_CHANNELS="aiup-npm${t}bun" ;;
-    agent-browser|playwright-cli|playwright-mcp|chrome-devtools-mcp) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
+    agent-browser|chrome-devtools-mcp) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
     *) ;;
   esac
 }

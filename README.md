@@ -250,7 +250,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.10.23-01** · **261** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.10.23-01** · **259** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -260,11 +260,11 @@ _**2026.10.23-01** · **261** tools in the main catalog. Generated from `macos/a
 | 🖥️ | **Agent workspaces** (`workspaces`) | Desktop apps that run and manage coding agents | 16 tools |
 | ✏️ | **Code editors** (`editors`) | Places you type code | 10 tools |
 | ⌨️ | **Terminals** (`terminals`) | Places you run commands | 5 tools |
-| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 15 tools |
+| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 14 tools |
 | 🛡️ | **Sandboxes** (`sandboxes`) | Containers and sandboxes for running agents apart from your files | 9 tools |
 | 🔌 | **Integrations** (`adapters`) | Glue between agents and editors (ACP) | 6 tools |
 | 💬 | **Chat assistants** (`chat`) | Cloud chat apps | 11 tools |
-| 🌐 | **AI browsers** (`browsers`) | Web browsers with an AI assistant or agent built in | 6 tools |
+| 🌐 | **AI browsers** (`browsers`) | Web browsers with an AI assistant or agent built in | 5 tools |
 | ⚡ | **Automation** (`automation`) | General-purpose agents and workflow automation | 7 tools |
 | 🧠 | **Local models** (`local-ai`) | Model runtimes and servers that run on your Mac | 22 tools |
 | 💻 | **Local AI apps** (`local-apps`) | Desktop apps for running models on your Mac | 16 tools |

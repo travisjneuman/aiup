@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Catalog: Playwright CLI and Playwright MCP are gone, from 261 to 259 entries. I don't use or recommend Playwright anymore, so aiup no longer installs, updates or suggests either one. A copy installed by an earlier version is not removed automatically. agent-browser, Browser Use and Chrome DevTools MCP stay. The review rules now exclude Playwright and anything that pulls it in.
+
 ## 2026.10.23-01
 
 - A Homebrew cask upgrade that asks for your password through sudo no longer looks stuck. The progress line used to redraw every few seconds and wipe sudo's `Password:` prompt, so a run could wait for a password nobody could see (tailscale-app did this). Now, while any sudo runs under aiup (from any updater, the parallel npm and uv updates included), the line reads "sudo password:" and stays put until sudo is done. Type your password and press Return, as usual.

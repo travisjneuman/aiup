@@ -178,7 +178,6 @@ mcp-remote	mcp	aiup-npm	active	mcp-remote: connect local MCP clients to remote s
 mcpc	mcp	aiup-npm	active	mcpc: Apify command-line MCP client	https://github.com/apify/mcpc	@apify/mcpc
 supergateway	mcp	aiup-npm	active	Supergateway: serve stdio MCP servers over SSE or WebSocket	https://github.com/supercorp-ai/supergateway	supergateway
 toolhive-studio	mcp	brew-cask	active	ToolHive: desktop app to install and run MCP servers (macOS 13+)	https://github.com/stacklok/toolhive-studio	toolhive-studio
-playwright-mcp	mcp	aiup-npm	active	Playwright MCP: Microsoft browser control server for MCP clients	https://github.com/microsoft/playwright-mcp	@playwright/mcp
 chrome-devtools-mcp	mcp	aiup-npm	active	Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome	https://github.com/ChromeDevTools/chrome-devtools-mcp	chrome-devtools-mcp
 thv	mcp	brew-formula	active	ToolHive CLI (thv): run and manage MCP servers from the terminal	https://docs.stacklok.com/toolhive/	stacklok/tap/thv
 mcpd	mcp	brew-cask	active	mcpd: Mozilla.ai tool to define and run MCP servers from one config file	https://github.com/mozilla-ai/mcpd	mozilla-ai/tap/mcpd
@@ -203,7 +202,6 @@ comet	browsers	brew-cask	active	Comet: Perplexity browser with a built-in assist
 browseros	browsers	brew-cask	active	BrowserOS: open-source agentic browser	https://www.browseros.com/	browseros
 agent-browser	browsers	aiup-npm	active	agent-browser: Vercel browser automation CLI for coding agents	https://github.com/vercel-labs/agent-browser	agent-browser
 browser-use	browsers	uv-tool	active	Browser Use: lets an agent drive your own Chrome from the terminal	https://github.com/browser-use/browser-use	browser-use
-playwright-cli	browsers	aiup-npm	active	Playwright CLI: Microsoft browser automation commands for coding agents	https://github.com/microsoft/playwright-cli	@playwright/cli
 manus	automation	brew-cask	active	Manus Studio: Manus agent for tasks on your computer	https://manus.im/desktop	manus
 langflow	automation	brew-cask	active	Langflow Desktop: low-code AI workflow builder	https://www.langflow.org/desktop	langflow
 docker-agent	automation	brew-formula	active	Docker Agent: build and run AI agents from a config file	https://docker.github.io/docker-agent/	docker-agent

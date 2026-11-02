@@ -175,7 +175,6 @@ mcp	absent	mcp-remote
 mcp	absent	mcpc
 mcp	absent	supergateway
 mcp	absent	toolhive-studio
-mcp	absent	playwright-mcp
 mcp	installed	chrome-devtools-mcp
 mcp	absent	thv
 mcp	absent	mcpd
@@ -200,7 +199,6 @@ browsers	absent	comet
 browsers	absent	browseros
 browsers	absent	agent-browser
 browsers	absent	browser-use
-browsers	absent	playwright-cli
 automation	absent	manus
 automation	absent	langflow
 automation	absent	docker-agent

@@ -881,14 +881,6 @@
           "label": "ToolHive: desktop app to install and run MCP servers (macOS 13+)"
         },
         {
-          "id": "playwright-mcp",
-          "category": "mcp",
-          "kind": "aiup-npm",
-          "lifecycle": "active",
-          "docs": "https://github.com/microsoft/playwright-mcp",
-          "label": "Playwright MCP: Microsoft browser control server for MCP clients"
-        },
-        {
           "id": "chrome-devtools-mcp",
           "category": "mcp",
           "kind": "aiup-npm",
@@ -1223,14 +1215,6 @@
           "lifecycle": "active",
           "docs": "https://github.com/browser-use/browser-use",
           "label": "Browser Use: lets an agent drive your own Chrome from the terminal"
-        },
-        {
-          "id": "playwright-cli",
-          "category": "browsers",
-          "kind": "aiup-npm",
-          "lifecycle": "active",
-          "docs": "https://github.com/microsoft/playwright-cli",
-          "label": "Playwright CLI: Microsoft browser automation commands for coding agents"
         }
       ]
     },
@@ -3718,14 +3702,6 @@
       "label": "ToolHive: desktop app to install and run MCP servers (macOS 13+)"
     },
     {
-      "id": "playwright-mcp",
-      "category": "mcp",
-      "kind": "aiup-npm",
-      "lifecycle": "active",
-      "docs": "https://github.com/microsoft/playwright-mcp",
-      "label": "Playwright MCP: Microsoft browser control server for MCP clients"
-    },
-    {
       "id": "chrome-devtools-mcp",
       "category": "mcp",
       "kind": "aiup-npm",
@@ -3916,14 +3892,6 @@
       "lifecycle": "active",
       "docs": "https://github.com/browser-use/browser-use",
       "label": "Browser Use: lets an agent drive your own Chrome from the terminal"
-    },
-    {
-      "id": "playwright-cli",
-      "category": "browsers",
-      "kind": "aiup-npm",
-      "lifecycle": "active",
-      "docs": "https://github.com/microsoft/playwright-cli",
-      "label": "Playwright CLI: Microsoft browser automation commands for coding agents"
     },
     {
       "id": "manus",

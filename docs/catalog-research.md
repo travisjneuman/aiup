@@ -37,6 +37,10 @@ Candidates for a later review: ToolHive Studio, kitty, claude-squad, ccusage, Tr
 
 The first pass added 87 entries across eight new categories (`agent-tools`, `mcp`, `sandboxes`, `browsers`, `local-apps`, `voice`, `image-gen`, `media-tools`), moved existing desktop model apps and media tools into them, and set `gemini` to sunset after Homebrew deprecated its formula. The second pass added 43 more: tools from taps their publishers run, browser automation tools (aiup installs only their command, never a browser), Poe, and others found while checking the taps. It also added install channels, so each tool installs from whichever official channel publishes first, with the others available through `aiup channel`. Tools that only offer an unreviewed installer are still held. The full record, with every addition's channel and each held tool's reason, is the [2026-10-14 catalog review](catalog-review-2026-10-14.md).
 
+## 2026-11-02 review
+
+Removed and excluded: `playwright-cli` (npm `@playwright/cli`) and `playwright-mcp` (npm `@playwright/mcp`). I no longer use or recommend Playwright, `playwright-core` or `@playwright/test` in any form, so aiup does not install, update or suggest them, and neither entry comes back in a later review. The other browser tools stay: `agent-browser` and Browser Use under AI browsers, and Chrome DevTools MCP under MCP tools. The [2026-10-14 review](catalog-review-2026-10-14.md) keeps its original rows as history.
+
 ## Confirmed existing coverage
 
 - Amazon Q Developer's command-line documentation now says that the Q CLI has become the Kiro CLI, so aiup manages it as the `kiro` entry. There is no separate `amazon-q` entry, since it would be a stale duplicate. See [AWS's upgrade note](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/upgrade-to-kiro.html).
@@ -53,3 +57,4 @@ The first pass added 87 entries across eight new categories (`agent-tools`, `mcp
 6. Keep research candidates in this document until the update/remove contract is complete; local discovery still makes installed candidates visible immediately.
 7. A Homebrew tap must be run by the tool's own publisher. aiup asks before it adds and trusts a missing tap.
 8. Put a macOS floor stricter than macOS 14, or an Apple silicon requirement, in the label.
+9. Never add Playwright or anything built on it (`playwright`, `playwright-core`, `@playwright/test`, `@playwright/cli`, `@playwright/mcp`, or a tool whose install pulls in Playwright or its browser download). Excluded on 2026-11-02.

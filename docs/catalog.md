@@ -153,7 +153,6 @@ Tools to run, test and connect MCP servers
 | `mcpc` | mcpc: Apify command-line MCP client |
 | `supergateway` | Supergateway: serve stdio MCP servers over SSE or WebSocket |
 | `toolhive-studio` | ToolHive: desktop app to install and run MCP servers (macOS 13+) |
-| `playwright-mcp` | Playwright MCP: Microsoft browser control server for MCP clients |
 | `chrome-devtools-mcp` | Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome |
 | `thv` | ToolHive CLI (thv): run and manage MCP servers from the terminal |
 | `mcpd` | mcpd: Mozilla.ai tool to define and run MCP servers from one config file |
@@ -220,7 +219,6 @@ Web browsers with an AI assistant or agent built in
 | `browseros` | BrowserOS: open-source agentic browser |
 | `agent-browser` | agent-browser: Vercel browser automation CLI for coding agents |
 | `browser-use` | Browser Use: lets an agent drive your own Chrome from the terminal |
-| `playwright-cli` | Playwright CLI: Microsoft browser automation commands for coding agents |
 
 ## ⚡ Automation (`automation`)
 
