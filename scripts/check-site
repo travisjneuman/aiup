@@ -380,10 +380,22 @@ def validate_cache_versions(text: str, error_text: str) -> None:
         require(version == CACHE_VERSION, f"cache version drifted for {path}: {version}")
 
 
+def macos_shape(catalog: dict[str, object]) -> dict[str, object]:
+    """site/catalog.json minus the additive platform fields scripts/sync-public-docs adds."""
+    plain = json.loads(json.dumps(catalog))
+    plain.pop("platformCounts", None)
+    for tool in plain.get("tools") or []:
+        tool.pop("platforms", None)
+    for category in plain.get("categories") or []:
+        for tool in category.get("tools") or []:
+            tool.pop("platforms", None)
+    return plain
+
+
 def validate_catalog(structured: dict[str, object]) -> dict[str, object]:
     checked_in = json.loads((SITE / "catalog.json").read_text(encoding="utf-8"))
     generated = json.loads(subprocess.check_output([str(ROOT / "macos" / "aiup"), "catalog", "--json"], text=True))
-    require(checked_in == generated, "site/catalog.json drifted from macos/aiup")
+    require(macos_shape(checked_in) == generated, "site/catalog.json drifted from macos/aiup")
     software = next(item for item in structured["@graph"] if item.get("@type") == "SoftwareApplication")
     require(software.get("softwareVersion") == checked_in["version"], "JSON-LD software version drifted")
     return checked_in

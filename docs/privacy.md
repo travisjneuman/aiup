@@ -32,7 +32,7 @@ The network lanes are separate:
 
 The aiup CLI itself does not require an aiup account or upload local inventory to an aiup server. Individual catalog tools may require their own accounts.
 
-## State files
+## State files (macOS)
 
 | Path | Purpose |
 |---|---|
@@ -60,10 +60,28 @@ The aiup CLI itself does not require an aiup account or upload local inventory t
 
 These are local cache, not a cloud profile.
 
+## Linux and Windows
+
+aiup on Linux and Windows is new in this release, and first real runs are in progress. Its scan stays on the machine the same way: it reads `PATH`, asks the package managers that are installed which catalog tools they have, and reads aiup's own state. Nothing is uploaded. The network lanes above apply, with that system's package managers in place of Homebrew.
+
+The launcher lane works like the macOS one. Every run requests the release pointer, `main/macos/release`, from `raw.githubusercontent.com`. Only when it names a new commit does the launcher download `runtime/FILES` and the files it lists from that commit. Those requests carry nothing about the computer. [linux/README.md](../linux/README.md) and [windows/README.md](../windows/README.md) describe it in full.
+
+State is split by kind of file:
+
+| Folder | Linux | Windows | Holds |
+|---|---|---|---|
+| config | `${XDG_CONFIG_HOME:-~/.config}/aiup` | `%LOCALAPPDATA%\aiup\config` | `preferences.json`, `channels.tsv` |
+| data | `${XDG_DATA_HOME:-~/.local/share}/aiup` | `%LOCALAPPDATA%\aiup\data` | Release generations, the launcher, the npm prefix, install methods |
+| state | `${XDG_STATE_HOME:-~/.local/state}/aiup` | `%LOCALAPPDATA%\aiup\state` | Run logs and history, `notify-last`, the last picker query and category, expanded categories |
+| cache | `${XDG_CACHE_HOME:-~/.cache}/aiup` | `%LOCALAPPDATA%\aiup\cache` | Scan indexes, newest-version cache, release notes, downloads, compiled Python |
+| run | `$XDG_RUNTIME_DIR/aiup` when it's yours with mode 700, otherwise `<cache>/run` | `%LOCALAPPDATA%\aiup\cache\run` | Picker sessions and the fzf socket |
+
+`AIUP_STATE_DIR` puts all five under one folder. On Linux aiup makes these folders mode 700. On both systems it refuses state paths that are symlinks.
+
 ## Local run history
 
 Update runs save private logs and structured version/result records under the AIUP state directory. `aiup history` and `aiup logs` read them locally; nothing is uploaded. While a run updates npm and uv tools in background lanes, their output goes to a private `<log>.lanes` folder and is merged into the run log, then the folder is removed. The latest 20 completed runs are retained by default, with active and recent legacy runs protected. Logs can contain provider output and local paths. See the README for `AIUP_LOG_LIMIT` and per-tool log access.
 
 ## Local preferences and diagnostics
 
-`preferences.json` contains only explicitly chosen tool exclusions, hold dates, named groups and the cleanup setting. `aiup export` writes the installed catalog tools, your own Homebrew formulae and apps, and these preferences to a file you name (readable only by you, never overwriting a file); it holds no paths, host names or account details, and aiup never sends it anywhere. `doctor`, `coverage`, and `project` display local installation/dependency information; they do not upload it. Project inspection requires an explicit directory and executes no scripts. New history records include per-tool durations.
+`preferences.json` contains only explicitly chosen tool exclusions, hold dates, named groups and the cleanup setting. `aiup export` writes the installed catalog tools, the packages you installed yourself that no catalog tool covers (Homebrew on macOS; your Linux or Windows package managers, including winget), and these preferences to a file you name (readable only by you, never overwriting a file); it holds no paths, host names or account details, and aiup never sends it anywhere. `doctor`, `coverage`, and `project` display local installation/dependency information; they do not upload it. Project inspection requires an explicit directory and executes no scripts. New history records include per-tool durations.

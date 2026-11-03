@@ -16,11 +16,26 @@ The owner keeps the canonical copy of this rule; keep this copy word-for-word in
 
 ## Release after every change (owner rule, 2026-10-14)
 
-Installed launchers run the commit named in `macos/release`, so work left under
-CHANGELOG Unreleased never reaches anyone. After each change: bump `AIUP_VERSION`
-in `macos/aiup` and `# aiup-runtime-version:` in `macos/catalog/manifest.tsv`,
-move Unreleased under the new version, commit and push, run
-`scripts/publish-release`, then commit and push `macos/release`.
+Installed launchers on macOS, Linux and Windows all run the commit named in
+`macos/release`, so work left under CHANGELOG Unreleased never reaches anyone.
+After each change:
+
+1. Run `scripts/bump-version NEW_VERSION` (`YYYY.MM.DD-NN`). It sets the four
+   versions that must agree: `AIUP_VERSION` in `macos/aiup`, the
+   `# aiup-runtime-version:` lines in `macos/catalog/manifest.tsv` and
+   `catalog/platforms.tsv`, and `runtime/aiup/version.py`.
+2. Move Unreleased under the new version.
+3. Run `scripts/stamp-runtime` to rewrite `runtime/FILES`.
+4. Commit and push.
+5. Run `scripts/publish-release`.
+6. Commit and push `macos/release`.
+
+`scripts/publish-release` reads everything from the pushed commit, not the
+working tree. It stops before writing `macos/release` if the platforms header
+or `version.py` differs from the macOS version, if `runtime/FILES` names
+another version, if a listed file is missing or has the wrong size or SHA-256,
+or if a `.py` file under `runtime/aiup/` is not listed. Never hand-edit the
+versions or `runtime/FILES`.
 
 ## Showcase facts contract
 

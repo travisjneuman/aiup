@@ -6,7 +6,7 @@ Current version: **2026.11.03-01**
 
 ## Current product scope
 
-aiup is a local-first, macOS-only Bash TUI. The current implementation can:
+aiup is a local-first Bash TUI for macOS. A Python version for Linux and Windows is new in this release, and first real runs are in progress (see [Linux and Windows](#linux-and-windows)). On macOS the current implementation can:
 
 - scan installed managed tools and update only what is present;
 - require and maintain fzf as interactive infrastructure;
@@ -18,7 +18,7 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - update one verified item, selected verified items, or an explicitly confirmed dependency-ordered snapshot of all bulk-eligible verified items through the existing authoritative updater;
 - validate once per interactive entry, materialize a coherent state snapshot, and serve cursor/search/resize/category helpers from an exact-runtime private session;
 - reuse only versioned, fingerprinted, atomically published disposable cache generations while treating live state as authoritative for every mutation;
-- group 259 catalog entries into 20 named categories, each heading with an installed bar and `N of T installed`, and mark every row's state with `●`, `◐`, `○`, `◇` or `◆`;
+- group the catalog entries into named categories, each heading with an installed bar and `N of T installed`, and mark every row's state with `●`, `◐`, `○`, `◇` or `◆`;
 - search inside collapsed categories, match category names, label each hit with its category, and restore a clean picker after provider actions;
 - keep query typing, category toggles, navigation, resize, and documentation return on materialized session data with exact fzf row identity tracking;
 - coalesce and negatively cache bounded remote metadata reads, then prefetch installed managed items only with two read-only workers after the picker becomes interactive;
@@ -52,9 +52,13 @@ The cache/session authority and first performance slice are documented in [TUI p
 
 The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Individual products can impose stricter constraints recorded in the [dated 83-entry accuracy audit](catalog-accuracy-2026-08-25.md). That audit left 81 managed entries with executable contracts.
 
+## Linux and Windows
+
+New in this release, first real runs in progress. aiup on Linux and Windows is a Python 3.9+ program in `runtime/aiup/` with no third-party packages. It reads the same catalog as macOS, plus `catalog/platforms.tsv` for each tool's Linux and Windows install targets. A small launcher runs the published release named by the same `macos/release` pointer, checks every file against `runtime/FILES`, and runs the last validated release when offline. Install guides: [Linux](../linux/README.md) and [Windows](../windows/README.md). Design: [cross-platform design](cross-platform-design.md).
+
 ## Current limitations
 
-- Linux and Windows are not implemented.
+- aiup on Linux and Windows is new in this release, and first real runs are in progress. Every command in `aiup help` runs there. Two macOS commands don't: `aiup cleanup` (only `aiup cleanup history` works; `aiup remove TOOL` moves a tool's known user data to the Trash or Recycle Bin instead) and `aiup catalog --contracts`. Each prints `<command> is macOS only.` and exits 1. `aiup settings cleanup` is stored so exports stay portable, and has no effect there.
 - There is no packaged installer. Releases are published by updating the `macos/release` pointer; there are no Git tags.
 - A first public run needs GitHub access; later runs fall back to the last validated release when offline.
 - There is no repository CI workflow. Current validation is local.
@@ -67,7 +71,7 @@ The static site at [aiup.neuman.dev](https://aiup.neuman.dev/) is deliberately m
 
 Metadata, WebSite/SoftwareApplication/Person JSON-LD, the favicon and manifest suite, robots, sitemap, `llms.txt`, static 404 behavior, and security headers remain behind the restrained page. The site has no framework, external runtime asset, external font, analytics, cookie, tracker, or service worker. Since 2026-10-14 both social cards come from `scripts/build-social-cards`: the lockup and the line "Your tool stack. One list." next to the real collapsed list screenshot. They carry no tool count, so the social alt text carries none either. The earlier SVG cards, which showed 131 entries in their source and 81 in their rendered PNGs, are kept in `site/brand/source/archive/`.
 
-`scripts/check-site` validates the minimal visible contract, sole GitHub destination, GIF/poster picture, absence of playback controls and external JavaScript, lack of secondary TUI stills and retired sections, exact semantic sequence/timing/playback manifest, metadata and JSON-LD, cache versions, local references, image dimensions, generated catalog data, canonical media mirrors, support files, headers, and public-safety boundaries. `scripts/sync-public-docs` owns the README catalog block, generated catalog documents, catalog JSON, Catalog tools showcase metric, and site text metadata. It uses one local definition export and preserves unrelated metric claims/dates. The default also copies the one-way media mirror; `--skip-media` refreshes text only. It does not inject a catalog table or regenerate media. See [public catalog facts](public-catalog-facts.md).
+`scripts/check-site` validates the minimal visible contract, sole GitHub destination, GIF/poster picture, absence of playback controls and external JavaScript, lack of secondary TUI stills and retired sections, exact semantic sequence/timing/playback manifest, metadata and JSON-LD, cache versions, local references, image dimensions, generated catalog data, canonical media mirrors, support files, headers, and public-safety boundaries. `scripts/sync-public-docs` owns the README catalog block, generated catalog documents, catalog JSON, Catalog tools showcase metric, and site text metadata. It uses one local `macos/aiup` definition export for every count, plus one local runtime catalog export that adds each tool's Linux and Windows install targets, and preserves unrelated metric claims/dates. The default also copies the one-way media mirror; `--skip-media` refreshes text only. It does not inject a catalog table or regenerate media. See [public catalog facts](public-catalog-facts.md).
 
 Publication remains the established GitHub-connected Cloudflare Pages path; direct Wrangler publication is not part of the project workflow. Source, GitHub, provider-linked check, public HTTP, browser/device, assistive-technology, social-preview, and owner evidence remain distinct claims.
 
@@ -81,7 +85,7 @@ The 2026-10-14 recapture keeps the same six states as the 2026-08-26 set, and I 
 
 The brand suite retains the open terminal, chevron, underscore, and cyan/mint/purple identity. It includes scalable sources, favicon/PWA/maskable derivatives, and the 1200 × 630 Open Graph and 1280 × 640 GitHub social cards made from the real screenshot. The archived original remains byte-identical. See [`../site/brand/README.md`](../site/brand/README.md).
 
-The homepage has a 32 second video about aiup (`docs/media/aiup-brag.mp4`, 2026-10-14), made by `scripts/brag/film.py` with its own synthesized music. It shows that plain `aiup` updates everything it finds, with a Terminal window drawn from the real report of my 2026-10-06 update run, and that `aiup list` opens the catalog, using the real screenshots. It plays on load, muted, with controls, and does not loop; `_headers` allows `autoplay=(self)` for it. Its counts are rounded down so they stay true as the catalog grows. The current render says "260+ tools", which went out of date when the catalog dropped to 259 entries on 2026-11-03; `film.py` now says "250+ tools. 20+ categories." and the video needs a new render. Visitors who ask for reduced motion still get the autoplay, since the page has no script to stop it; they can pause it with the controls. A browser check of the video on the live site is still open. See [`media/README.md`](media/README.md).
+The homepage has a 32 second video about aiup (`docs/media/aiup-brag.mp4`, 2026-10-14), made by `scripts/brag/film.py` with its own synthesized music. It shows that plain `aiup` updates everything it finds, with a Terminal window drawn from the real report of my 2026-10-06 update run, and that `aiup list` opens the catalog, using the real screenshots. It plays on load, muted, with controls, and does not loop; `_headers` allows `autoplay=(self)` for it. The video was made before the current catalog, and it will be re-rendered to match it. Visitors who ask for reduced motion still get the autoplay, since the page has no script to stop it; they can pause it with the controls. A browser check of the video on the live site is still open. See [`media/README.md`](media/README.md).
 
 ## Repository and community status
 

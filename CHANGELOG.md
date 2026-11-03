@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.11.03-02
+
+- New: aiup for Linux and Windows. Both run a new Python runtime (Python 3.9 or newer, standard library only) that reads the same catalog as macOS and drives fzf 0.73 or newer for `aiup list`. Without fzf, or without a terminal, `aiup list` prints a plain table. macOS keeps the Bash runtime it has today. Linux and Windows support is new, and first real runs are in progress.
+- Linux install: `curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/linux/install-aiup | sh`. It puts `aiup` in `~/.local/bin` and adds that folder to your shell startup files. Add `-s -- --system` to also link `/usr/local/bin/aiup` through a visible sudo, for systems where commands run over ssh read no startup file. `linux/README.md` has the details.
+- Windows install: `irm https://raw.githubusercontent.com/travisjneuman/aiup/main/windows/install-aiup.ps1 | iex` in PowerShell. It finds a real Python (never the Microsoft Store alias), adds `aiup` to your user Path, and never elevates itself. `-AllUsers` installs for every account from an elevated terminal, and `-Uninstall` removes it. `windows/README.md` has the details.
+- Linux managers: pacman with an AUR helper (paru or yay), apt, dnf, zypper, flatpak, snap, nix and Homebrew on Linux. Windows managers: winget, Scoop, Chocolatey and Microsoft Store apps. Cross-platform: npm, pnpm, bun, uv, pipx, cargo, go and each tool's own installer. aiup uses sudo only for system package managers, always where you can see it, and never stores or pipes a password. On Windows it never elevates silently.
+- The installed launcher on all three systems runs the commit named in `macos/release`. Linux and Windows download the files listed in `runtime/FILES` and check each one's size and SHA-256 before they use it.
+- Catalog: 40 new entries and 6 removed, from 259 to 293. New: Agent of Empires, AionUi, Basic Memory, BMAD Method, CLI Agent Orchestrator, ccstatusline, Colima, DeepChat, Dev Containers CLI, FastMCP, Freebuff, garak, Gas Town, Goose desktop, Happy, herdr, Inspect, Kaku, Kubernetes MCP Server, Lima, Marker, Grafana MCP, microsandbox, nono, OpenChamber, OpenWork, Orca, Paseo, Podman, Podman Desktop, Positron, Rio, Ruflo, Serena, Supacode, Tabby, Terraform MCP Server, ttok, VSCodium and Zellij.
+- Two new categories. Agent orchestrators (`orchestrators`) holds the tools that run several coding agents side by side, such as Claude Squad, Conductor, Agent Deck and Worktrunk. Community coding agents (`community-agents`) holds the open-source and independent agents, such as Aider, Goose, OpenCode, Pi and Cline. Coding agents keeps the agents that companies make and ship, such as Claude Code, Codex, Copilot CLI and Cursor's `agent`.
+- Removed: OpenClaw, GSD 2, n8n, Chrome DevTools MCP, Code Puppy and AnythingLLM. Each one installs Playwright or Puppeteer, directly or through a package it depends on, and aiup never installs a browser runtime. That replaces the 2026.11.03-01 note that Chrome DevTools MCP stays. A copy installed by an earlier version is not removed automatically.
+- Hermes: every install from aiup now passes the vendor's own opt-out (`--skip-browser`, or `-SkipBrowser` on Windows), so its installer no longer downloads Chromium. The installer records the choice. A copy installed before this keeps its browser.
+- Worktrunk has no Windows target. Its `wt` command collides with Windows Terminal.
+- `aiup export` now includes packages you installed yourself that no catalog tool covers on Linux and Windows too, winget included.
+- On Linux and Windows, `aiup --version` prints the version, the same as `aiup version`.
+- GitHub issue templates ask which system you use and where aiup came from on Linux and Windows.
+
 ## 2026.11.03-01
 
 - `aiup help` now describes `resume` and `retry` the way they work: both use each tool's newest saved result, `retry` also picks up cancelled tools and may install a missing one, and `resume` never installs.

@@ -57,6 +57,15 @@ Other commands refuse `--json` with exit status 2.
 
 `result` is one of `updated`, `installed`, `unchanged`, `downgraded`, `failed`, `deferred` (an open app, or an npm release that needs your OK), `cancelled`, `pending` (not reached), `skipped`, `cleaned`, `self-updated`, `unverified` and `planned` (with `--dry-run`). `warning` is true when the tool's log has a warning worth a look; `aiup attention` explains it. The numbers above are examples.
 
+### Linux and Windows
+
+aiup on Linux and Windows (new in this release, first real runs in progress) writes the same two schemas with the same fields, plus two more. Scripts that read the macOS fields keep working.
+
+- `platform` at the top level: `linux` or `windows`.
+- `channel` on each tool: the install channel aiup used or checked there, such as `apt`, `winget` or `npm`. It's an empty string when there isn't one.
+
+The run record saved beside each update log (`<log>.json`) carries both fields too. A step that needs sudo or Windows approval and couldn't get it is `deferred`, with a note that says what to do.
+
 ## Notifications
 
 `aiup notify` prints one summary line and shows a macOS notification when updates are ready. See [notify.md](notify.md) for cron and launchd examples.

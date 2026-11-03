@@ -3,6 +3,8 @@
 # Run after the release commit is pushed; then commit and push macos/release.
 # Launchers fetch the runtime and catalog at exactly this commit, so work that
 # lands on main between releases never reaches public installs.
+# The macOS launcher reads the runtime and manifest. The Linux and Windows
+# launchers read runtime/FILES, so every file it lists is checked here too.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -14,5 +16,95 @@ if [ -z "$version" ] || [ "$version" != "$manifest" ]; then
   printf 'publish-release: runtime (%s) and catalog (%s) versions differ at %s\n' "$version" "$manifest" "$sha" >&2
   exit 1
 fi
+
+fail() {
+  printf 'publish-release: %s at %s\n' "$*" "$sha" >&2
+  exit 1
+}
+
+has_path() {
+  git cat-file -e "$sha:$1" 2>/dev/null
+}
+
+# cat-file gives the raw blob (the bytes GitHub serves), with no textconv.
+sha256_of_blob() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    git cat-file blob "$sha:$1" | sha256sum | cut -d ' ' -f 1
+  else
+    git cat-file blob "$sha:$1" | shasum -a 256 | cut -d ' ' -f 1
+  fi
+}
+
+for path in catalog/platforms.tsv runtime/aiup/version.py runtime/FILES; do
+  has_path "$path" || fail "$path is missing"
+done
+platforms="$(git cat-file blob "$sha:catalog/platforms.tsv" | sed -n 's/^# aiup-runtime-version: //p' | head -n 1)"
+[ "$platforms" = "$version" ] || fail "catalog/platforms.tsv says '$platforms', macos/aiup says $version"
+python_version="$(git cat-file blob "$sha:runtime/aiup/version.py" | sed -n 's/^AIUP_VERSION = "\([^"]*\)"$/\1/p' | head -n 1)"
+[ "$python_version" = "$version" ] || fail "runtime/aiup/version.py says '$python_version', macos/aiup says $version"
+
+# The launcher's limits: runtime/FILES at most 64 KiB, each file at most
+# 1 MiB, 8 MiB in all. A release past them would fail on every install.
+[ "$(git cat-file -s "$sha:runtime/FILES")" -le 65536 ] || fail "runtime/FILES is larger than 64 KiB"
+files_list="$(git cat-file blob "$sha:runtime/FILES")"
+case "$files_list" in
+  *$'\r'*) fail "runtime/FILES contains a CR byte" ;;
+esac
+files_version="$(printf '%s\n' "$files_list" | sed -n 's/^# aiup-runtime-version: //p' | head -n 1)"
+[ "$files_version" = "$version" ] || fail "runtime/FILES says '$files_version', macos/aiup says $version. Run scripts/stamp-runtime"
+
+path_pattern='^(runtime/aiup_main\.py|runtime/aiup/[a-z0-9_/]+\.py|macos/catalog/manifest\.tsv|catalog/[a-z0-9-]+\.tsv)$'
+listed=$'\n'
+total=0
+while IFS= read -r line; do
+  case "$line" in
+    ''|'#'*) continue ;;
+  esac
+  digest="${line%%  *}"
+  rest="${line#*  }"
+  size="${rest%%  *}"
+  path="${rest#*  }"
+  if ! [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || ! [[ "$size" =~ ^[0-9]+$ ]] || ! [[ "$path" =~ $path_pattern ]]; then
+    fail "runtime/FILES has a line that is not 'sha256  size  path': $line"
+  fi
+  case "$listed" in
+    *$'\n'"$path"$'\n'*) fail "runtime/FILES lists $path twice" ;;
+  esac
+  has_path "$path" || fail "runtime/FILES lists $path, which is missing"
+  actual_size="$(git cat-file -s "$sha:$path")"
+  [ "$actual_size" = "$size" ] || fail "$path is $actual_size bytes, runtime/FILES says $size. Run scripts/stamp-runtime"
+  [ "$size" -le 1048576 ] || fail "$path is larger than 1 MiB, the launcher's limit per file"
+  total=$((total + size))
+  actual_digest="$(sha256_of_blob "$path")"
+  [ "$actual_digest" = "$digest" ] || fail "$path does not match its SHA-256 in runtime/FILES. Run scripts/stamp-runtime"
+  listed="$listed$path"$'\n'
+done <<< "$files_list"
+[ "$total" -le 8388608 ] || fail "the files in runtime/FILES add up to more than 8 MiB, the launcher's limit"
+
+required="$(git ls-tree -r --name-only "$sha" -- runtime/aiup/ | grep '\.py$' || true)"
+required="$required"$'\n'"runtime/aiup_main.py"$'\n'"macos/catalog/manifest.tsv"$'\n'"catalog/platforms.tsv"
+required="$required"$'\n'"catalog/categories.tsv"$'\n'"catalog/tool-meta.tsv"
+while IFS= read -r path; do
+  [ -n "$path" ] || continue
+  case "$listed" in
+    *$'\n'"$path"$'\n'*) ;;
+    *) fail "runtime/FILES does not list $path. Run scripts/stamp-runtime" ;;
+  esac
+done <<< "$required"
+
+# The launcher refuses a release whose catalog/platforms.tsv has a row with
+# more than 15 columns, an empty or repeated id, or no fzf row.
+# Read it first: awk stops early, and with pipefail a writer cut off by
+# SIGPIPE would end this script with no message.
+platforms_text="$(git cat-file blob "$sha:catalog/platforms.tsv")"
+platforms_problem="$(awk -F '\t' '
+  $0 == "" || /^#/ { next }
+  NF > 15 || $1 == "" { print "line " NR " does not parse"; bad = 1; exit }
+  seen[$1]++ { print "repeats the id " $1; bad = 1; exit }
+  $1 == "fzf" { fzf = 1 }
+  END { if (!bad && !fzf) print "has no fzf row" }
+' <<< "$platforms_text")"
+[ -z "$platforms_problem" ] || fail "catalog/platforms.tsv $platforms_problem"
+
 printf '# aiup release: public launchers run the runtime and catalog at this commit.\n%s %s\n' "$version" "$sha" > macos/release
 printf 'macos/release -> %s %s\n' "$version" "$sha"

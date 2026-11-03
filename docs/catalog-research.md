@@ -1,6 +1,6 @@
 # Catalog research review
 
-The complete dated disposition record for the 83-entry starting catalog is [Catalog accuracy audit (2026-08-25)](catalog-accuracy-2026-08-25.md). This file remains the standing policy and candidate notebook. The newest full pass is the [2026-10-14 catalog review](catalog-review-2026-10-14.md).
+The complete dated disposition record for the 83-entry starting catalog is [Catalog accuracy audit (2026-08-25)](catalog-accuracy-2026-08-25.md). This file remains the standing policy and candidate notebook. The newest full pass is the [2026-11-02 candidate research](research/catalog-candidates-2026-11-02.md); the [2026-10-14 catalog review](catalog-review-2026-10-14.md) is the one before it.
 
 This is the review log for expanding aiup's managed catalog. The catalog is deliberately split into two evidence lanes:
 
@@ -39,7 +39,13 @@ The first pass added 87 entries across eight new categories (`agent-tools`, `mcp
 
 ## 2026-11-02 review
 
-Removed and excluded: `playwright-cli` (npm `@playwright/cli`) and `playwright-mcp` (npm `@playwright/mcp`). I no longer use or recommend Playwright, `playwright-core` or `@playwright/test` in any form, so aiup does not install, update or suggest them, and neither entry comes back in a later review. The other browser tools stay: `agent-browser` and Browser Use under AI browsers, and Chrome DevTools MCP under MCP tools. The [2026-10-14 review](catalog-review-2026-10-14.md) keeps its original rows as history.
+Removed and excluded: `playwright-cli` (npm `@playwright/cli`) and `playwright-mcp` (npm `@playwright/mcp`). I no longer use or recommend Playwright, `playwright-core` or `@playwright/test` in any form, so aiup does not install, update or suggest them, and neither entry comes back in a later review. `agent-browser` and Browser Use stay under AI browsers. The [2026-10-14 review](catalog-review-2026-10-14.md) keeps its original rows as history.
+
+## 2026-11-03 changes
+
+Removed: OpenClaw, GSD (`gsd2`), n8n, Code Puppy and AnythingLLM. Chrome DevTools MCP is also gone: its npm package is built on Puppeteer, which rule 9 excludes. A copy installed by an earlier version is not removed automatically.
+
+Two new categories: Community coding agents (`community-agents`), for open-source and independent terminal agents, and Agent orchestrators (`orchestrators`), for tools that run several agents side by side. Existing entries moved into them, and the [2026-11-02 candidate research](research/catalog-candidates-2026-11-02.md) has the new entries and what was held back.
 
 ## Confirmed existing coverage
 
@@ -57,4 +63,4 @@ Removed and excluded: `playwright-cli` (npm `@playwright/cli`) and `playwright-m
 6. Keep research candidates in this document until the update/remove contract is complete; local discovery still makes installed candidates visible immediately.
 7. A Homebrew tap must be run by the tool's own publisher. aiup asks before it adds and trusts a missing tap.
 8. Put a macOS floor stricter than macOS 14, or an Apple silicon requirement, in the label.
-9. Never add Playwright or anything built on it (`playwright`, `playwright-core`, `@playwright/test`, `@playwright/cli`, `@playwright/mcp`, or a tool whose install pulls in Playwright or its browser download). Excluded on 2026-11-02.
+9. Never add Playwright or anything built on it (`playwright`, `playwright-core`, `@playwright/test`, `@playwright/cli`, `@playwright/mcp`, or a tool whose install pulls in Playwright or its browser download). Excluded on 2026-11-02. The same goes for Puppeteer and Selenium, and anything built on them (2026-11-03).

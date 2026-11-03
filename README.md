@@ -3,15 +3,16 @@
 </p>
 
 <p align="center">
-  <strong>A macOS-only TUI to scan, update, install, remove, and browse reviewed AI and developer tools.</strong><br/>
-  Inventory stays on your Mac. The public launcher runs the latest published release and keeps working offline.
+  <strong>A macOS TUI to scan, update, install, remove, and browse reviewed AI and developer tools.</strong><br/>
+  Inventory stays on your Mac. The public launcher runs the latest published release and keeps working offline.<br/>
+  Linux and Windows versions are new in this release, and first real runs are in progress.
 </p>
 
 <p align="center">
   <img alt="macOS" src="https://img.shields.io/badge/macOS-catalog-4EF0C4?style=for-the-badge&logo=apple&logoColor=E8E9FF&labelColor=0B0C23" />
   <img alt="inventory stays local" src="https://img.shields.io/badge/inventory-stays%20local-5CE1FF?style=for-the-badge&labelColor=111" />
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-d67bff?style=for-the-badge&labelColor=111" />
-  <img alt="aiup does not invoke sudo" src="https://img.shields.io/badge/aiup_sudo-not_invoked-ffb347?style=for-the-badge&labelColor=111" />
+  <img alt="aiup on macOS does not invoke sudo" src="https://img.shields.io/badge/macOS_sudo-not_invoked-ffb347?style=for-the-badge&labelColor=111" />
 </p>
 
 <p align="center">
@@ -53,6 +54,8 @@ export PATH="$HOME/.local/bin:$PATH"
 aiup only fzf
 aiup list
 ```
+
+On Linux or Windows (new in this release, first real runs in progress), use the [Linux](linux/README.md) or [Windows](windows/README.md) installer instead.
 
 | You type | What happens |
 |---|---|
@@ -129,6 +132,8 @@ Npm packages are not reinstalled when fresh provider metadata exactly matches a 
 
 The installed command runs the latest published release. Each run makes one small request for the release pointer (`macos/release` on `main`), which names the exact commit whose runtime and catalog form the release. Files addressed by commit never change, so the runtime and catalog always match, and work landing on `main` between releases never reaches your Mac. When the release is unchanged, aiup starts immediately with no download. A new release is downloaded, validated, staged as one pair, and activated by atomically switching a single `current-generation` pointer. The former release is deleted once it is more than a day old (an open picker may still use it); `previous-generation` only records which release it was. If GitHub is unreachable or a new download fails validation, aiup says so and runs the last validated release. Only a first run with nothing installed yet needs network access.
 
+Linux and Windows follow the same pointer. Their launcher downloads the files listed in `runtime/FILES` at that commit and checks each size and SHA-256 before it switches over ([Linux](linux/README.md#how-aiup-updates-itself), [Windows](windows/README.md#how-aiup-updates-itself)).
+
 Repository contributors can opt into an offline local checkout for one invocation by deliberately setting `AIUP_SOURCE_PATH` to that checkout's `macos/aiup` file. No checkout path is guessed or probed by default.
 
 Normal package updates are unattended: Homebrew package confirmations are accepted automatically, and version checks cannot wait for terminal input. The initial Homebrew bootstrap is the exception and runs its official installer interactively for confirmation and any administrator authentication. A Homebrew tap already installed on the Mac is treated as prior user approval and trusted automatically; a missing tap required by a selected tool prompts before it is added and trusted. Explicit uninstall and on-disk app-switch confirmations also require your approval.
@@ -155,8 +160,8 @@ Default `aiup` only updates what you have. It won't bring back optional tools yo
 </td>
 <td width="50%">
 
-### 🚫 No direct sudo
-aiup does not invoke `sudo` directly. Its user-prefix installs keep Node CLIs in `~/.local/share/aiup/npm`; Homebrew's official initial installer may separately request administrator authentication.
+### 🚫 No direct sudo on macOS
+On macOS, aiup does not invoke `sudo` directly. Its user-prefix installs keep Node CLIs in `~/.local/share/aiup/npm`; Homebrew's official initial installer may separately request administrator authentication. On Linux, aiup uses sudo only for the system package managers, on screen, and sudo asks for the password itself. On Windows it never elevates silently.
 
 </td>
 </tr>
@@ -252,31 +257,33 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.11.03-01** · **259** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.11.03-02** · **293** tools in the main catalog, 232 with a Linux install target and 208 with a Windows one. Generated from `macos/aiup` and the runtime catalog export._
 
-| | Category | What | Size |
-|---|---|---|---|
-| ⚙️ | **Essentials** (`infra`) | Runtimes and installers other tools need | 8 tools |
-| 🤖 | **Coding assistants** (`coding-agents`) | Agents that write and edit code in the terminal | 40 tools |
-| 🧰 | **Agent helpers** (`agent-tools`) | Add-ons for coding agents: usage reports, specs, task lists, rules | 17 tools |
-| 🖥️ | **Agent workspaces** (`workspaces`) | Desktop apps that run and manage coding agents | 16 tools |
-| ✏️ | **Code editors** (`editors`) | Places you type code | 10 tools |
-| ⌨️ | **Terminals** (`terminals`) | Places you run commands | 5 tools |
-| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 14 tools |
-| 🛡️ | **Sandboxes** (`sandboxes`) | Containers and sandboxes for running agents apart from your files | 9 tools |
-| 🔌 | **Integrations** (`adapters`) | Glue between agents and editors (ACP) | 6 tools |
-| 💬 | **Chat assistants** (`chat`) | Cloud chat apps | 11 tools |
-| 🌐 | **AI browsers** (`browsers`) | Web browsers with an AI assistant or agent built in | 5 tools |
-| ⚡ | **Automation** (`automation`) | General-purpose agents and workflow automation | 7 tools |
-| 🧠 | **Local models** (`local-ai`) | Model runtimes and servers that run on your Mac | 22 tools |
-| 💻 | **Local AI apps** (`local-apps`) | Desktop apps for running models on your Mac | 16 tools |
-| 🎙️ | **Voice and dictation** (`voice`) | Dictation, transcription, meeting notes and speech | 24 tools |
-| 🎨 | **Image and video AI** (`image-gen`) | Apps and tools that generate images and video | 6 tools |
-| 🎬 | **Creative apps** (`media`) | Editors and recorders for video, images, audio and 3D | 12 tools |
-| 🎞️ | **Media tools** (`media-tools`) | Command-line tools for converting and downloading media | 6 tools |
-| 🔧 | **AI utilities** (`llm-utils`) | Command-line LLM tools, and converters that turn files into text for models | 11 tools |
-| 🛠️ | **Developer tools** (`dev-utils`) | Development, search, data, and deployment utilities | 14 tools |
-| 🍺 | **Other packages** (`homebrew`) | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |
+| | Category | What | Size | Linux | Windows |
+|---|---|---|---|---|---|
+| ⚙️ | **Essentials** (`infra`) | Runtimes and installers other tools need | 8 tools | 8 | 7 |
+| 🤖 | **Coding assistants** (`coding-agents`) | Terminal coding agents from AI and developer tool companies | 23 tools | 23 | 23 |
+| 🤝 | **Community coding agents** (`community-agents`) | Open-source and independent agents that write and edit code in the terminal | 16 tools | 16 | 16 |
+| 🧰 | **Agent helpers** (`agent-tools`) | Add-ons for coding agents: usage reports, specs, memory, status lines, rules | 16 tools | 15 | 14 |
+| 🖥️ | **Agent workspaces** (`workspaces`) | Desktop apps that run and manage coding agents | 15 tools | 12 | 8 |
+| 🎛️ | **Agent orchestrators** (`orchestrators`) | Run several coding agents side by side, often one git worktree each | 18 tools | 13 | 6 |
+| ✏️ | **Code editors** (`editors`) | Places you type code | 12 tools | 11 | 12 |
+| ⌨️ | **Terminals** (`terminals`) | Places you run commands | 8 tools | 5 | 3 |
+| 🧩 | **MCP tools** (`mcp`) | Tools to run, test and connect MCP servers | 18 tools | 18 | 14 |
+| 🛡️ | **Sandboxes** (`sandboxes`) | Containers, VMs and sandboxes for running agents apart from your files | 16 tools | 11 | 8 |
+| 🔌 | **ACP adapters** (`adapters`) | Connect agents to editors and scripts over the Agent Client Protocol | 6 tools | 6 | 6 |
+| 💬 | **Chat assistants** (`chat`) | Cloud chat apps | 12 tools | 9 | 9 |
+| 🌐 | **AI browsers** (`browsers`) | AI browsers, and command-line tools that let agents drive a browser | 5 tools | 3 | 4 |
+| ⚡ | **Automation** (`automation`) | General-purpose agents and workflow automation | 5 tools | 4 | 5 |
+| 🧠 | **Local model runtimes** (`local-ai`) | Model runtimes and servers that run on your computer | 22 tools | 12 | 8 |
+| 💻 | **Local model apps** (`local-apps`) | Desktop apps for running models on your computer | 15 tools | 6 | 7 |
+| 🎙️ | **Voice and dictation** (`voice`) | Dictation, transcription, meeting notes and speech | 24 tools | 9 | 10 |
+| 🎨 | **Image and video AI** (`image-gen`) | AI apps and tools that generate or edit images and video | 6 tools | 3 | 1 |
+| 🎬 | **Creative apps** (`media`) | Editors and recorders for video, images, audio and 3D, where AI is not the main feature | 12 tools | 12 | 12 |
+| 🎞️ | **Media tools** (`media-tools`) | Command-line tools for converting and downloading media | 6 tools | 6 | 6 |
+| 🔧 | **AI utilities** (`llm-utils`) | Command-line LLM tools, and converters that turn files into text for models | 15 tools | 15 | 15 |
+| 🛠️ | **Developer tools** (`dev-utils`) | Development, search, data, and deployment utilities | 15 tools | 15 | 14 |
+| 🍺 | **Other packages** (`homebrew`) | Homebrew extras outside the managed catalog, plus a short recommended list | your Mac + recommended |  |  |
 <!-- CATALOG:END -->
 
 Full list → **[docs/catalog.md](docs/catalog.md)** · Homebrew → **[docs/homebrew.md](docs/homebrew.md)**
@@ -295,7 +302,9 @@ Research notes → **[2026-10-14 catalog review](docs/catalog-review-2026-10-14.
 | Homebrew + Xcode Command Line Tools | Bootstrapped when fzf or a brew-managed item is requested; the official installer may require administrator authentication |
 | Node / uv | Installed on demand only when a selected tool needs them |
 
-Run `command -v bash curl python3` before installing. See the [installation contract](docs/install.md) for PATH persistence, online/offline behavior, local development, and uninstall steps.
+On macOS, run `command -v bash curl python3` before installing. See the [installation contract](docs/install.md) for PATH persistence, online/offline behavior, local development, and uninstall steps.
+
+On Linux and Windows, aiup needs Python 3.9+ and fzf 0.73.0+ for the picker (a plain table otherwise). The [Linux](linux/README.md) and [Windows](windows/README.md) guides cover the rest.
 
 ## 🗺️ Status
 
@@ -305,8 +314,8 @@ The current macOS tool, public repository, minimal site, and six-state media are
 |---|---|
 | 🍎 macOS | Current daily-use implementation (`macos/aiup`) |
 | 🌐 Site | Live; desktop browser review passed, true 375px review remains unverified |
-| 🐧 Linux | Not implemented |
-| 🪟 Windows | Not implemented |
+| 🐧 Linux | New in this release, first real runs in progress ([install guide](linux/README.md)) |
+| 🪟 Windows | New in this release, first real runs in progress ([install guide](windows/README.md)) |
 
 ## Everyday commands
 
@@ -342,6 +351,8 @@ aiup remembers bundle identities observed at their installed locations, scans co
 |---|---|
 | Every doc, dated reviews | [docs/README.md](docs/README.md) |
 | Install, PATH, offline, uninstall | [docs/install.md](docs/install.md) |
+| Linux or Windows install, privileges, state | [linux/README.md](linux/README.md) · [windows/README.md](windows/README.md) |
+| How the Linux and Windows version is built | [docs/cross-platform-design.md](docs/cross-platform-design.md) |
 | Catalog entries and counts | [docs/catalog.md](docs/catalog.md) · [public catalog facts](docs/public-catalog-facts.md) |
 | Homebrew, taps, adoption | [docs/homebrew.md](docs/homebrew.md) |
 | Privacy and network boundaries | [docs/privacy.md](docs/privacy.md) |

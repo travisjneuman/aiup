@@ -1,0 +1,300 @@
+# aiup tool metadata: aliases, command names, process names and user data paths
+# aliases, commands and processes are comma lists; linux_data and windows_data are ';' lists
+# An empty commands cell means the tool has no command of its own on PATH.
+# Process names match case-insensitively, with any .exe suffix ignored.
+# Linux paths start with ~/ or $XDG_CONFIG_HOME/, $XDG_DATA_HOME/, $XDG_STATE_HOME/, $XDG_CACHE_HOME/
+# Windows paths start with %APPDATA%\, %LOCALAPPDATA%\ or %USERPROFILE%\
+# id	aliases	commands	processes	linux_data	windows_data
+brew	homebrew	brew			
+npm	node	npm			
+uv		uv			
+fzf		fzf			
+gh		gh			
+wrangler		wrangler			
+deno		deno			
+bun		bun			
+pnpm		pnpm			
+jq		jq			
+yq		yq			
+ripgrep		rg			
+fd		fd			
+just		just			
+shellcheck		shellcheck			
+actionlint		actionlint			
+claude		claude			
+copilot		copilot			
+codex		codex			
+antigravity	agy,antigravity-cli	agy			
+grok		grok			
+gemini		gemini			
+pi		pi			
+kilo		kilo		$XDG_CONFIG_HOME/kilo;$XDG_DATA_HOME/kilo;$XDG_STATE_HOME/kilo;$XDG_CACHE_HOME/kilo	%USERPROFILE%\.config\kilo;%USERPROFILE%\.local\share\kilo;%USERPROFILE%\.local\state\kilo;%USERPROFILE%\.cache\kilo
+opencode		opencode		~/.opencode;$XDG_DATA_HOME/opencode;$XDG_STATE_HOME/opencode	%USERPROFILE%\.opencode;%USERPROFILE%\.local\share\opencode;%USERPROFILE%\.local\state\opencode
+hermes		hermes		~/.hermes	
+warp	oz	warp		~/.warp;~/.warp_cli	
+aider		aider			
+goose		goose			
+cursor	cursor-agent	cursor-agent			
+qwen		qwen			
+crush		crush			
+amp		amp			
+kiro	kiro-cli	kiro-cli			
+droid		droid			
+kimi	kimi-code	kimi			
+cline		cline			
+pi-acp		pi-acp			
+llm		llm			
+fabric	fabric-ai	fabric			
+sgpt	shell-gpt	sgpt			
+ollama		ollama			
+lm-studio		lm-studio			
+jan		jan			
+mlx		mlx			
+mlx-lm		mlx-lm			
+chatgpt		chatgpt			
+claude-app	claude-desktop	claude-app			
+copilot-app		copilot-app			
+perplexity		perplexity			
+vscode	vscode-code,code	code	code		
+vscode-insiders		code-insiders	code-insiders		
+cursor-ide		cursor	cursor		
+zed		zed,zeditor	zed,zed-editor		
+antigravity-ide		antigravity-ide			
+t3-code	t3	t3-code			
+t3-nightly		t3-nightly			
+grokbot	grok-bot	grokbot			
+opencode-desktop		opencode-desktop			
+hermes-desktop		hermes-desktop			
+cmux		cmux			
+warp-app	warp-terminal	warp-app			
+ghostty		ghostty	ghostty		
+iterm2		iterm2			
+ollama-app		ollama			
+remotion		remotion			
+macwhisper		macwhisper			
+screenpipe		screenpipe			
+vibe		vibe			
+llama-cpp		llama-cli			
+llama-app		llama-app			
+whisper-cpp		whisper-cli			
+ffmpeg		ffmpeg			
+audacity		audacity	audacity		
+draw-things		draw-things			
+superwhisper		superwhisper			
+buzz		buzz			
+obs		obs	obs,obs64		
+blender		blender	blender		
+losslesscut		losslesscut			
+handbrake-app		handbrake-app			
+shotcut		shotcut	shotcut		
+kdenlive		kdenlive	kdenlive		
+krita		krita	krita		
+inkscape		inkscape	inkscape		
+imagemagick		magick			
+yt-dlp		yt-dlp			
+vips		vips			
+devin-cli		devin			
+auggie		auggie			
+junie		junie			
+letta		letta			
+qoder		qodercli			
+claude-acp		claude-agent-acp			
+codex-acp		codex-acp			
+mcp-inspector		mcp-inspector			
+mise		mise			
+devin-desktop					
+kiro-ide					
+jetbrains-air					
+conductor					
+emdash					
+superset	paradev				
+amp-app					
+factory-app					
+antigravity-app					
+gemini-app					
+cherry-studio					
+msty-studio					
+boltai					
+chatbox					
+lobehub					
+poe		poe			
+localai		local-ai			
+ramalama		ramalama			
+osaurus		osaurus			
+mlx-vlm					
+hf		hf			
+open-webui		open-webui			
+whisperkit		whisperkit-cli			
+handy					
+voiceink					
+wispr-flow					
+stability-matrix					
+mochi-diffusion					
+sox-ng		sox			
+repomix		repomix			
+markitdown		markitdown			
+muse-code		muse			
+minimax-code		mcode			
+codebuddy-code		codebuddy			
+codewhale		codewhale			
+dcode		dcode			
+forgecode		forge			
+vtcode		vtcode			
+jcode		jcode			
+gptme		gptme			
+command-code		commandcode			
+nanocoder		nanocoder			
+codebuff		codebuff			
+ccusage		ccusage			
+claude-squad		cs			
+claude-code-router		ccr			
+skills		skills			
+specify		specify			
+openspec		openspec			
+beads		bd			
+backlog-md		backlog			
+rulesync		rulesync			
+cq		cq			
+agent-deck		agent-deck			
+git-gtr		git-gtr			
+worktrunk		wt			
+apm		apm			
+peekaboo		peekaboo			
+codexbar					
+coderabbit		coderabbit			
+cline-app					
+kiro-crew					
+nimbalyst					
+commander					
+zcode					
+zed-delta					
+trae					
+codebuddy-ide					
+kitty		kitty	kitty		
+ctx7		ctx7			
+mcp-proxy		mcp-proxy			
+mcp-remote		mcp-remote			
+mcpc		mcpc			
+supergateway		supergateway			
+toolhive-studio					
+thv		thv			
+mcpd		mcpd			
+mcporter		mcporter			
+github-mcp-server		github-mcp-server			
+mcp-toolbox		toolbox			
+mcp-publisher		mcp-publisher			
+srt		srt			
+container		container			
+orbstack		orb			
+sbx		sbx			
+daytona		daytona			
+e2b		e2b			
+openshell		openshell			
+lume		lume			
+arcbox					
+amp-acp		amp-acp			
+acpx		acpx			
+fast-agent		fast-agent			
+dia					
+comet					
+browseros					
+agent-browser		agent-browser			
+browser-use		browser-use			
+manus					
+langflow					
+docker-agent		docker-agent			
+apfel		apfel			
+rapid-mlx		rapid-mlx			
+tei		text-embeddings-router			
+shimmy		shimmy			
+gollama		gollama			
+llmfit		llmfit			
+mlx-knife		mlxk			
+vllm-metal		vllm			
+omlx		omlx			
+splash		splash			
+mlx-serve-cli		mlx-serve			
+foundry-local		foundry			
+llama-swap		llama-swap			
+cactus		cactus			
+vmlx					
+swama					
+nativ					
+dayflow		dayflow			
+mlx-serve					
+nvidia-pair					
+unsloth					
+lm-studio-bionic					
+fluidvoice					
+spokenly					
+typeless					
+hex					
+amical					
+openwhispr					
+aqua-voice					
+monologue					
+granola					
+meetily					
+anarlog					
+mlx-audio		mlx_audio.server			
+parakeet-mlx		parakeet-mlx			
+piper		piper			
+pocket-tts		pocket-tts			
+speech-swift		speech			
+comfyui					
+ltx-desktop					
+mflux		mflux-generate			
+gimp		gimp	gimp,gimp-2.10		
+cap					
+mkvtoolnix		mkvmerge			
+docling		docling			
+pandoc		pandoc			
+defuddle		defuddle			
+oracle		oracle			
+rtk		rtk			
+promptfoo		promptfoo			
+ast-grep		ast-grep			
+tmux		tmux			
+supabase		supabase			
+vercel		vercel			
+android-cli		android			
+orca		orca			
+herdr		herdr			
+paseo		paseo			
+happy		happy			
+ruflo	claude-flow	ruflo			
+agent-of-empires	aoe	aoe			
+cao	cli-agent-orchestrator	cao			
+gastown	gas-town	gt,gastown			
+supacode					
+openchamber					
+aionui					
+openwork					
+goose-app	goose-desktop				
+freebuff		freebuff			
+serena	serena-agent	serena			
+fastmcp		fastmcp			
+terraform-mcp	terraform-mcp-server	terraform-mcp-server			
+mcp-grafana		mcp-grafana			
+kubernetes-mcp	kubernetes-mcp-server	kubernetes-mcp-server			
+microsandbox	msb	msb			
+nono		nono			
+devcontainer	devcontainers-cli	devcontainer			
+podman		podman			
+podman-desktop					
+lima		limactl			
+colima		colima			
+deepchat					
+rio		rio			
+tabby-terminal	tabby				
+kaku		kaku			
+zellij		zellij			
+ccstatusline		ccstatusline			
+bmad	bmad-method	bmad			
+basic-memory		basic-memory,bm			
+ttok		ttok			
+inspect-ai	inspect	inspect			
+garak		garak			
+marker	marker-pdf	marker			
+positron					
+vscodium	codium	codium			

@@ -1,5 +1,5 @@
 # aiup managed catalog manifest
-# aiup-runtime-version: 2026.11.03-01
+# aiup-runtime-version: 2026.11.03-02
 # id<TAB>category<TAB>kind<TAB>lifecycle<TAB>label<TAB>official documentation URL<TAB>package target (optional)<TAB>official update metadata endpoint template (optional)
 brew	infra	special	active	Homebrew: required for formulae, casks, and Node/npm on this system (not removable)	https://github.com/Homebrew/brew
 npm	infra	special	active	Node/npm via Homebrew (infrastructure; update-only, not removable)	https://github.com/nodejs/node
@@ -23,23 +23,21 @@ codex	coding-agents	special	active	OpenAI Codex CLI: @openai/codex	https://githu
 antigravity	coding-agents	special	active	Google Antigravity CLI (agy)	https://antigravity.google/
 grok	coding-agents	special	active	Grok Build: xAI official CLI	https://x.ai/build
 gemini	coding-agents	special	sunset	Google Gemini CLI: enterprise and API key accounts only; personal accounts moved to Antigravity CLI	https://github.com/google-gemini/gemini-cli
-pi	coding-agents	special	active	Pi coding agent: @earendil-works/pi-coding-agent	https://github.com/earendil-works/pi
-kilo	coding-agents	special	active	Kilo Code CLI: @kilocode/cli	https://github.com/Kilo-Org/kilocode
-gsd2	coding-agents	special	active	GSD (gsd-pi): @opengsd/gsd-pi	https://github.com/open-gsd/gsd-pi
-opencode	coding-agents	special	active	OpenCode 2: official installer	https://github.com/anomalyco/opencode
+pi	community-agents	special	active	Pi coding agent: @earendil-works/pi-coding-agent	https://github.com/earendil-works/pi
+kilo	community-agents	special	active	Kilo Code CLI: @kilocode/cli	https://github.com/Kilo-Org/kilocode
+opencode	community-agents	special	active	OpenCode 2: official installer	https://github.com/anomalyco/opencode
 hermes	automation	special	active	Hermes Agent: Nous Research	https://github.com/NousResearch/hermes-agent
 warp	coding-agents	special	active	Warp Agent CLI (warp)	https://github.com/warpdotdev/warp
-aider	coding-agents	special	active	Aider: git-native pair programming CLI	https://github.com/Aider-AI/aider
-goose	coding-agents	special	active	Goose: open-source agent CLI	https://github.com/aaif-goose/goose
+aider	community-agents	special	active	Aider: git-native pair programming CLI	https://github.com/Aider-AI/aider
+goose	community-agents	special	active	Goose: open-source agent CLI	https://github.com/aaif-goose/goose
 cursor	coding-agents	special	active	Cursor CLI (agent; legacy cursor-agent)	https://cursor.com/docs/cli/overview
 qwen	coding-agents	special	active	Qwen Code: @qwen-code/qwen-code	https://github.com/QwenLM/qwen-code
-crush	coding-agents	aiup-npm	active	Crush: Charm agentic TUI (@charmland/crush)	https://github.com/charmbracelet/crush	@charmland/crush
+crush	community-agents	aiup-npm	active	Crush: Charm agentic TUI (@charmland/crush)	https://github.com/charmbracelet/crush	@charmland/crush
 amp	coding-agents	curl-installer	active	Amp: frontier coding agent CLI	https://ampcode.com/
 kiro	coding-agents	brew-cask	active	Kiro CLI: Amazon Q Developer CLI successor	https://kiro.dev/docs/cli/	kiro-cli
 droid	coding-agents	curl-installer	active	Factory Droid: Factory.ai coding agent	https://github.com/Factory-AI/factory
 kimi	coding-agents	aiup-npm	active	Kimi Code CLI: Moonshot (kimi-code)	https://github.com/MoonshotAI/kimi-code	@moonshot-ai/kimi-code
-openclaw	automation	aiup-npm	active	OpenClaw: personal/local AI assistant CLI	https://github.com/openclaw/openclaw	openclaw
-cline	coding-agents	aiup-npm	active	Cline CLI: npm cline	https://github.com/cline/cline	cline
+cline	community-agents	aiup-npm	active	Cline CLI: npm cline	https://github.com/cline/cline	cline
 pi-acp	adapters	aiup-npm	active	Pi ACP adapter (pi-acp, community) for T3 Code and editors	https://www.npmjs.com/package/pi-acp	pi-acp
 llm	llm-utils	brew-formula	active	llm: Simon Willison Unix LLM CLI	https://github.com/simonw/llm	llm
 fabric	llm-utils	brew-formula	active	fabric-ai: Daniel Miessler prompt-pattern CLI	https://github.com/danielmiessler/Fabric	fabric-ai
@@ -47,7 +45,6 @@ sgpt	llm-utils	uv-tool	active	shell-gpt (sgpt) via uv	https://github.com/TheR1D/
 ollama	local-ai	brew-formula	active	Ollama local-model CLI	https://github.com/ollama/ollama	ollama
 lm-studio	local-apps	brew-cask	active	LM Studio: local LLM desktop app	https://lmstudio.ai/	lm-studio
 jan	local-apps	brew-cask	active	Jan: local ChatGPT-style app	https://github.com/janhq/jan	jan
-anythingllm	local-apps	brew-cask	active	AnythingLLM: private local RAG/chat app	https://github.com/Mintplex-Labs/anything-llm	anythingllm
 mlx	local-ai	brew-formula	active	MLX: Apple Silicon engine for running local AI (not a chat app)	https://github.com/ml-explore/mlx	mlx
 mlx-lm	local-ai	brew-formula	active	mlx-lm: chat/generate/serve local LLMs on Apple Silicon using MLX	https://github.com/ml-explore/mlx-lm	mlx-lm
 chatgpt	chat	brew-cask	active	ChatGPT desktop app (includes Codex)	https://chatgpt.com/	chatgpt
@@ -72,7 +69,6 @@ ollama-app	local-apps	brew-cask	active	Ollama desktop app	https://ollama.com/	ol
 remotion	media	aiup-npm	active	Remotion CLI: React video tooling (@remotion/cli); projects need matching local dependencies	https://www.remotion.dev/docs/cli	@remotion/cli
 macwhisper	voice	brew-cask	active	MacWhisper: local speech-to-text	https://goodsnooze.gumroad.com/l/macwhisper	macwhisper
 screenpipe	local-apps	app	active	screenpipe: local screen/audio capture (official stable DMG updater)	https://github.com/screenpipe/screenpipe		https://screenpipe.com/api/app-update/stable/{target}-{arch}/{current_version}
-n8n	automation	aiup-npm	active	n8n: workflow automation via the official npm package	https://github.com/n8n-io/n8n	n8n
 vibe	coding-agents	uv-tool	active	Mistral Vibe: open-source CLI coding assistant	https://github.com/mistralai/mistral-vibe	mistral-vibe
 llama-cpp	local-ai	brew-formula	active	llama.cpp: local LLM inference engine and server	https://github.com/ggml-org/llama.cpp	llama.cpp
 llama-app	local-apps	brew-cask	active	Llama: official local LLM menu-bar app	https://github.com/ggml-org/Llama-macOS	llama-app
@@ -105,9 +101,9 @@ mise	infra	aiup-npm	active	mise: polyglot runtime/tool version manager	https://m
 devin-desktop	editors	brew-cask	active	Devin Desktop: agentic IDE (formerly Windsurf)	https://devin.ai/desktop	devin-desktop
 kiro-ide	editors	brew-cask	active	Kiro IDE: spec-driven agentic IDE (distinct from Kiro CLI)	https://kiro.dev/	kiro
 jetbrains-air	editors	brew-cask	active	JetBrains Air: agentic development environment	https://www.jetbrains.com/air/	jetbrains-air
-conductor	workspaces	brew-cask	active	Conductor: run parallel Claude Code/Codex agents in worktrees	https://www.conductor.build/	conductor
-emdash	workspaces	brew-cask	active	Emdash: run multiple coding agents in parallel	https://github.com/generalaction/emdash	emdash
-superset	workspaces	brew-cask	active	Superset: terminal workspace for orchestrating coding agents	https://github.com/superset-sh/superset	superset
+conductor	orchestrators	brew-cask	active	Conductor: run parallel Claude Code/Codex agents in worktrees	https://www.conductor.build/	conductor
+emdash	orchestrators	brew-cask	active	Emdash: run multiple coding agents in parallel	https://github.com/generalaction/emdash	emdash
+superset	orchestrators	brew-cask	active	Paradev (formerly Superset): workspace for running coding agents side by side	https://github.com/ParadevAI/Paradev	superset
 amp-app	workspaces	brew-cask	active	Amp desktop app: agent environment (macOS 26+)	https://ampcode.com/app	amp-app
 factory-app	workspaces	brew-cask	active	Factory desktop: native interface for Factory Droids	https://factory.com/	factory
 antigravity-app	workspaces	brew-cask	active	Google Antigravity 2: agent orchestration hub app	https://antigravity.google/product/antigravity-2	antigravity
@@ -136,18 +132,17 @@ markitdown	llm-utils	uv-tool	active	MarkItDown: Microsoft file-to-Markdown conve
 muse-code	coding-agents	brew-cask	active	Muse Code: Meta terminal coding agent (muse)	https://dev.meta.ai/	muse-code
 minimax-code	coding-agents	aiup-npm	active	MiniMax Code: open-source terminal coding agent (mcode)	https://agent.minimax.io/docs/cli/quick-start	@minimax-ai/code
 codebuddy-code	coding-agents	aiup-npm	active	CodeBuddy Code: Tencent terminal coding agent (codebuddy)	https://www.npmjs.com/package/@tencent-ai/codebuddy-code	@tencent-ai/codebuddy-code
-codewhale	coding-agents	aiup-npm	active	Codewhale: terminal coding agent (formerly DeepSeek TUI)	https://github.com/codewhale-hq/Codewhale	codewhale
-dcode	coding-agents	uv-tool	active	Deep Agents Code: LangChain terminal coding agent (dcode)	https://docs.langchain.com/oss/deepagents/code/overview	deepagents-code
-forgecode	coding-agents	brew-formula	active	Forge Code: terminal coding agent (forge)	https://forgecode.dev/	forgecode
-vtcode	coding-agents	brew-formula	active	VT Code: Rust terminal coding agent with ACP	https://github.com/vinhnx/VTCode	vtcode
-jcode	coding-agents	brew-formula	active	jcode: Rust coding agent for the terminal	https://jcode.sh	jcode
-gptme	coding-agents	uv-tool	active	gptme: open-source AI assistant in your terminal	https://gptme.org/docs/	gptme
-code-puppy	coding-agents	uv-tool	active	Code Puppy: open-source terminal coding agent	https://github.com/mpfaffenberger/code_puppy	code-puppy
+codewhale	community-agents	aiup-npm	active	Codewhale: terminal coding agent (formerly DeepSeek TUI)	https://github.com/codewhale-hq/Codewhale	codewhale
+dcode	community-agents	uv-tool	active	Deep Agents Code: LangChain terminal coding agent (dcode)	https://docs.langchain.com/oss/deepagents/code/overview	deepagents-code
+forgecode	community-agents	brew-formula	active	Forge Code: terminal coding agent (forge)	https://forgecode.dev/	forgecode
+vtcode	community-agents	brew-formula	active	VT Code: Rust terminal coding agent with ACP	https://github.com/vinhnx/VTCode	vtcode
+jcode	community-agents	brew-formula	active	jcode: Rust coding agent for the terminal	https://jcode.sh	jcode
+gptme	community-agents	uv-tool	active	gptme: open-source AI assistant in your terminal	https://gptme.org/docs/	gptme
 command-code	coding-agents	aiup-npm	active	Command Code: terminal coding agent (commandcode)	https://commandcode.ai/docs	command-code
-nanocoder	coding-agents	aiup-npm	active	Nanocoder: local-first terminal coding agent	https://github.com/Nano-Collective/nanocoder	@nanocollective/nanocoder
-codebuff	coding-agents	aiup-npm	active	Codebuff: terminal coding agent	https://www.codebuff.com/	codebuff
+nanocoder	community-agents	aiup-npm	active	Nanocoder: local-first terminal coding agent	https://github.com/Nano-Collective/nanocoder	@nanocollective/nanocoder
+codebuff	community-agents	aiup-npm	sunset	Codebuff: terminal coding agent, replaced by Freebuff	https://github.com/CodebuffAI/freebuff	codebuff
 ccusage	agent-tools	aiup-npm	active	ccusage: token and cost reports from local agent logs	https://github.com/ccusage/ccusage	ccusage
-claude-squad	agent-tools	brew-formula	active	Claude Squad: run several agents in tmux and git worktrees (cs)	https://smtg-ai.github.io/claude-squad/	claude-squad
+claude-squad	orchestrators	brew-formula	active	Claude Squad: run several agents in tmux and git worktrees (cs)	https://smtg-ai.github.io/claude-squad/	claude-squad
 claude-code-router	agent-tools	aiup-npm	active	Claude Code Router: send Claude Code requests to other model providers (ccr)	https://github.com/musistudio/claude-code-router	@musistudio/claude-code-router
 skills	agent-tools	aiup-npm	active	skills: Vercel CLI that adds agent skills to a project	https://github.com/vercel-labs/skills	skills
 specify	agent-tools	uv-tool	active	Spec Kit (specify): GitHub toolkit for spec-driven development	https://github.com/github/spec-kit	specify-cli
@@ -156,17 +151,17 @@ beads	agent-tools	brew-formula	active	Beads: issue tracker that coding agents us
 backlog-md	agent-tools	aiup-npm	active	Backlog.md: Markdown task board inside a Git repository (backlog)	https://github.com/MrLesk/Backlog.md	backlog.md
 rulesync	agent-tools	aiup-npm	active	rulesync: one set of rules, written out for each coding agent	https://github.com/dyoshikawa/rulesync	rulesync
 cq	agent-tools	brew-cask	active	cq: shared knowledge store so agents avoid known mistakes	https://docs.mozilla.ai/cq	mozilla-ai/tap/cq
-agent-deck	agent-tools	brew-formula	active	Agent Deck: one terminal UI for many coding agent sessions	https://github.com/asheshgoplani/agent-deck	asheshgoplani/tap/agent-deck
-git-gtr	agent-tools	brew-formula	active	git-gtr: CodeRabbit git worktree runner for parallel agents (gtr)	https://github.com/coderabbitai/git-worktree-runner	coderabbitai/tap/git-gtr
-worktrunk	agent-tools	brew-formula	active	Worktrunk: git worktrees for parallel agent work (wt)	https://worktrunk.dev	worktrunk
+agent-deck	orchestrators	brew-formula	active	Agent Deck: one terminal UI for many coding agent sessions	https://github.com/asheshgoplani/agent-deck	asheshgoplani/tap/agent-deck
+git-gtr	orchestrators	brew-formula	active	git-gtr: CodeRabbit git worktree runner for parallel agents (gtr)	https://github.com/coderabbitai/git-worktree-runner	coderabbitai/tap/git-gtr
+worktrunk	orchestrators	brew-formula	active	Worktrunk: git worktrees for parallel agent work (wt)	https://worktrunk.dev	worktrunk
 apm	agent-tools	brew-formula	active	APM: Microsoft package manager for agent configuration	https://microsoft.github.io/apm/	apm
-peekaboo	agent-tools	aiup-npm	active	Peekaboo: screenshots and UI automation for agents (macOS 15+)	https://peekaboo.sh/	@steipete/peekaboo
+peekaboo	agent-tools	aiup-npm	active	Peekaboo: screenshots and UI automation for agents (macOS 15+)	https://github.com/openclaw/Peekaboo	@steipete/peekaboo
 codexbar	agent-tools	brew-cask	active	CodexBar: menu bar view of coding agent limits and usage (macOS 14+)	https://codexbar.app/	codexbar
 coderabbit	agent-tools	brew-cask	active	CodeRabbit CLI: AI code review in the terminal (account required)	https://www.coderabbit.ai/cli	coderabbit
 cline-app	workspaces	brew-cask	active	Cline desktop app: coding agent	https://cline.bot/	cline-app
 kiro-crew	workspaces	brew-cask	active	KiroCrew: multi-agent development workspace	https://kiro.dev/docs/crew/	kirocrew
-nimbalyst	workspaces	brew-cask	active	Nimbalyst: visual workspace for Codex and Claude Code	https://nimbalyst.com/	nimbalyst
-commander	workspaces	brew-cask	active	Commander: AI agent operator app (macOS 15+)	https://thecommander.app/	commander
+nimbalyst	orchestrators	brew-cask	active	Nimbalyst: visual workspace for Codex and Claude Code	https://nimbalyst.com/	nimbalyst
+commander	orchestrators	brew-cask	active	Commander: AI agent operator app (macOS 15+)	https://thecommander.app/	commander
 zcode	workspaces	brew-cask	active	ZCode: Z.ai agentic development environment	https://zcode.z.ai/en/	zcode
 zed-delta	workspaces	brew-cask	active	Delta: multiplayer coding with agents (Apple silicon, macOS 13+)	https://delta.dev/	zed-delta
 trae	editors	brew-cask	active	Trae: AI IDE from ByteDance	https://www.trae.ai/	trae
@@ -174,14 +169,13 @@ codebuddy-ide	editors	brew-cask	active	CodeBuddy IDE: Tencent AI IDE	https://www
 kitty	terminals	brew-cask	active	kitty: GPU-based terminal	https://sw.kovidgoyal.net/kitty/	kitty
 ctx7	mcp	aiup-npm	active	Context7 CLI (ctx7): current library docs for agents	https://github.com/upstash/context7	ctx7
 mcp-proxy	mcp	uv-tool	active	mcp-proxy: bridge stdio and HTTP MCP transports	https://github.com/sparfenyuk/mcp-proxy	mcp-proxy
-mcp-remote	mcp	aiup-npm	active	mcp-remote: connect local MCP clients to remote servers that use OAuth	https://github.com/geelen/mcp-remote	mcp-remote
+mcp-remote	mcp	aiup-npm	active	mcp-remote: connect local MCP clients to remote servers that use OAuth	https://github.com/punkpeye/mcp-remote	mcp-remote
 mcpc	mcp	aiup-npm	active	mcpc: Apify command-line MCP client	https://github.com/apify/mcpc	@apify/mcpc
 supergateway	mcp	aiup-npm	active	Supergateway: serve stdio MCP servers over SSE or WebSocket	https://github.com/supercorp-ai/supergateway	supergateway
 toolhive-studio	mcp	brew-cask	active	ToolHive: desktop app to install and run MCP servers (macOS 13+)	https://github.com/stacklok/toolhive-studio	toolhive-studio
-chrome-devtools-mcp	mcp	aiup-npm	active	Chrome DevTools MCP: Google server that lets agents inspect and debug Chrome	https://github.com/ChromeDevTools/chrome-devtools-mcp	chrome-devtools-mcp
 thv	mcp	brew-formula	active	ToolHive CLI (thv): run and manage MCP servers from the terminal	https://docs.stacklok.com/toolhive/	stacklok/tap/thv
 mcpd	mcp	brew-cask	active	mcpd: Mozilla.ai tool to define and run MCP servers from one config file	https://github.com/mozilla-ai/mcpd	mozilla-ai/tap/mcpd
-mcporter	mcp	aiup-npm	active	MCPorter: call MCP servers from the terminal or TypeScript	https://mcporter.sh	mcporter
+mcporter	mcp	aiup-npm	active	MCPorter: call MCP servers from the terminal or TypeScript	https://github.com/openclaw/mcporter	mcporter
 github-mcp-server	mcp	brew-formula	active	GitHub MCP Server: GitHub tools for AI clients	https://github.com/github/github-mcp-server	github-mcp-server
 mcp-toolbox	mcp	brew-formula	active	MCP Toolbox: Google MCP server for databases (toolbox)	https://github.com/googleapis/mcp-toolbox	mcp-toolbox
 mcp-publisher	mcp	brew-formula	active	MCP Publisher: publish servers to the official MCP Registry	https://github.com/modelcontextprotocol/registry	mcp-publisher
@@ -230,7 +224,7 @@ lm-studio-bionic	local-apps	brew-cask	active	Bionic: LM Studio agent that works 
 fluidvoice	voice	brew-cask	active	FluidVoice: open-source offline dictation (macOS 15+)	https://github.com/altic-dev/FluidVoice	fluidvoice
 spokenly	voice	brew-cask	active	Spokenly: dictation with local and cloud models	https://spokenly.app/	spokenly
 typeless	voice	brew-cask	active	Typeless: cloud AI dictation that drops filler words	https://typeless.com/	typeless
-hex	voice	brew-cask	active	Hex: open-source push-to-talk dictation (macOS 14+)	https://hex.kitlangton.com/	kitlangton-hex
+hex	voice	brew-cask	active	Hex: open-source push-to-talk dictation (Apple silicon, macOS 15+)	https://github.com/anomalyco/hex	anomalyco/tap/hex
 amical	voice	brew-cask	active	Amical: open-source local dictation and notes	https://amical.ai/	amical
 openwhispr	voice	brew-cask	active	OpenWhispr: open-source dictation with local or cloud models	https://github.com/OpenWhispr/openwhispr	openwhispr
 aqua-voice	voice	brew-cask	active	Aqua Voice: cloud voice typing	https://aquavoice.com/	aqua-voice
@@ -243,7 +237,7 @@ parakeet-mlx	voice	uv-tool	active	parakeet-mlx: NVIDIA Parakeet transcription on
 piper	voice	uv-tool	active	Piper: fast local text-to-speech	https://github.com/OHF-Voice/piper1-gpl	piper-tts
 pocket-tts	voice	uv-tool	active	Pocket TTS: Kyutai text-to-speech that runs on the CPU	https://github.com/kyutai-labs/pocket-tts	pocket-tts
 speech-swift	voice	brew-formula	active	speech-swift: on-device transcription, speech and speaker labels (Apple silicon, macOS 15+)	https://soniqo.audio	speech
-comfyui	image-gen	brew-cask	active	Comfy Desktop: official ComfyUI app for image, video and audio generation (Apple silicon)	https://docs.comfy.org/installation/desktop/macos	comfy
+comfyui	image-gen	brew-cask	active	Comfy Desktop: official ComfyUI app for image, video and audio generation (Apple silicon)	https://github.com/Comfy-Org/Comfy-Desktop	comfy
 ltx-desktop	image-gen	brew-cask	active	LTX Desktop: Lightricks video generation on your Mac	https://github.com/Lightricks/LTX-Desktop	ltx-desktop
 mflux	image-gen	uv-tool	active	mflux: FLUX image generation on MLX	https://github.com/mflux-community/mflux	mflux
 gimp	media	brew-cask	active	GIMP: open-source image editor	https://www.gimp.org/	gimp
@@ -260,3 +254,43 @@ tmux	dev-utils	brew-formula	active	tmux: terminal multiplexer	https://github.com
 supabase	dev-utils	brew-formula	active	Supabase CLI: local Postgres development and deploys	https://supabase.com/docs/reference/cli/about	supabase
 vercel	dev-utils	aiup-npm	active	Vercel CLI: deploy and manage Vercel projects	https://vercel.com/docs/cli	vercel
 android-cli	dev-utils	brew-cask	active	Android CLI: Google tool for Android development with agents (android)	https://developer.android.com/tools/agents/android-cli	android-cli
+orca	orchestrators	brew-cask	active	Orca: desktop app that runs many coding agents side by side	https://github.com/stablyai/orca	stablyai/orca/orca
+herdr	orchestrators	brew-formula	active	herdr: terminal app that hosts and switches between many coding agents	https://github.com/herdrdev/herdr	herdr
+paseo	orchestrators	brew-cask	active	Paseo: run and watch coding agents from desktop and phone	https://github.com/getpaseo/paseo	paseo
+happy	orchestrators	aiup-npm	active	Happy: phone and web client for Claude Code, Codex and Grok sessions	https://github.com/slopus/happy	happy
+ruflo	orchestrators	aiup-npm	active	Ruflo (formerly Claude Flow): multi-agent swarms for Claude Code and other agents	https://github.com/ruvnet/ruflo	ruflo
+agent-of-empires	orchestrators	brew-formula	active	Agent of Empires: terminal and web app for many Claude Code and OpenCode sessions (aoe)	https://github.com/agent-of-empires/agent-of-empires	aoe
+cao	orchestrators	uv-tool	active	CLI Agent Orchestrator: AWS Labs tool that runs several agents in tmux (cao)	https://github.com/awslabs/cli-agent-orchestrator	cli-agent-orchestrator
+gastown	orchestrators	brew-formula	active	Gas Town: workspace manager for many coding agents (gt)	https://github.com/gastownhall/gastown	gastown
+supacode	orchestrators	brew-cask	active	Supacode: command center for coding agents in git worktrees (macOS 26+)	https://github.com/supabitapp/supacode	supacode
+openchamber	workspaces	brew-cask	active	OpenChamber: desktop app for the OpenCode agent	https://github.com/openchamber/openchamber	openchamber
+aionui	workspaces	brew-cask	active	AionUi: desktop app for Claude Code, Codex, OpenCode and other agents	https://github.com/iOfficeAI/AionUi	aionui
+openwork	workspaces	brew-cask	active	OpenWork: open-source desktop cowork app built on OpenCode	https://github.com/different-ai/openwork	openwork
+goose-app	workspaces	brew-cask	active	Goose desktop: app for the Goose agent	https://github.com/aaif-goose/goose	block-goose
+freebuff	community-agents	aiup-npm	active	Freebuff: terminal coding agent from the Codebuff team	https://github.com/CodebuffAI/freebuff	freebuff
+serena	mcp	uv-tool	active	Serena: MCP server for symbol-level code search and editing	https://github.com/oraios/serena	serena-agent
+fastmcp	mcp	uv-tool	active	FastMCP: Python framework and CLI to build, run and inspect MCP servers	https://gofastmcp.com	fastmcp
+terraform-mcp	mcp	brew-formula	active	Terraform MCP Server: HashiCorp MCP server for Terraform and its registry	https://github.com/hashicorp/terraform-mcp-server	terraform-mcp-server
+mcp-grafana	mcp	brew-formula	active	Grafana MCP: Grafana MCP server for dashboards, metrics and logs	https://github.com/grafana/mcp-grafana	mcp-grafana
+kubernetes-mcp	mcp	aiup-npm	active	Kubernetes MCP Server: MCP server for Kubernetes and OpenShift clusters	https://github.com/containers/kubernetes-mcp-server	kubernetes-mcp-server
+microsandbox	sandboxes	brew-formula	active	microsandbox: run untrusted code in local microVMs (msb, Apple silicon)	https://github.com/superradcompany/microsandbox	superradcompany/tap/microsandbox
+nono	sandboxes	brew-formula	active	nono: kernel-level sandbox for agents (Seatbelt on macOS, Landlock on Linux)	https://nono.sh	nono
+devcontainer	sandboxes	aiup-npm	active	Dev Containers CLI: build and run dev containers from devcontainer.json	https://github.com/devcontainers/cli	@devcontainers/cli
+podman	sandboxes	brew-formula	active	Podman: daemonless containers (runs a Linux VM on macOS)	https://podman.io/	podman
+podman-desktop	sandboxes	brew-cask	active	Podman Desktop: desktop app for containers and Kubernetes	https://podman-desktop.io/	podman-desktop
+lima	sandboxes	brew-formula	active	Lima: Linux VMs with file sharing and port forwarding (limactl)	https://lima-vm.io/	lima
+colima	sandboxes	brew-formula	active	Colima: container runtime on top of Lima	https://github.com/abiosoft/colima	colima
+deepchat	chat	brew-cask	active	DeepChat: desktop chat app for cloud and local models, with MCP support	https://github.com/ThinkInAIXYZ/deepchat	deepchat
+rio	terminals	brew-cask	active	Rio: GPU-accelerated terminal	https://github.com/raphamorim/rio	rio
+tabby-terminal	terminals	brew-cask	active	Tabby: terminal and SSH client	https://github.com/Eugeny/tabby	tabby
+kaku	terminals	brew-cask	active	Kaku: terminal tuned for working with AI agents	https://github.com/tw93/Kaku	kaku
+zellij	dev-utils	brew-formula	active	Zellij: terminal workspace and multiplexer	https://github.com/zellij-org/zellij	zellij
+ccstatusline	agent-tools	aiup-npm	active	ccstatusline: custom status line for Claude Code	https://github.com/sirmalloc/ccstatusline	ccstatusline
+bmad	agent-tools	aiup-npm	active	BMAD Method: spec-driven agile workflow kit for coding agents	https://github.com/bmad-code-org/BMAD-METHOD	bmad-method
+basic-memory	agent-tools	uv-tool	active	Basic Memory: local Markdown memory for agents, served over MCP	https://github.com/basicmachines-co/basic-memory	basic-memory
+ttok	llm-utils	uv-tool	active	ttok: count and trim tokens from the command line	https://github.com/simonw/ttok	ttok
+inspect-ai	llm-utils	uv-tool	active	Inspect: UK AISI framework for running model evals (inspect)	https://github.com/UKGovernmentBEIS/inspect_ai	inspect-ai
+garak	llm-utils	uv-tool	active	garak: NVIDIA scanner for LLM vulnerabilities (large install)	https://github.com/NVIDIA/garak	garak
+marker	llm-utils	uv-tool	active	Marker: convert PDFs to Markdown (large install)	https://github.com/datalab-to/marker	marker-pdf
+positron	editors	brew-cask	active	Positron: Posit data science IDE with a built-in AI assistant	https://positron.posit.co/	positron
+vscodium	editors	brew-cask	active	VSCodium: VS Code built without Microsoft telemetry (codium)	https://github.com/VSCodium/vscodium	vscodium

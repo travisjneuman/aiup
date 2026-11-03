@@ -22,7 +22,6 @@ coding-agents	absent	grok
 coding-agents	installed	gemini
 coding-agents	absent	pi
 coding-agents	absent	kilo
-coding-agents	absent	gsd2
 coding-agents	absent	opencode
 automation	absent	hermes
 coding-agents	absent	warp
@@ -35,7 +34,6 @@ coding-agents	absent	amp
 coding-agents	absent	kiro
 coding-agents	absent	droid
 coding-agents	absent	kimi
-automation	absent	openclaw
 coding-agents	absent	cline
 adapters	absent	pi-acp
 llm-utils	absent	llm
@@ -44,7 +42,6 @@ llm-utils	absent	sgpt
 local-ai	installed	ollama
 local-apps	absent	lm-studio
 local-apps	absent	jan
-local-apps	absent	anythingllm
 local-ai	absent	mlx
 local-ai	absent	mlx-lm
 chat	absent	chatgpt
@@ -69,7 +66,6 @@ local-apps	absent	ollama-app
 media	absent	remotion
 voice	absent	macwhisper
 local-apps	absent	screenpipe
-automation	installed	n8n
 coding-agents	absent	vibe
 local-ai	absent	llama-cpp
 local-apps	absent	llama-app
@@ -139,7 +135,6 @@ coding-agents	absent	forgecode
 coding-agents	absent	vtcode
 coding-agents	absent	jcode
 coding-agents	absent	gptme
-coding-agents	absent	code-puppy
 coding-agents	absent	command-code
 coding-agents	absent	nanocoder
 coding-agents	absent	codebuff
@@ -175,7 +170,6 @@ mcp	absent	mcp-remote
 mcp	absent	mcpc
 mcp	absent	supergateway
 mcp	absent	toolhive-studio
-mcp	installed	chrome-devtools-mcp
 mcp	absent	thv
 mcp	absent	mcpd
 mcp	absent	mcporter

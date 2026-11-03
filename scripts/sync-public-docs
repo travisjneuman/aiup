@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 case "${1:-}" in
   '') [ "$#" -eq 0 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; MEDIA=copy ;;
   --skip-media) [ "$#" -eq 1 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; MEDIA=skip ;;
-  -h|--help) [ "$#" -eq 1 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; printf '%s\n' 'Usage: scripts/sync-public-docs [--skip-media]' 'Writes catalog JSON/Markdown, README catalog block, showcase Catalog tools, and site text metadata/count.' 'Default: also copies accepted docs/media assets to site/media. --skip-media: no media reads or writes.' 'Uses one local macos/aiup catalog --json export. No launcher, inventory scan, install, update, or network.'; exit 0 ;;
+  -h|--help) [ "$#" -eq 1 ] || { echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2; }; printf '%s\n' 'Usage: scripts/sync-public-docs [--skip-media]' 'Writes catalog JSON/Markdown, README catalog block, showcase Catalog tools, and site text metadata/count.' 'Default: also copies accepted docs/media assets to site/media. --skip-media: no media reads or writes.' 'Uses one local macos/aiup catalog --json export for counts, plus one local runtime catalog export' '(the code behind aiup catalog --json --platform all) for Linux and Windows availability.' 'No launcher, inventory scan, install, update, or network.'; exit 0 ;;
   *) echo 'Usage: scripts/sync-public-docs [--skip-media]' >&2; exit 2 ;;
 esac
 command -v python3 >/dev/null || { echo 'python3 is required for scripts/sync-public-docs' >&2; exit 1; }
@@ -71,6 +71,10 @@ def replace_once(text, pattern, replacement, source):
 inputs = {name: read_text(name) for name in (
     'macos/aiup', 'macos/catalog/manifest.tsv', 'README.md', 'showcase.json',
     'site/index.html', 'site/llms.txt',
+    # Linux and Windows availability: the runtime's catalog loader and its data.
+    'runtime/aiup_main.py', 'runtime/aiup/version.py', 'runtime/aiup/catalog/export.py',
+    'runtime/aiup/catalog/loader.py', 'catalog/platforms.tsv', 'catalog/categories.tsv',
+    'catalog/tool-meta.tsv',
 )}
 outputs = ('site/catalog.json', 'docs/catalog.md', 'README.md', 'showcase.json',
            'site/index.html', 'site/llms.txt')
@@ -212,16 +216,111 @@ if ids != manifest_ids or len(set(ids)) != len(ids):
 count = len(data['tools'])
 version = data['version']
 
+# Linux and Windows availability comes from the runtime's own catalog loader and
+# export (aiup.catalog.export.render, the code behind
+# `aiup catalog --json --platform all`). It reads the four catalog files only:
+# no command dispatch, no state folders, no scan, no network. The macOS export
+# above stays the source of every count; this one adds per-platform targets.
+if sys.version_info[:2] < (3, 9):
+    fail('the Linux and Windows catalog export needs Python 3.9 or newer; run this with a newer python3. No public files were written.')
+RUNTIME_EXPORT = '''import sys
+sys.path.insert(0, sys.argv[1])
+from aiup.catalog import load
+from aiup.catalog.export import render
+from aiup.errors import AiupError
+try:
+    text = render(load(), "json", "all")
+except AiupError as exc:
+    sys.stderr.write(exc.render() + "\\n")
+    sys.exit(1)
+sys.stdout.buffer.write(text.encode("utf-8"))
+'''
+runtime_env = dict(env)
+runtime_env.pop('AIUP_CATALOG_MANIFEST', None)
+runtime_env['AIUP_CATALOG_DIR'] = str(root / 'catalog')
+try:
+    runtime_exported = subprocess.run([sys.executable, '-I', '-B', '-c', RUNTIME_EXPORT, str(root / 'runtime')],
+                                      cwd=root, env=runtime_env, stdin=subprocess.DEVNULL,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                      encoding='utf-8', errors='replace')
+except OSError:
+    fail('could not start the runtime catalog export. No public files were written.')
+if runtime_exported.returncode != 0:
+    reason = next((line.strip() for line in reversed(runtime_exported.stderr.splitlines()) if line.strip()), '')
+    fail('runtime catalog export failed' + (f' ({reason[:300]})' if reason else '')
+         + '; review runtime/aiup and catalog/*.tsv. No public files were written.')
+runtime_data = load_json(runtime_exported.stdout, 'runtime catalog export')
+if runtime_data.get('name') != 'aiup' or runtime_data.get('version') != version:
+    fail(f'runtime catalog export version {runtime_data.get("version")!r} does not match macos/aiup {version!r}; run scripts/bump-version first')
+require_records(runtime_data.get('tools'), ('id', 'category'), 'runtime export tools')
+require_records(runtime_data.get('categories'), ('id',), 'runtime export categories')
+if [(t['id'], t['category']) for t in runtime_data['tools']] != [(t['id'], t['category']) for t in data['tools']]:
+    fail('runtime catalog export tools or their categories disagree with macos/aiup; both must read the same manifest')
+# macOS shows Homebrew extras as `homebrew` and `homebrew/<child>`; the runtime
+# calls the same pseudo-category `packages`. Every real category must match.
+mac_categories = {c['id'] for c in data['categories'] if c['id'] != 'homebrew' and not c['id'].startswith('homebrew/')}
+runtime_categories = {c['id'] for c in runtime_data['categories'] if c['id'] != 'packages'}
+if mac_categories != runtime_categories:
+    fail('runtime catalog categories disagree with macos/aiup; reconcile catalog/categories.tsv with the macOS categories')
+OSES = ('linux', 'windows')
+CHANNEL = re.compile(r'[a-z][a-z0-9-]*')
+platforms_of = {}
+for tool in runtime_data['tools']:
+    platforms = tool.get('platforms')
+    if not isinstance(platforms, dict) or not set(platforms) <= {'macos', *OSES} \
+            or not isinstance(platforms.get('macos'), dict):
+        fail('runtime export tools need a platforms object with a macos entry and only macos, linux and windows keys')
+    for os_name in OSES:
+        if os_name not in platforms:
+            continue
+        targets = platforms[os_name]
+        if not isinstance(targets, list) or not targets:
+            fail(f'runtime export {os_name} targets must be a nonempty array; leave the key out when there are none')
+        for target in targets:
+            if not isinstance(target, dict) or not isinstance(target.get('channel'), str) \
+                    or not CHANNEL.fullmatch(target['channel']) \
+                    or not isinstance(target.get('package'), str) or not target['package'].strip():
+                fail(f'runtime export {os_name} targets need a channel name and a nonempty package')
+            if not isinstance(target.get('flags', []), list) \
+                    or not all(isinstance(flag, str) for flag in target.get('flags', [])) \
+                    or not isinstance(target.get('install_script', ''), str):
+                fail(f'runtime export {os_name} target flags must be strings and install_script a string')
+    platforms_of[tool['id']] = platforms
+available = {os_name: sum(1 for p in platforms_of.values() if os_name in p) for os_name in OSES}
+
+
+def default_channel(tool_id, os_name):
+    """The channel aiup prefers there: the export lists the row's default first."""
+    targets = platforms_of[tool_id].get(os_name)
+    return targets[0]['channel'] if targets else ''
+
+
+# Additive fields only: the macOS export shape stays as it is.
+for tool in data['tools']:
+    tool['platforms'] = platforms_of[tool['id']]
+for category in data['categories']:
+    for tool in category.get('tools') or []:
+        tool['platforms'] = platforms_of[tool['id']]
+data['platformCounts'] = dict(available)
+
 body = []
 markdown = [f'# Catalog ({version})', '',
-            'Generated from `macos/aiup` via `scripts/sync-public-docs` (one `catalog --json` export).', '']
+            'Generated by `scripts/sync-public-docs` from one `macos/aiup catalog --json` export and one local '
+            'runtime catalog export (the code behind `aiup catalog --json --platform all`).', '',
+            f"{available['linux']} of {count} tools have a Linux install target and {available['windows']} have a "
+            'Windows one. The Linux and Windows columns name the channel aiup prefers there. A blank cell means '
+            'the catalog has no install target for that system.', '']
 for category in data['categories']:
     if category['id'].startswith('homebrew/'):
         continue
     tools = category.get('tools') or []
     size = 'your Mac + recommended' if category['id'] == 'homebrew' else f'{len(tools)} tool' + ('' if len(tools) == 1 else 's')
     name = category.get('name') or category['id']
-    body.append(f"| {category.get('emoji', '')} | **{name}** (`{category['id']}`) | {category.get('blurb', '')} | {size} |")
+    # Homebrew extras are macOS only, so their row leaves the other systems blank.
+    per_os = ['' if category['id'] == 'homebrew'
+              else str(sum(1 for tool in tools if os_name in platforms_of[tool['id']])) for os_name in OSES]
+    body.append(f"| {category.get('emoji', '')} | **{name}** (`{category['id']}`) | {category.get('blurb', '')} | {size} | "
+                + ' | '.join(per_os) + ' |')
     markdown.extend([f"## {category.get('emoji', '')} {name} (`{category['id']}`)", '', category.get('blurb', ''), ''])
     if category['id'] == 'homebrew':
         markdown.extend(['| Child | What |', '|---|---|'])
@@ -232,13 +331,16 @@ for category in data['categories']:
         for rec in data['recommended']:
             markdown.append(f"| {rec['kind']} | `{rec['id']}` | {rec['label']} |")
     else:
-        markdown.extend(['| Id | Label |', '|---|---|'])
+        markdown.extend(['| Id | Label | Linux | Windows |', '|---|---|---|---|'])
         for tool in tools:
-            markdown.append(f"| `{tool['id']}` | {tool['label']} |")
+            markdown.append(f"| `{tool['id']}` | {tool['label']} | "
+                            + ' | '.join(default_channel(tool['id'], os_name) for os_name in OSES) + ' |')
     markdown.append('')
 
-table = '\n'.join(['', f'_**{version}** · **{count}** tools in the main catalog. Generated from `macos/aiup`._', '',
-                   '| | Category | What | Size |', '|---|---|---|---|', *body, ''])
+table = '\n'.join(['', f"_**{version}** · **{count}** tools in the main catalog, {available['linux']} with a Linux "
+                         f"install target and {available['windows']} with a Windows one. Generated from `macos/aiup` "
+                         'and the runtime catalog export._', '',
+                   '| | Category | What | Size | Linux | Windows |', '|---|---|---|---|---|---|', *body, ''])
 readme = replace_once(inputs['README.md'], readme_pattern,
                       '<!-- CATALOG:START -->' + table + '<!-- CATALOG:END -->', 'README.md')
 
@@ -309,6 +411,7 @@ try:
 finally:
     for temporary, _ in staged:
         temporary.unlink(missing_ok=True)
-print(f'synced catalog {version} ({count} curated tools); {len(changed)} files changed')
+print(f"synced catalog {version} ({count} curated tools; {available['linux']} on Linux, "
+      f"{available['windows']} on Windows); {len(changed)} files changed")
 print('media copies skipped; no media regenerated' if not copy_media else f'mirrored {len(media_names)} accepted canonical media assets; no media regenerated')
 PY

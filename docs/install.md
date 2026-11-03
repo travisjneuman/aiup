@@ -1,8 +1,17 @@
 # Install
 
-aiup is a macOS Bash application with a small launcher that runs the latest published release. There is no packaged macOS artifact; the helper below installs the launcher.
+On macOS, aiup is a Bash application with a small launcher that runs the latest published release. There is no packaged macOS artifact; the helper below installs the launcher. The rest of this page covers macOS.
 
-## Supported configuration and prerequisites
+## Linux and Windows
+
+aiup on Linux and Windows is new in this release, and first real runs are in progress. It is a Python 3.9+ program with its own launcher and installer. Each install guide covers prerequisites, PATH, uninstall, privileges, state and updates:
+
+- [Linux](../linux/README.md): `curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/linux/install-aiup | sh`
+- [Windows](../windows/README.md): `irm https://raw.githubusercontent.com/travisjneuman/aiup/main/windows/install-aiup.ps1 | iex`
+
+All three systems follow the same release pointer, `main/macos/release`, so they move to a new release together.
+
+## Supported configuration and prerequisites (macOS)
 
 The current public support baseline is macOS 14 Sonoma or newer on Apple Silicon or 64-bit Intel. This follows the supported Homebrew baseline because fzf is required and managed through Homebrew.
 
@@ -20,7 +29,7 @@ aiup requires Bash 3 or newer, curl, and a working Python 3. Do not assume those
 
 Homebrew and fzf do not need to be present before installation. When a selected action first needs them, aiup uses Homebrew's official installer and then the fzf formula. A supported Homebrew configuration requires current Xcode Command Line Tools; install them first with `xcode-select --install` if `xcode-select -p` fails. Homebrew's installer may request administrator authentication even though aiup does not call `sudo` directly.
 
-## Install and persist PATH
+## Install and persist PATH (macOS)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/macos/install-aiup | bash
@@ -66,7 +75,7 @@ AIUP_SOURCE_PATH="/path/to/your/aiup/macos/aiup" aiup version
 
 `AIUP_SOURCE_PATH` is used only when deliberately set to a non-empty file path. The launcher never guesses or probes a checkout. A missing or invalid explicit source fails instead of silently falling back to the published release. Running `./macos/aiup` from a checkout is equivalent and uses that checkout's adjacent catalog manifest.
 
-## Uninstall aiup
+## Uninstall aiup (macOS)
 
 These commands remove the launcher, aiup-owned state, and the marked PATH blocks. They do not uninstall catalog tools or remove unrelated files:
 

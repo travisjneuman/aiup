@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Write runtime/FILES, the list the Linux and Windows launchers download.
+
+Run it from any folder after source edits and scripts/bump-version, before
+the release commit. It lists every .py file under runtime/aiup/, plus
+runtime/aiup_main.py and the four catalog files, as "sha256  size  path"
+lines sorted by path. A file with a CR byte or bytes that are not UTF-8 stops
+it, so each hash covers exactly the bytes GitHub serves.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+import sys
+from pathlib import Path
+from typing import List, NoReturn, Tuple
+
+ROOT = Path(__file__).resolve().parent.parent
+OUTPUT = "runtime/FILES"
+CATALOG_FILES = (
+    "macos/catalog/manifest.tsv",
+    "catalog/platforms.tsv",
+    "catalog/categories.tsv",
+    "catalog/tool-meta.tsv",
+)
+ALLOWED_PATH_RE = re.compile(
+    r"^(runtime/aiup_main\.py|runtime/aiup/[a-z0-9_/]+\.py|macos/catalog/manifest\.tsv|catalog/[a-z0-9-]+\.tsv)$"
+)
+VERSION_RE = re.compile(r'^AIUP_VERSION = "([^"]+)"$', re.MULTILINE)
+HEADER = "# aiup-runtime-version: "
+SIZE_LIMIT = 1048576
+TOTAL_LIMIT = 8388608
+
+
+def fail(message: str) -> NoReturn:
+    print("stamp-runtime: " + message, file=sys.stderr)
+    sys.exit(1)
+
+
+def runtime_sources() -> List[str]:
+    """Every .py file under runtime/aiup/, as repo paths. Skips __pycache__."""
+    found: List[str] = []
+    base = ROOT / "runtime" / "aiup"
+    if not base.is_dir():
+        fail("runtime/aiup is missing")
+    for root, dirs, names in os.walk(str(base)):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for name in names:
+            if name.endswith(".py"):
+                found.append(Path(root, name).relative_to(ROOT).as_posix())
+    return found
+
+
+def read_checked(rel: str) -> bytes:
+    path = ROOT / rel
+    if path.is_symlink() or not path.is_file():
+        fail(rel + " is missing or not a regular file")
+    data = path.read_bytes()
+    if b"\r" in data:
+        fail(rel + " contains a CR byte. Save it with LF line endings.")
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        fail(rel + " is not UTF-8 (" + str(exc) + ")")
+    if len(data) > SIZE_LIMIT:
+        fail(rel + " is larger than 1 MiB, the launcher's limit per file")
+    return data
+
+
+def header_version(rel: str, data: bytes) -> str:
+    for line in data.decode("utf-8").split("\n"):
+        if line.startswith(HEADER):
+            return line[len(HEADER):].strip()
+        if line and not line.startswith("#"):
+            break
+    fail(rel + " has no '" + HEADER.strip() + "' header")
+
+
+def main() -> int:
+    paths = sorted(set(runtime_sources() + ["runtime/aiup_main.py"] + list(CATALOG_FILES)))
+    entries: List[Tuple[str, int, str]] = []
+    contents = {}
+    total = 0
+    for rel in paths:
+        if not ALLOWED_PATH_RE.match(rel):
+            fail(rel + " does not fit the allowed path pattern (lowercase letters, digits and _ only)")
+        data = read_checked(rel)
+        contents[rel] = data
+        total += len(data)
+        entries.append((hashlib.sha256(data).hexdigest(), len(data), rel))
+    if total > TOTAL_LIMIT:
+        fail("the listed files add up to more than 8 MiB, the launcher's total limit")
+
+    match = VERSION_RE.search(contents["runtime/aiup/version.py"].decode("utf-8"))
+    if not match:
+        fail('runtime/aiup/version.py has no AIUP_VERSION = "..." line')
+    version = match.group(1)
+    for rel in ("macos/catalog/manifest.tsv", "catalog/platforms.tsv"):
+        other = header_version(rel, contents[rel])
+        if other != version:
+            fail(rel + " says " + other + " but runtime/aiup/version.py says " + version
+                 + ". Run scripts/bump-version first.")
+
+    lines = ["# aiup runtime files: sha256 size path", HEADER + version]
+    lines.extend(digest + "  " + str(size) + "  " + rel for digest, size, rel in entries)
+    text = "\n".join(lines) + "\n"
+    output = ROOT / OUTPUT
+    tmp = output.with_name(output.name + ".tmp")
+    with open(tmp, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+    os.replace(str(tmp), str(output))
+    print(OUTPUT + " -> " + version + ", " + str(len(entries)) + " files, " + str(total) + " bytes")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

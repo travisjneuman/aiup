@@ -1,0 +1,28 @@
+# aiup categories: display order, names, emoji and one-line blurbs
+# updates, packages and detected are pseudo-categories that hold no catalog tools
+# id	order	name	emoji	blurb
+updates	0	Updates	•	
+infra	1	Essentials	⚙️	Runtimes and installers other tools need
+coding-agents	2	Coding assistants	🤖	Terminal coding agents from AI and developer tool companies
+community-agents	3	Community coding agents	🤝	Open-source and independent agents that write and edit code in the terminal
+agent-tools	4	Agent helpers	🧰	Add-ons for coding agents: usage reports, specs, memory, status lines, rules
+workspaces	5	Agent workspaces	🖥️	Desktop apps that run and manage coding agents
+orchestrators	6	Agent orchestrators	🎛️	Run several coding agents side by side, often one git worktree each
+editors	7	Code editors	✏️	Places you type code
+terminals	8	Terminals	⌨️	Places you run commands
+mcp	9	MCP tools	🧩	Tools to run, test and connect MCP servers
+sandboxes	10	Sandboxes	🛡️	Containers, VMs and sandboxes for running agents apart from your files
+adapters	11	ACP adapters	🔌	Connect agents to editors and scripts over the Agent Client Protocol
+chat	12	Chat assistants	💬	Cloud chat apps
+browsers	13	AI browsers	🌐	AI browsers, and command-line tools that let agents drive a browser
+automation	14	Automation	⚡	General-purpose agents and workflow automation
+local-ai	15	Local model runtimes	🧠	Model runtimes and servers that run on your computer
+local-apps	16	Local model apps	💻	Desktop apps for running models on your computer
+voice	17	Voice and dictation	🎙️	Dictation, transcription, meeting notes and speech
+image-gen	18	Image and video AI	🎨	AI apps and tools that generate or edit images and video
+media	19	Creative apps	🎬	Editors and recorders for video, images, audio and 3D, where AI is not the main feature
+media-tools	20	Media tools	🎞️	Command-line tools for converting and downloading media
+llm-utils	21	AI utilities	🔧	Command-line LLM tools, and converters that turn files into text for models
+dev-utils	22	Developer tools	🛠️	Development, search, data, and deployment utilities
+packages	23	Other packages	📦	Packages your package managers installed outside the managed catalog
+detected	24	Other software	🔎	Unmanaged software found on this computer: apps, packages, and PATH executables

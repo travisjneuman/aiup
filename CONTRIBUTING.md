@@ -1,13 +1,13 @@
 # Contributing to aiup
 
-aiup accepts focused fixes, documentation improvements, and evidence-backed catalog/tool requests for the current macOS implementation. Linux, Windows, tagged releases, packaged installers, CI architecture, and broad redesigns need separate project decisions before implementation.
+aiup accepts focused fixes, documentation improvements, and evidence-backed catalog/tool requests for the current macOS implementation and for the new Linux and Windows runtime in `runtime/` (first real runs in progress). Tagged releases, packaged installers, CI architecture, and broad redesigns need separate project decisions before implementation.
 
 ## Before opening a pull request
 
 1. Open or reference an issue when the change alters catalog lifecycle behavior, adds a tool, or changes an installer/remover contract.
-2. Keep `macos/catalog/manifest.tsv` as the source of truth for catalog presentation, lifecycle, and package targets. Keep tool-specific execution adapters in `macos/aiup`.
+2. Keep `macos/catalog/manifest.tsv` as the source of truth for catalog presentation, lifecycle, and macOS package targets. Keep tool-specific macOS execution adapters in `macos/aiup`. Linux and Windows install targets go in `catalog/platforms.tsv`, and aliases, command names and data paths in `catalog/tool-meta.tsv`. [docs/cross-platform-design.md](docs/cross-platform-design.md) is the build contract for `runtime/`.
 3. Treat unknown local detections as detected-only until an update/removal contract is reviewed.
-4. Never add telemetry, upload local inventory, invoke `sudo` directly, pass Homebrew `--zap`, or promise universal settings preservation.
+4. Never add telemetry, upload local inventory, pass Homebrew `--zap`, or promise universal settings preservation. On macOS, never invoke `sudo` directly. On Linux, use sudo only for the system package managers and let sudo ask for the password itself. On Windows, never elevate silently.
 5. Preserve exact-path, preview-first, confirmation-gated, Trash-recoverable behavior for app-bundle cleanup.
 6. Do not silently add or trust a new Homebrew tap. An already installed tap represents prior user approval; a missing required tap must prompt before addition.
 
@@ -43,8 +43,11 @@ Application cleanup must preserve ambiguous metadata, moved app identities and p
 
 Public launchers run only the commit named in `macos/release`, so pushing to `main` does not ship anything by itself. To release:
 
-1. Bump `AIUP_VERSION` in `macos/aiup` and `# aiup-runtime-version:` in `macos/catalog/manifest.tsv` together, update `CHANGELOG.md` and `docs/status.md`, and push.
-2. Run `scripts/publish-release`. It reads the pushed `origin/main`, refuses a runtime/catalog version mismatch, and writes `<version> <commit>` to `macos/release`.
-3. Commit and push `macos/release`. Launchers pick it up within the raw CDN's five-minute cache.
+1. Run `scripts/bump-version YYYY.MM.DD-NN`. It sets the four versions that must agree: `AIUP_VERSION` in `macos/aiup`, the `# aiup-runtime-version:` lines in `macos/catalog/manifest.tsv` and `catalog/platforms.tsv`, and `runtime/aiup/version.py`. Never edit them by hand.
+2. Move CHANGELOG Unreleased under the new version, and update `docs/status.md`.
+3. Run `scripts/stamp-runtime` to rewrite `runtime/FILES`, the file list the Linux and Windows launchers check. Never edit it by hand.
+4. Commit and push.
+5. Run `scripts/publish-release`. It reads the pushed `origin/main`, not the working tree. It stops if the versions disagree, if `runtime/FILES` names another version, if a listed file is missing or has the wrong size or SHA-256, or if a `.py` file under `runtime/aiup/` is not listed. Otherwise it writes `<version> <commit>` to `macos/release`.
+6. Commit and push `macos/release`. Launchers on all three systems pick it up within the raw CDN's five-minute cache.
 
 To roll back, point `macos/release` at an earlier release commit and push.

@@ -1,5 +1,5 @@
 name: Catalog or tool request
-description: Propose a reviewed macOS tool or a correction to an existing catalog contract.
+description: Propose a tool for the catalog or a correction to an existing catalog entry.
 title: "[Catalog] "
 body:
   - type: input
@@ -24,6 +24,16 @@ body:
     validations:
       required: true
   - type: textarea
+    id: linux
+    attributes:
+      label: Linux install sources
+      description: List each official source with its package name and a link. aiup reads pacman or AUR, apt, dnf, Flatpak, Snap, Linuxbrew, npm, uv, pipx, cargo, go, nix, an official install script, and the tool's own updater. Note any repository setup a package needs. Leave it empty if there is no Linux build.
+  - type: textarea
+    id: windows
+    attributes:
+      label: Windows install sources
+      description: List each official source with its package id and a link. aiup reads winget (`Publisher.Package` or `msstore:<id>`), Scoop (`bucket/app`), Chocolatey, npm, uv, pipx, cargo, go, an official PowerShell install script, and the tool's own updater. Leave it empty if there is no Windows build.
+  - type: textarea
     id: rationale
     attributes:
       label: Why it belongs
@@ -35,7 +45,7 @@ body:
     attributes:
       label: Contract boundaries
       options:
-        - label: I am not proposing unsupported Linux or Windows behavior.
+        - label: Each Linux and Windows source I listed comes from the project's own docs or the package's official listing.
           required: true
         - label: I have not assumed telemetry, privilege escalation, destructive cleanup, or universal settings preservation.
           required: true

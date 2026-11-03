@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.11.03-01"
+AIUP_VERSION="2026.11.03-02"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -17,6 +17,10 @@ AIUP_NPM_NODE_MODULES="$AIUP_NPM_PREFIX/lib/node_modules"
 OPENCODE_BIN_DIR="${AIUP_OPENCODE_BIN_DIR:-$HOME/.opencode/bin}"
 HERMES_HOME="${AIUP_HERMES_HOME:-$HOME/.hermes/hermes-agent}"
 HERMES_INSTALL_URL="https://hermes-agent.nousresearch.com/install.sh"
+# The Hermes installer downloads Chromium unless told not to, and aiup never
+# installs a browser runtime. Hermes records the opt-out, so "hermes update"
+# keeps it; "hermes pm install chromium" adds the browser back.
+HERMES_INSTALL_FLAG="--skip-browser"
 CLAUDE_INSTALL_URL="https://claude.ai/install.sh"
 OPENCODE_INSTALL_URL="https://opencode.ai/v2/install"
 ANTIGRAVITY_INSTALL_URL="https://antigravity.google/cli/install.sh"
@@ -32,7 +36,7 @@ HOMEBREW_INSTALL_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/in
 SCREENPIPE_DOWNLOAD_URL="https://screenpipe.com/api/download"
 # If it can be installed/updated/uninstalled from the CLI, it belongs here.
 # Default `aiup` updates required infrastructure and what is already present. Grouped by category in `list`.
-CATEGORY_ORDER=(infra coding-agents agent-tools workspaces editors terminals mcp sandboxes adapters chat browsers automation local-ai local-apps voice image-gen media media-tools llm-utils dev-utils homebrew detected)
+CATEGORY_ORDER=(infra coding-agents community-agents agent-tools workspaces orchestrators editors terminals mcp sandboxes adapters chat browsers automation local-ai local-apps voice image-gen media media-tools llm-utils dev-utils homebrew detected)
 EXPAND_FILE="${AIUP_EXPAND_FILE:-$STATE_DIR/fzf-expanded}"
 # Chosen install channels (tool<TAB>brew|npm|uv|vendor), set with `aiup channel`,
 # plus an optional *<TAB>keep|brew line for the channel policy.
@@ -772,15 +776,26 @@ run_with_heartbeat_interrupt() {
 # Runs a vendor's official install script. The script is downloaded over HTTPS
 # only (TLS 1.2 or newer, redirects stay on HTTPS) into a private folder, and an
 # empty or failed download stops here. Piping curl into a shell would run
-# whatever part of a broken download arrived.
-# Usage: run_vendor_installer NAME URL bash|sh [VAR=value...]
+# whatever part of a broken download arrived. VAR=value words set the
+# installer's environment; words after -- are passed to the script itself.
+# Usage: run_vendor_installer NAME URL bash|sh [VAR=value...] [-- ARG...]
 run_vendor_installer() {
   local name="$1" url="$2" interpreter="$3" dir rc=0
+  local -a env_vars=() script_args=()
   shift 3
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = "--" ]; then
+      shift
+      script_args=("$@")
+      break
+    fi
+    env_vars+=("$1")
+    shift
+  done
   case "$url" in https://?*) ;; *) error "Refusing a non-HTTPS installer URL for $name: $url"; return 1 ;; esac
   case "$interpreter" in bash|sh) ;; *) error "Unsupported installer interpreter for $name: $interpreter"; return 1 ;; esac
   if [ "$DRY_RUN" -eq 1 ]; then
-    info "DRY-RUN: run the $name installer from $url"
+    info "DRY-RUN: run the $name installer from $url${script_args[0]+ with ${script_args[*]}}"
     return 0
   fi
   [ "$AIUP_INTERRUPTED" -eq 0 ] || return 130
@@ -794,7 +809,7 @@ run_vendor_installer() {
     error "The $name installer download from $url was empty"
     rc=1
   fi
-  [ "$rc" -ne 0 ] || run_with_heartbeat "$name installer" env ${1+"$@"} "$interpreter" "$dir/install.sh" || rc=$?
+  [ "$rc" -ne 0 ] || run_with_heartbeat "$name installer" env ${env_vars[@]+"${env_vars[@]}"} "$interpreter" "$dir/install.sh" ${script_args[@]+"${script_args[@]}"} || rc=$?
   rm -rf "$dir"
   return "$rc"
 }
@@ -1938,7 +1953,6 @@ expected_direct_path() {
     qwen) printf '%s/qwen\n' "$AIUP_NPM_BIN" ;;
     opencode) printf '%s/opencode\n' "$OPENCODE_BIN_DIR" ;;
     kilo) printf '%s/kilo\n' "$AIUP_NPM_BIN" ;;
-    gsd2) printf '%s/gsd\n' "$AIUP_NPM_BIN" ;;
     hermes) printf '%s/hermes\n' "$LOCAL_BIN" ;;
     pi) printf '%s/pi\n' "$AIUP_NPM_BIN" ;;
     warp) printf '%s/warp\n' "$LOCAL_BIN" ;;
@@ -1954,7 +1968,6 @@ binary_of_tool() {
   case "$1" in
     imagemagick) printf 'magick\n' ;;
     ripgrep) printf 'rg\n' ;;
-    gsd2) printf 'gsd\n' ;;
     antigravity) printf 'agy\n' ;;
     cursor) printf 'cursor-agent\n' ;;
     devin-cli) printf 'devin\n' ;;
@@ -1986,12 +1999,21 @@ binary_of_tool() {
     worktrunk) printf 'wt\n' ;;
     mcp-toolbox) printf 'toolbox\n' ;;
     android-cli) printf 'android\n' ;;
+    agent-of-empires) printf 'aoe\n' ;;
+    gastown) printf 'gt\n' ;;
+    terraform-mcp) printf 'terraform-mcp-server\n' ;;
+    kubernetes-mcp) printf 'kubernetes-mcp-server\n' ;;
+    microsandbox) printf 'msb\n' ;;
+    lima) printf 'limactl\n' ;;
+    inspect-ai) printf 'inspect\n' ;;
+    vscodium) printf 'codium\n' ;;
     # Apps without a command of their own: a same-named command on PATH
     # (for example Apache Superset's) must not count as this app.
     devin-desktop|kiro-ide|jetbrains-air|conductor|emdash|superset|amp-app|factory-app|antigravity-app|gemini-app|cherry-studio|msty-studio|boltai|chatbox|lobehub|handy|voiceink|wispr-flow|stability-matrix|mochi-diffusion|mlx-vlm) printf '\n' ;;
     trae|codebuddy-ide|cline-app|kiro-crew|nimbalyst|commander|zcode|kitty|toolhive-studio|dia|comet|browseros|manus|langflow) printf '\n' ;;
     vmlx|swama|nativ|fluidvoice|spokenly|typeless|hex|amical|openwhispr|aqua-voice|monologue|granola|meetily|anarlog|comfyui|ltx-desktop|gimp|cap) printf '\n' ;;
     mlx-serve|nvidia-pair|unsloth|lm-studio-bionic|zed-delta|codexbar|arcbox) printf '\n' ;;
+    supacode|openchamber|aionui|openwork|goose-app|podman-desktop|deepchat|tabby-terminal|positron) printf '\n' ;;
     cursor-ide) printf 'cursor\n' ;;
     ollama-app) printf 'ollama\n' ;;
     llama-cpp) printf 'llama-cli\n' ;;
@@ -2100,22 +2122,24 @@ catalog_category() {
 catalog_category_blurb() {
   case "$1" in
     infra) printf 'Runtimes and installers other tools need\n' ;;
-    coding-agents) printf 'Agents that write and edit code in the terminal\n' ;;
-    agent-tools) printf 'Add-ons for coding agents: usage reports, specs, task lists, rules\n' ;;
+    coding-agents) printf 'Terminal coding agents from AI and developer tool companies\n' ;;
+    community-agents) printf 'Open-source and independent agents that write and edit code in the terminal\n' ;;
+    agent-tools) printf 'Add-ons for coding agents: usage reports, specs, memory, status lines, rules\n' ;;
     workspaces) printf 'Desktop apps that run and manage coding agents\n' ;;
+    orchestrators) printf 'Run several coding agents side by side, often one git worktree each\n' ;;
     editors) printf 'Places you type code\n' ;;
     terminals) printf 'Places you run commands\n' ;;
     mcp) printf 'Tools to run, test and connect MCP servers\n' ;;
-    sandboxes) printf 'Containers and sandboxes for running agents apart from your files\n' ;;
-    adapters) printf 'Glue between agents and editors (ACP)\n' ;;
+    sandboxes) printf 'Containers, VMs and sandboxes for running agents apart from your files\n' ;;
+    adapters) printf 'Connect agents to editors and scripts over the Agent Client Protocol\n' ;;
     chat) printf 'Cloud chat apps\n' ;;
-    browsers) printf 'Web browsers with an AI assistant or agent built in\n' ;;
+    browsers) printf 'AI browsers, and command-line tools that let agents drive a browser\n' ;;
     automation) printf 'General-purpose agents and workflow automation\n' ;;
-    local-ai) printf 'Model runtimes and servers that run on your Mac\n' ;;
-    local-apps) printf 'Desktop apps for running models on your Mac\n' ;;
+    local-ai) printf 'Model runtimes and servers that run on your computer\n' ;;
+    local-apps) printf 'Desktop apps for running models on your computer\n' ;;
     voice) printf 'Dictation, transcription, meeting notes and speech\n' ;;
-    image-gen) printf 'Apps and tools that generate images and video\n' ;;
-    media) printf 'Editors and recorders for video, images, audio and 3D\n' ;;
+    image-gen) printf 'AI apps and tools that generate or edit images and video\n' ;;
+    media) printf 'Editors and recorders for video, images, audio and 3D, where AI is not the main feature\n' ;;
     media-tools) printf 'Command-line tools for converting and downloading media\n' ;;
     llm-utils) printf 'Command-line LLM tools, and converters that turn files into text for models\n' ;;
     dev-utils) printf 'Development, search, data, and deployment utilities\n' ;;
@@ -2135,11 +2159,12 @@ catalog_category_blurb() {
 category_display_name() {
   case "$1" in
     updates) printf 'Updates\n' ;;
-    infra) printf 'Essentials\n' ;; coding-agents) printf 'Coding assistants\n' ;; agent-tools) printf 'Agent helpers\n' ;;
+    infra) printf 'Essentials\n' ;; coding-agents) printf 'Coding assistants\n' ;; community-agents) printf 'Community coding agents\n' ;;
+    agent-tools) printf 'Agent helpers\n' ;; orchestrators) printf 'Agent orchestrators\n' ;;
     workspaces) printf 'Agent workspaces\n' ;; editors) printf 'Code editors\n' ;; terminals) printf 'Terminals\n' ;;
-    mcp) printf 'MCP tools\n' ;; sandboxes) printf 'Sandboxes\n' ;; adapters) printf 'Integrations\n' ;;
+    mcp) printf 'MCP tools\n' ;; sandboxes) printf 'Sandboxes\n' ;; adapters) printf 'ACP adapters\n' ;;
     chat) printf 'Chat assistants\n' ;; browsers) printf 'AI browsers\n' ;; automation) printf 'Automation\n' ;;
-    local-ai) printf 'Local models\n' ;; local-apps) printf 'Local AI apps\n' ;; voice) printf 'Voice and dictation\n' ;;
+    local-ai) printf 'Local model runtimes\n' ;; local-apps) printf 'Local model apps\n' ;; voice) printf 'Voice and dictation\n' ;;
     image-gen) printf 'Image and video AI\n' ;; media) printf 'Creative apps\n' ;; media-tools) printf 'Media tools\n' ;;
     llm-utils) printf 'AI utilities\n' ;; dev-utils) printf 'Developer tools\n' ;;
     homebrew) printf 'Other packages\n' ;; detected) printf 'Other software\n' ;;
@@ -2153,8 +2178,10 @@ catalog_category_emoji() {
   case "$1" in
     infra) printf '⚙️\n' ;;
     coding-agents) printf '🤖\n' ;;
+    community-agents) printf '🤝\n' ;;
     agent-tools) printf '🧰\n' ;;
     workspaces) printf '🖥️\n' ;;
+    orchestrators) printf '🎛️\n' ;;
     editors) printf '✏️\n' ;;
     terminals) printf '⌨️\n' ;;
     mcp) printf '🧩\n' ;;
@@ -2264,7 +2291,7 @@ catalog_deps() {
     uv-tool) printf 'uv\n' ;;
     special)
       case "$tool" in
-        pi|kilo|gsd2|gemini|copilot|qwen|codex) printf 'npm\n' ;;
+        pi|kilo|gemini|copilot|qwen|codex) printf 'npm\n' ;;
       esac
       ;;
   esac
@@ -2369,7 +2396,6 @@ catalog_npm_pkg() {
     codex) printf '@openai/codex\n' ;;
     gemini) printf '@google/gemini-cli\n' ;;
     kilo) printf '@kilocode/cli\n' ;;
-    gsd2) printf '@opengsd/gsd-pi\n' ;;
     pi) printf '@earendil-works/pi-coding-agent\n' ;;
     copilot) printf '@github/copilot\n' ;;
     qwen) printf '@qwen-code/qwen-code\n' ;;
@@ -2384,7 +2410,6 @@ catalog_brew_formula() {
   channel_print_target "$1" brew-formula && return 0
   case "$1" in
     bf:*) printf "%s\n" "${1#bf:}" ;;
-    n8n) printf 'n8n\n' ;;
     uv) printf 'uv\n' ;;
     goose) printf 'block-goose-cli\n' ;;
     cline) printf 'cline\n' ;;
@@ -2451,7 +2476,6 @@ catalog_alt_channels_set() {
     wrangler) AIUP_ALT_CHANNELS="brew-formula${t}cloudflare-wrangler" ;;
     vercel|ctx7|pnpm|defuddle|rulesync|skills|mise|repomix|mcp-remote|mcpc|openspec|ccusage|claude-code-router|mcp-inspector|ast-grep)
       AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
-    openclaw) AIUP_ALT_CHANNELS="brew-formula${t}openclaw-cli" ;;
     kimi) AIUP_ALT_CHANNELS="brew-formula${t}kimi-code" ;;
     backlog-md) AIUP_ALT_CHANNELS="brew-formula${t}backlog-md" ;;
     crush) AIUP_ALT_CHANNELS="brew-formula${t}charmbracelet/tap/crush" ;;
@@ -2463,7 +2487,7 @@ catalog_alt_channels_set() {
     # Homebrew by default (plugins, extras or a bundled runtime live there).
     llm|ramalama|yt-dlp) AIUP_ALT_CHANNELS="uv-tool${t}$1" ;;
     bun) AIUP_ALT_CHANNELS="aiup-npm${t}bun" ;;
-    agent-browser|chrome-devtools-mcp) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
+    agent-browser) AIUP_ALT_CHANNELS="brew-formula${t}$1" ;;
     *) ;;
   esac
 }
@@ -3019,7 +3043,6 @@ catalog_app_path() {
     iterm2) printf '/Applications/iTerm.app\n' ;;
     screenpipe) printf '/Applications/screenpipe.app\n' ;;
     jan) printf '/Applications/Jan.app\n' ;;
-    anythingllm) printf '/Applications/AnythingLLM.app\n' ;;
     llama-app) printf '/Applications/Llama.app\n' ;;
     devin-desktop) printf '/Applications/Devin.app\n' ;;
     kiro-ide) printf '/Applications/Kiro.app\n' ;;
@@ -3077,6 +3100,20 @@ catalog_app_path() {
     ltx-desktop) printf '/Applications/LTX Desktop.app\n' ;;
     gimp) printf '/Applications/GIMP.app\n' ;;
     cap) printf '/Applications/Cap.app\n' ;;
+    orca) printf '/Applications/Orca.app\n' ;;
+    paseo) printf '/Applications/Paseo.app\n' ;;
+    supacode) printf '/Applications/supacode.app\n' ;;
+    openchamber) printf '/Applications/OpenChamber.app\n' ;;
+    aionui) printf '/Applications/AionUi.app\n' ;;
+    openwork) printf '/Applications/OpenWork.app\n' ;;
+    goose-app) printf '/Applications/Goose.app\n' ;;
+    podman-desktop) printf '/Applications/Podman Desktop.app\n' ;;
+    deepchat) printf '/Applications/DeepChat.app\n' ;;
+    rio) printf '/Applications/rio.app\n' ;;
+    tabby-terminal) printf '/Applications/Tabby.app\n' ;;
+    kaku) printf '/Applications/Kaku.app\n' ;;
+    positron) printf '/Applications/Positron.app\n' ;;
+    vscodium) printf '/Applications/VSCodium.app\n' ;;
     *) printf '\n' ;;
   esac
 }
@@ -3252,8 +3289,10 @@ catalog_ansi() {
     updates) printf '\033[38;5;82m' ;;
     infra) printf '\033[38;5;39m' ;;
     coding-agents) printf '\033[38;5;171m' ;;
+    community-agents) printf '\033[38;5;165m' ;;
     agent-tools) printf '\033[38;5;177m' ;;
     workspaces) printf '\033[38;5;219m' ;;
+    orchestrators) printf '\033[38;5;207m' ;;
     editors) printf '\033[38;5;111m' ;;
     terminals) printf '\033[38;5;81m' ;;
     mcp) printf '\033[38;5;141m' ;;
@@ -3926,7 +3965,6 @@ app_path_for_cask() {
     firefox) app='Firefox.app' ;;
     utm) app='UTM.app' ;;
     jan) app='Jan.app' ;;
-    anythingllm) app='AnythingLLM.app' ;;
     hermes-desktop) app='Hermes.app' ;;
     *) return 1 ;;
   esac
@@ -5545,26 +5583,6 @@ kilo_method() {
   fi
 }
 
-gsd2_method() {
-  if aiup_npm_pkg_installed @opengsd/gsd-pi || aiup_npm_pkg_installed gsd-pi; then
-    printf 'aiup-npm\n'
-    return 0
-  fi
-  if system_npm_pkg_installed @opengsd/gsd-pi; then
-    printf 'npm-global\n'
-    return 0
-  fi
-  if system_npm_pkg_installed gsd-pi; then
-    printf 'npm-global\n'
-    return 0
-  fi
-  if command_exists gsd; then
-    printf 'manual\n'
-  else
-    printf 'missing\n'
-  fi
-}
-
 hermes_method() {
   local cmd resolved
   cmd="$(command_path hermes)"
@@ -5711,7 +5729,6 @@ install_method_of() {
     gemini) gemini_method ;;
     opencode) opencode_method ;;
     kilo) kilo_method ;;
-    gsd2) gsd2_method ;;
     hermes) hermes_method ;;
     pi) pi_method ;;
     warp) warp_method ;;
@@ -5770,7 +5787,7 @@ preferred_method_of() {
     npm) printf 'homebrew-node\n' ;;
     claude) printf 'native\n' ;;
     antigravity|grok|opencode|hermes|warp|aider|cursor) printf 'installer\n' ;;
-    codex|gemini|kilo|gsd2|pi|copilot|qwen) printf 'aiup-npm\n' ;;
+    codex|gemini|kilo|pi|copilot|qwen) printf 'aiup-npm\n' ;;
     goose) printf 'brew-formula\n' ;;
     screenpipe) printf 'official-dmg\n' ;;
     *)
@@ -5816,9 +5833,6 @@ tool_is_present() {
     kilo)
       aiup_npm_pkg_installed @kilocode/cli && return 0
       system_npm_pkg_installed @kilocode/cli && return 0
-      ;;
-    gsd2)
-      { aiup_npm_pkg_installed @opengsd/gsd-pi || aiup_npm_pkg_installed gsd-pi; } && return 0
       ;;
     pi)
       { aiup_npm_pkg_installed @earendil-works/pi-coding-agent || aiup_npm_pkg_installed @mariozechner/pi-coding-agent; } && return 0
@@ -6751,7 +6765,7 @@ def direct_deps(item_id, kind):
     if kind == "aiup-npm": return ["npm"]
     if kind in ("brew-formula", "brew-cask"): return ["brew"]
     if kind == "uv-tool": return ["uv"]
-    if kind == "special" and item_id in {"pi", "kilo", "gsd2", "gemini", "copilot", "qwen", "codex"}: return ["npm"]
+    if kind == "special" and item_id in {"pi", "kilo", "gemini", "copilot", "qwen", "codex"}: return ["npm"]
     return []
 def closure(item_id):
     result = []
@@ -6992,7 +7006,10 @@ def emit_rows(query=""):
                  'srt':'sandbox-runtime', 'container':'docker linux vm', 'orbstack':'docker linux vm',
                  'codewhale':'deepseek tui', 'forgecode':'forge', 'ast-grep':'sg structural search',
                  'mkvtoolnix':'mkvmerge matroska mkv', 'ctx7':'context7 docs', 'dia':'arc browser',
-                 'comet':'perplexity browser', 'apfel':'apple intelligence foundation model'}
+                 'comet':'perplexity browser', 'apfel':'apple intelligence foundation model',
+                 'superset':'paradev', 'codebuff':'freebuff', 'ruflo':'claude-flow swarm', 'gastown':'gt gas town',
+                 'agent-of-empires':'aoe', 'cao':'cli-agent-orchestrator tmux', 'microsandbox':'msb microvm',
+                 'lima':'limactl vm', 'colima':'docker vm', 'podman':'docker containers', 'vscodium':'codium vscode'}
         with manifest.open(encoding='utf-8') as handle:
             for row in csv.reader((l for l in handle if not l.startswith('#')),delimiter='\t'):
                 if len(row)>=6: labels[row[0]]=' '.join([row[0],row[4],row[6] if len(row)>6 else '',aliases.get(row[0],''),CATEGORIES.get(row[1],[''])[0]])
@@ -7328,10 +7345,6 @@ source_count_of() {
       aiup_npm_pkg_installed @kilocode/cli && count=$((count+1))
       system_npm_pkg_installed @kilocode/cli && count=$((count+1))
       ;;
-    gsd2)
-      { aiup_npm_pkg_installed @opengsd/gsd-pi || aiup_npm_pkg_installed gsd-pi; } && count=$((count+1))
-      system_npm_pkg_installed gsd-pi && count=$((count+1))
-      ;;
     hermes)
       [ -x "$LOCAL_BIN/hermes" ] && count=$((count+1))
       ;;
@@ -7531,8 +7544,7 @@ notes_of() {
     gemini) printf 'Official Gemini CLI npm package. Current vendor documentation requires Node.js 20+ and macOS 15+.\n' ;;
     opencode) printf 'Official v2 install script in ~/.opencode/bin keeps one OpenCode 2 binary; OpenCode 1.x and 2 cannot share the opencode command.\n' ;;
     kilo) printf 'Official npm install anchored to aiup-managed stable prefix avoids brittle global/bin paths.\n' ;;
-    gsd2) printf 'GSD coding agent. aiup prefers @opengsd/gsd-pi and also recognizes the older gsd-pi package for migration.\n' ;;
-    hermes) printf 'Hermes Agent CLI (Nous Research) installs into ~/.hermes via the official curl script and self-updates via "hermes update". Hermes Desktop is a separate catalog item under workspaces.\n' ;;
+    hermes) printf 'Hermes Agent CLI (Nous Research) installs into ~/.hermes via the official curl script and self-updates via "hermes update". aiup installs it without its browser (Chromium); "hermes pm install chromium" adds it back. Hermes Desktop is a separate catalog item under workspaces.\n' ;;
     hermes-desktop) printf 'Official Nous desktop app for the Hermes agent (same agent as the CLI). Homebrew cask hermes-desktop, or the official DMG.\n' ;;
     mlx) printf 'Apple Silicon array engine (brew formula mlx).\n' ;;
     mlx-lm) printf 'mlx-lm runs, chats with, and serves local LLMs on Apple Silicon using MLX. Separate from Ollama/LM Studio/Jan. brew install mlx-lm (depends on mlx).\n' ;;
@@ -7540,7 +7552,10 @@ notes_of() {
     grok) printf 'Grok CLI is vendor-installed under ~/.grok and updates with "grok update". aiup only refreshes it when the binary is already present.\n' ;;
     warp) printf 'Warp Agent CLI lives in ~/.warp/tui (symlink from ~/.local/bin/warp). The official install script is the self-updating path.\n' ;;
     copilot) printf 'GitHub Copilot CLI via aiup npm prefix (@github/copilot). Requires a Copilot subscription.\n' ;;
-    aider) printf 'Aider official installer (aider.chat/install.sh) or uv tool install aider-chat.\n' ;;
+    aider) printf 'Aider official installer (aider.chat/install.sh) or uv tool install aider-chat. No GitHub release since v0.86.0 (August 2025); the last PyPI release was February 2026. If it stays quiet past February 2027 it leaves the catalog under the stale-tool rule.\n' ;;
+    daytona) printf 'Daytona CLI from the publisher tap daytonaio/cli. The open-source daytonaio/daytona repo was archived in July 2026 and core development moved to a private codebase; the CLI tap is still updated.\n' ;;
+    codebuff) printf 'Codebuff is sunset: the project is now Freebuff (npm freebuff), and npm codebuff last shipped 1.0.688 on 2026-09-08.\n' ;;
+    superset) printf 'Superset is now named Paradev. The Homebrew cask is still superset and installs Superset.app.\n' ;;
     goose) printf 'Goose CLI. Preferred: Homebrew formula block-goose-cli.\n' ;;
     cursor) printf 'Cursor Agent CLI via cursor.com/install. Binary is cursor-agent.\n' ;;
     qwen) printf 'Qwen Code via aiup npm prefix (@qwen-code/qwen-code).\n' ;;
@@ -7875,43 +7890,6 @@ update_kilo() {
   set_state_method kilo aiup-npm
 }
 
-update_gsd2() {
-  ensure_managed_paths
-  if ! command_exists npm; then
-    error "npm is required to manage GSD2 (gsd-pi) via aiup's stable npm prefix"
-    return 1
-  fi
-  local method
-  method="$(gsd2_method)"
-  info "GSD2 detected install method: $method"
-  if [ "$method" != 'aiup-npm' ]; then
-    warn "Migrating GSD2 (gsd-pi) to aiup-managed npm using the official npm package"
-  else
-    info "GSD2 aiup-managed npm install detected"
-  fi
-  if ! aiup_npm_pkg_installed @opengsd/gsd-pi && aiup_npm_pkg_installed gsd-pi; then
-    warn "Migrating GSD2 from legacy gsd-pi to @opengsd/gsd-pi"
-    run_with_heartbeat "npm uninstall -g --prefix $AIUP_NPM_PREFIX gsd-pi" npm uninstall -g --prefix "$AIUP_NPM_PREFIX" gsd-pi || return 1
-  fi
-  npm_install_aiup_latest @opengsd/gsd-pi@latest || return 1
-  ensure_managed_paths
-  [ "$DRY_RUN" -eq 1 ] && return 0
-  hash_refresh
-  if [ -x "$AIUP_NPM_BIN/gsd" ]; then
-    npm_uninstall_system_pkg_if_distinct @opengsd/gsd-pi || true
-    npm_uninstall_system_pkg_if_distinct gsd-pi || true
-    if aiup_npm_pkg_installed gsd-pi && aiup_npm_pkg_installed @opengsd/gsd-pi; then
-      run_with_heartbeat "npm uninstall -g --prefix $AIUP_NPM_PREFIX gsd-pi" npm uninstall -g --prefix "$AIUP_NPM_PREFIX" gsd-pi || true
-    fi
-  fi
-  hash_refresh
-  if ! command_exists gsd; then
-    error "GSD2 (gsd) is not on PATH after update"
-    return 1
-  fi
-  set_state_method gsd2 aiup-npm
-}
-
 update_hermes() {
   ensure_managed_paths
   local method
@@ -7923,12 +7901,12 @@ update_hermes() {
       info "Hermes installer path detected; using built-in self-update"
       if ! run_with_heartbeat "hermes update" hermes update; then
         warn "Hermes self-update failed; falling back to installer refresh"
-        run_vendor_installer Hermes "$HERMES_INSTALL_URL" bash || return 1
+        run_vendor_installer Hermes "$HERMES_INSTALL_URL" bash -- "$HERMES_INSTALL_FLAG" || return 1
       fi
       ;;
     *)
       warn "Installing Hermes via the official installer to $HERMES_HOME"
-      run_vendor_installer Hermes "$HERMES_INSTALL_URL" bash || return 1
+      run_vendor_installer Hermes "$HERMES_INSTALL_URL" bash -- "$HERMES_INSTALL_FLAG" || return 1
       ;;
   esac
 
@@ -8490,6 +8468,7 @@ uv_tool_install_args() {
     markitdown) printf '%s\n' "$2[all]" ;;
     mlx-audio) printf '%s\n' "$2[all]" ;;
     rapid-mlx|browser-use) printf '%s\n' --python 3.12 "$2" ;;
+    serena) printf '%s\n' --python 3.13 "$2" ;;
     *) printf '%s\n' "$2" ;;
   esac
 }
@@ -9687,14 +9666,6 @@ print_doctor() {
         printf '  System npm package installed: %s\n' "$(system_npm_pkg_installed @kilocode/cli && printf yes || printf no)"
         printf '  AIUP npm prefix: %s\n' "$AIUP_NPM_PREFIX"
         ;;
-      gsd2)
-        printf '  AIUP npm package installed: %s\n' "$({ aiup_npm_pkg_installed @opengsd/gsd-pi || aiup_npm_pkg_installed gsd-pi; } && printf yes || printf no)"
-        printf '  AIUP scoped package installed: %s\n' "$(aiup_npm_pkg_installed @opengsd/gsd-pi && printf yes || printf no)"
-        printf '  AIUP legacy package installed: %s\n' "$(aiup_npm_pkg_installed gsd-pi && printf yes || printf no)"
-        printf '  System npm package installed: %s\n' "$({ system_npm_pkg_installed @opengsd/gsd-pi || system_npm_pkg_installed gsd-pi; } && printf yes || printf no)"
-        printf '  AIUP npm prefix: %s\n' "$AIUP_NPM_PREFIX"
-        printf '  Binary name: gsd (also gsd-cli, gsd-pi)\n'
-        ;;
       hermes)
         printf '  Installer binary exists: %s\n' "$([ -x "$LOCAL_BIN/hermes" ] && printf yes || printf no)"
         printf '  Hermes home directory exists: %s\n' "$([ -d "$HERMES_HOME" ] && printf yes || printf no)"
@@ -10052,7 +10023,6 @@ tool_user_data_paths() {
   local -a candidates=()
   case "$1" in
     kilo) candidates=("$HOME/.config/kilo" "$HOME/.local/share/kilo" "$HOME/.local/state/kilo" "$HOME/.cache/kilo") ;;
-    gsd2) candidates=("$HOME/.gsd") ;;
     opencode) candidates=("$HOME/.opencode" "$HOME/.local/share/opencode" "$HOME/.local/state/opencode") ;;
     hermes) candidates=("$HOME/.hermes" "$HERMES_HOME") ;;
     warp)
@@ -10332,14 +10302,6 @@ remove_kilo() {
   remove_aiup_npm_pkg @kilocode/cli
   npm_uninstall_system_pkg_if_distinct @kilocode/cli || true
   move_tool_user_data_to_trash kilo
-}
-
-remove_gsd2() {
-  remove_aiup_npm_pkg @opengsd/gsd-pi
-  remove_aiup_npm_pkg gsd-pi
-  npm_uninstall_system_pkg_if_distinct @opengsd/gsd-pi || true
-  npm_uninstall_system_pkg_if_distinct gsd-pi || true
-  move_tool_user_data_to_trash gsd2
 }
 
 remove_opencode() {
@@ -11996,7 +11958,6 @@ resolve_tools() {
       warp-terminal) out+=("warp-app") ;;
       agy|antigravity-cli) out+=("antigravity") ;;
       node) out+=("npm") ;;
-      gsd|gsd-pi) out+=("gsd2") ;;
       oz) out+=("warp") ;;
       cursor-agent) out+=("cursor") ;;
       fabric-ai) out+=("fabric") ;;

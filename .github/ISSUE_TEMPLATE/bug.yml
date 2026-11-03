@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible problem with the current macOS implementation.
+description: Report a reproducible problem with aiup on macOS, Linux or Windows.
 title: "[Bug] "
 body:
   - type: markdown
@@ -13,11 +13,22 @@ body:
       placeholder: 2026.08.25-02
     validations:
       required: true
-  - type: input
-    id: macos
+  - type: dropdown
+    id: os
     attributes:
-      label: macOS and architecture
-      placeholder: macOS 14.7, Apple Silicon
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System version and architecture
+      description: On Linux, include the distribution.
+      placeholder: macOS 14.7, Apple Silicon / Ubuntu 24.04, x86_64 / Windows 11 24H2, ARM64
     validations:
       required: true
   - type: textarea
@@ -35,17 +46,21 @@ body:
     validations:
       required: true
   - type: textarea
+    id: doctor
+    attributes:
+      label: aiup doctor output
+      description: Run `aiup doctor` and paste the output after removing usernames, home paths, and private inventory. If aiup does not start, say so here.
+      render: text
+  - type: textarea
     id: evidence
     attributes:
-      label: Redacted evidence
-      description: Add relevant output after removing usernames, home paths, tokens, private inventory, and unrelated logs.
+      label: Other redacted evidence
+      description: Add any other relevant output after removing usernames, home paths, tokens, private inventory, and unrelated logs.
       render: text
   - type: checkboxes
     id: checks
     attributes:
-      label: Scope check
+      label: Privacy check
       options:
-        - label: This affects the current macOS implementation, not an unimplemented Linux or Windows port.
-          required: true
         - label: This report contains no credentials, private inventory, or unredacted personal paths.
           required: true

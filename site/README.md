@@ -18,7 +18,8 @@ The homepage is intentionally minimal and points to GitHub:
   count;
 - `styles.css` owns the dependency-free responsive stage without recreating a
   terminal frame around media that already contains sanitized Terminal chrome;
-- `catalog.json` remains generated from `macos/aiup` for machine-readable
+- `catalog.json` remains generated from `macos/aiup`, with each tool's Linux and
+  Windows install targets from the runtime catalog export, for machine-readable
   discovery and is not rendered on the homepage;
 - `media/` remains a byte-identical one-way mirror of `docs/media/`;
 - `brand/` contains the accepted canonical and derived brand suite;
@@ -31,7 +32,8 @@ The homepage is intentionally minimal and points to GitHub:
 and safety are explained. `scripts/sync-public-docs`
 generates README/catalog documentation, `site/catalog.json`, the Catalog tools
 metric in `showcase.json`, site JSON-LD, social alt text and `llms.txt` from
-one local JSON export. Nothing it writes is visible on the page. It does not add
+one local `macos/aiup` JSON export, plus one local runtime catalog export for
+Linux and Windows availability. Nothing it writes is visible on the page. It does not add
 a catalog table or marketing sections. The default also mirrors accepted media;
 `--skip-media` leaves all media untouched. No invocation regenerates images.
 See [public catalog facts](../docs/public-catalog-facts.md).

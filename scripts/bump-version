@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Set the aiup version in the four places that must agree at a release:
+#   macos/aiup                  AIUP_VERSION="V"
+#   macos/catalog/manifest.tsv  # aiup-runtime-version: V
+#   catalog/platforms.tsv       # aiup-runtime-version: V
+#   runtime/aiup/version.py     AIUP_VERSION = "V"
+# Usage: scripts/bump-version YYYY.MM.DD-NN
+# Then move CHANGELOG Unreleased under the new version and run scripts/stamp-runtime.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+if [ "$#" -ne 1 ]; then
+  printf 'usage: scripts/bump-version YYYY.MM.DD-NN\n' >&2
+  exit 2
+fi
+version="$1"
+if ! printf '%s' "$version" | grep -Eqx '[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9]{2}'; then
+  printf 'bump-version: %s is not YYYY.MM.DD-NN\n' "$version" >&2
+  exit 2
+fi
+
+# check_line FILE PATTERN: stop unless exactly one whole line matches PATTERN
+# (an extended regex).
+check_line() {
+  local file="$1" pattern="$2" count
+  [ -f "$file" ] || { printf 'bump-version: %s is missing\n' "$file" >&2; exit 1; }
+  count="$(grep -Ecx -- "$pattern" "$file" || true)"
+  if [ "$count" != 1 ]; then
+    printf 'bump-version: expected one version line in %s, found %s\n' "$file" "$count" >&2
+    exit 1
+  fi
+}
+
+# set_line FILE PATTERN REPLACEMENT: replace that one line.
+set_line() {
+  local file="$1" pattern="$2" replacement="$3" tmp
+  tmp="$(mktemp "$file.XXXXXX")"
+  REPLACEMENT="$replacement" PATTERN="$pattern" awk '
+    BEGIN { pattern = "^(" ENVIRON["PATTERN"] ")$"; replacement = ENVIRON["REPLACEMENT"] }
+    $0 ~ pattern { print replacement; next }
+    { print }
+  ' "$file" > "$tmp" || { rm -f "$tmp"; exit 1; }
+  chmod "$(stat -c '%a' "$file" 2>/dev/null || stat -f '%Lp' "$file")" "$tmp"
+  mv -f "$tmp" "$file"
+}
+
+# Check all four first so a problem in one file changes nothing.
+check_line macos/aiup 'AIUP_VERSION="[^"]*"'
+check_line macos/catalog/manifest.tsv '# aiup-runtime-version: .*'
+check_line catalog/platforms.tsv '# aiup-runtime-version: .*'
+check_line runtime/aiup/version.py 'AIUP_VERSION = "[^"]*"'
+
+set_line macos/aiup 'AIUP_VERSION="[^"]*"' "AIUP_VERSION=\"$version\""
+set_line macos/catalog/manifest.tsv '# aiup-runtime-version: .*' "# aiup-runtime-version: $version"
+set_line catalog/platforms.tsv '# aiup-runtime-version: .*' "# aiup-runtime-version: $version"
+set_line runtime/aiup/version.py 'AIUP_VERSION = "[^"]*"' "AIUP_VERSION = \"$version\""
+
+printf 'aiup version -> %s (macos/aiup, macos/catalog/manifest.tsv, catalog/platforms.tsv, runtime/aiup/version.py)\n' "$version"
+printf 'Next: move CHANGELOG Unreleased under %s, then run scripts/stamp-runtime.\n' "$version"

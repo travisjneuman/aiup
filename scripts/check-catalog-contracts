@@ -36,20 +36,19 @@ manifest_ids = {line.split("\t")[0] for line in manifest.splitlines() if line an
 assert len(contracts) == len(catalog["tools"]) == len(manifest_ids), "catalog entry counts drifted from manifest"
 assert len({row["id"] for row in contracts}) == len(contracts), "duplicate contract id"
 assert {row["id"] for row in contracts} == {tool["id"] for tool in catalog["tools"]}, "contract/catalog ids drifted"
-assert not ({"omp", "plandex"} & {row["id"] for row in contracts}), "removed entries remain managed"
+removed = {"omp", "plandex", "continue", "gpt4all", "playwright-cli", "playwright-mcp",
+           "openclaw", "gsd2", "n8n", "chrome-devtools-mcp", "code-puppy", "anythingllm"}
+assert not (removed & {row["id"] for row in contracts}), "removed entries remain managed"
 
 for row in contracts:
     for key in ("id", "kind", "target", "version", "install", "update", "remove"):
         assert row[key], f"{row['id']} lacks {key} contract"
 
 by_id = {tool["id"]: tool for tool in catalog["tools"]}
-assert by_id["gemini"]["lifecycle"] == "active"
-assert by_id["continue"]["lifecycle"] == "active"
-assert by_id["gpt4all"]["lifecycle"] == "maintenance"
-assert by_id["n8n"]["kind"] == "aiup-npm"
+assert by_id["gemini"]["lifecycle"] == "sunset"
+assert by_id["codebuff"]["lifecycle"] == "sunset"
 assert by_id["remotion"]["kind"] == "aiup-npm"
 assert by_id["pi"]["docs"] == "https://github.com/earendil-works/pi"
-assert by_id["gsd2"]["docs"] == "https://github.com/open-gsd/gsd-pi"
 assert by_id["opencode"]["docs"] == "https://github.com/anomalyco/opencode"
 assert by_id["goose"]["docs"] == "https://github.com/aaif-goose/goose"
 PY

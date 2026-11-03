@@ -47,7 +47,7 @@ These should not be presented as one undifferentiated scroll. The current TUI ke
 
 With more than 200 entries, the flat list had become hard to scan. These changes keep the overview calm and make the state of each row readable at a glance:
 
-- **Categories by kind of tool.** Twenty curated categories, in the order people reach for them: essentials, coding assistants and their helpers, workspaces, editors, terminals, MCP tools, sandboxes and integrations first; chat, browsers and automation next; then local models and apps, voice, image and video AI, creative apps, media tools, and utilities. Homebrew extras and detected software stay last.
+- **Categories by kind of tool.** Twenty-two curated categories, in the order people reach for them: essentials, coding assistants, community coding agents and their helpers, workspaces, orchestrators, editors, terminals, MCP tools, sandboxes and ACP adapters first; chat, browsers and automation next; then local model runtimes and apps, voice, image and video AI, creative apps, media tools, and utilities. Homebrew extras and detected software stay last.
 - **Plain names.** Headings show a name such as **Voice and dictation**; the id (`voice`) still works with `--category`, and the category preview shows the name and a one-line description.
 - **A fill bar per category.** Ten cells in the category color show how much of it is installed, next to `N of T installed` or `all N installed`. A category with any tool installed always fills at least one cell, and one with a gap never looks full.
 - **State marks.** `●` installed, `◐` on disk some other way, `○` not installed, `◇` detected, `◆` manual update. Installed rows are bright and the rest are dimmed, so color is never the only signal.

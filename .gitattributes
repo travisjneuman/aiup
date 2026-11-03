@@ -1,0 +1,6 @@
+# The Linux and Windows runtime, its catalog files and the Linux installer use LF everywhere.
+runtime/** text eol=lf
+catalog/** text eol=lf
+linux/** text eol=lf
+*.py text eol=lf
+*.tsv text eol=lf

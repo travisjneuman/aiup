@@ -31,13 +31,29 @@ network requests. It retains the macOS 14+, Bash 3+, Python 3, and curl runtime
 prerequisites. Definition exports use a pipe instead of a temporary state file.
 Metric `source` strings are descriptive provenance and are never executed.
 
+It then runs one local runtime catalog export: the same `aiup.catalog.export`
+code behind `aiup catalog --json --platform all`, called directly with Python
+3.9+ and `AIUP_CATALOG_DIR` pointed at the checkout's `catalog/` folder. It reads
+the four catalog files only. Its version, tool ids, tool order, tool categories
+and category ids must match the macOS export (the runtime's `packages` stands in
+for macOS `homebrew`). Every count still comes from the macOS export; the runtime
+export only adds each tool's Linux and Windows install targets from
+`catalog/platforms.tsv`.
+
 The same exported data supplies all these text outputs:
 
 - `site/catalog.json`: the existing catalog definition shape, including separate
   `categories`, top-level `tools`, and `recommended` arrays. Each category has
-  `id`, `name` (the heading shown in `aiup list`), `emoji`, `blurb` and `tools`;
-- `docs/catalog.md`: category tables headed by name and id, and a separate Homebrew recommendation table;
-- `README.md`: the existing `CATALOG` marker block;
+  `id`, `name` (the heading shown in `aiup list`), `emoji`, `blurb` and `tools`.
+  Each tool also carries the runtime export's `platforms` object (`macos`, and
+  `linux` / `windows` target lists when the tool has any; the first entry is the
+  channel aiup prefers there), and top-level `platformCounts` gives how many
+  tools have a Linux or Windows target;
+- `docs/catalog.md`: category tables headed by name and id, with Linux and
+  Windows columns naming the preferred channel, a line with the Linux and
+  Windows totals, and a separate Homebrew recommendation table;
+- `README.md`: the existing `CATALOG` marker block, with Linux and Windows
+  counts per category and in the summary line;
 - `showcase.json`: the Catalog tools metric, plus `updated` when metrics change.
   The exporter assigns `key: tools`, an exact value, a local-export source note,
   and the date of this actual measurement as `asOf`. Its optional `provenance`
@@ -80,7 +96,9 @@ Never claim those images were refreshed by a text-only export.
 Unknown arguments fail with usage. There is no `--check`, recount, or dry-run
 mode. Missing source files, duplicate JSON fields or metric keys, ambiguous
 reviewed labels or key/label conflicts, missing text markers, missing media in
-copy mode, export failures, and runtime/manifest mismatches stop with an
+copy mode, export failures, a Python older than 3.9, runtime export records
+that disagree with the macOS export or have malformed platform targets, and
+runtime/manifest mismatches stop with an
 actionable error before public writes. Export records must have the expected
 object/string/array shapes, unique identities, and category tool lists that
 agree with the top-level curated tools. Malformed records fail explicitly
