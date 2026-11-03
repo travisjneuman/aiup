@@ -1,6 +1,6 @@
 # Windows | aiup
 
-aiup on Windows is new in this release, and first real runs are in progress. It is a Python program (`runtime/aiup/`) that reads the same catalog as the macOS version, with Windows install targets from `catalog/platforms.tsv`. [docs/cross-platform-design.md](../docs/cross-platform-design.md) has the design. `aiup help` lists the commands.
+aiup on Windows is new. So far it has run on Windows 11 and Windows Server 2022. It is a Python program (`runtime/aiup/`) that reads the same catalog as the macOS version, with Windows install targets from `catalog/platforms.tsv`. [docs/cross-platform-design.md](../docs/cross-platform-design.md) has the design. `aiup help` lists the commands.
 
 ## What you need
 

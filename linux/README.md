@@ -1,6 +1,6 @@
 # Linux | aiup
 
-aiup on Linux is new in this release, and first real runs are in progress. It is a Python program (`runtime/aiup/`) that reads the same catalog as the macOS version, with Linux install targets from `catalog/platforms.tsv`. [docs/cross-platform-design.md](../docs/cross-platform-design.md) has the design. `aiup help` lists the commands.
+aiup on Linux is new. So far it has run on Arch Linux; other distros are untried. It is a Python program (`runtime/aiup/`) that reads the same catalog as the macOS version, with Linux install targets from `catalog/platforms.tsv`. [docs/cross-platform-design.md](../docs/cross-platform-design.md) has the design. `aiup help` lists the commands.
 
 ## What you need
 

@@ -2,11 +2,11 @@
 
 > A local-first macOS terminal catalog for reviewed AI and developer tools.
 
-aiup scans local tool state, updates installed managed tools, and provides an fzf interface for deliberate install, remove, adoption, documentation, and catalog actions. Version 2026.11.03-04 contains 293 reviewed entries. macOS 14+, Bash 3+, Python 3, and curl are required; fzf is required infrastructure managed through Homebrew.
+aiup scans local tool state, updates installed managed tools, and provides an fzf interface for deliberate install, remove, adoption, documentation, and catalog actions. Version 2026.11.03-05 contains 293 reviewed entries. macOS 14+, Bash 3+, Python 3, and curl are required; fzf is required infrastructure managed through Homebrew.
 
 Local inventory is never uploaded. A normal run checks a small release pointer on GitHub, downloads the runtime and matching catalog only when a new release is published, and runs the last validated release when offline. Selected maintenance actions may contact GitHub, Homebrew, npm, uv, or the applicable vendor. On macOS, aiup does not invoke sudo itself, although upstream installers may request administrator authentication.
 
-A Python version for Linux and Windows is new in this release, and first real runs are in progress. It follows the same release pointer. On Linux it uses sudo only for the system package managers, and sudo asks for the password itself. On Windows it never elevates silently. There is no tagged 1.0 release or packaged installer.
+A Python version for Linux and Windows is new, and so far it has run on Arch Linux, Windows 11 and Windows Server 2022. It follows the same release pointer. On Linux it uses sudo only for the system package managers, and sudo asks for the password itself. On Windows it never elevates silently. There is no tagged 1.0 release or packaged installer.
 
 - Site: https://aiup.neuman.dev/
 - Source: https://github.com/travisjneuman/aiup

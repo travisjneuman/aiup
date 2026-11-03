@@ -4,7 +4,7 @@
   "name": "aiup",
   "status": "active",
   "statusNote": null,
-  "summary": "Local-first macOS tool manager with an fzf catalog for reviewing, installing, updating, and removing AI and developer tools.",
+  "summary": "Local-first tool manager for macOS, with new Linux and Windows versions, and an fzf catalog for reviewing, installing, updating, and removing AI and developer tools.",
   "visibility": "public",
   "links": {
     "live": "https://aiup.neuman.dev",
@@ -12,9 +12,12 @@
   },
   "stack": [
     "Bash",
+    "Python",
     "fzf",
     "Homebrew",
-    "macOS"
+    "macOS",
+    "Linux",
+    "Windows"
   ],
   "metrics": [
     {
@@ -28,10 +31,10 @@
         "producer": "scripts/sync-public-docs",
         "catalogCommand": "macos/aiup catalog --json",
         "population": "top-level tools: curated manifest entries",
-        "runtimeVersion": "2026.11.03-04",
-        "runtimeSha256": "bd64a377999e0ceab51b06f236c28f11d3a85c6fa0a8c884d6a3a20dc8589986",
-        "manifestSha256": "35322bdc575df564d51a07d57c7915c4c2cba6b2281e2d426d25c935bdd695df",
-        "exportSha256": "506d335f75e296a829c0bb15a3c03deec4726064418c6b52a228e5fbfa061e04"
+        "runtimeVersion": "2026.11.03-05",
+        "runtimeSha256": "6fcde258a72ce8405fdf2c9143e389a550a36035c6097bfc38e975a7887b4f22",
+        "manifestSha256": "6063c9fec52b67fd2ad0989d597861a75893c6889628821cee20b8a5970ca4b2",
+        "exportSha256": "50d72708681a95bb0d06e6a22cf28ba20ce96baa8c786d32d7898cd6c3556301"
       }
     },
     {

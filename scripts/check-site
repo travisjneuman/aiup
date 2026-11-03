@@ -202,7 +202,7 @@ def validate_metadata(document: Document) -> dict[str, object]:
     software = by_type["SoftwareApplication"]
     person = by_type["Person"]
     require(website.get("url") == PRODUCTION and website.get("name") == "aiup", "WebSite JSON-LD drifted")
-    require(software.get("operatingSystem") == "macOS 14 or later", "JSON-LD operating system drifted")
+    require(software.get("operatingSystem") == "macOS 14 or later, Linux, Windows", "JSON-LD operating system drifted")
     require(software.get("applicationCategory") == "DeveloperApplication", "JSON-LD category drifted")
     require(software.get("codeRepository") == REPOSITORY, "JSON-LD repository drifted")
     require(software.get("downloadUrl") == REPOSITORY, "JSON-LD download destination drifted")

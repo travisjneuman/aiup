@@ -62,7 +62,7 @@ These are local cache, not a cloud profile.
 
 ## Linux and Windows
 
-aiup on Linux and Windows is new in this release, and first real runs are in progress. Its scan stays on the machine the same way: it reads `PATH`, asks the package managers that are installed which catalog tools they have, and reads aiup's own state. Nothing is uploaded. The network lanes above apply, with that system's package managers in place of Homebrew.
+aiup on Linux and Windows is new, and so far it has run on Arch Linux, Windows 11 and Windows Server 2022. Its scan stays on the machine the same way: it reads `PATH`, asks the package managers that are installed which catalog tools they have, and reads aiup's own state. Nothing is uploaded. The network lanes above apply, with that system's package managers in place of Homebrew.
 
 The launcher lane works like the macOS one. Every run requests the release pointer, `main/macos/release`, from `raw.githubusercontent.com`. Only when it names a new commit does the launcher download `runtime/FILES` and the files it lists from that commit. Those requests carry nothing about the computer. [linux/README.md](../linux/README.md) and [windows/README.md](../windows/README.md) describe it in full.
 

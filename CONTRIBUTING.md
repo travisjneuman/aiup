@@ -1,6 +1,6 @@
 # Contributing to aiup
 
-aiup accepts focused fixes, documentation improvements, and evidence-backed catalog/tool requests for the current macOS implementation and for the new Linux and Windows runtime in `runtime/` (first real runs in progress). Tagged releases, packaged installers, CI architecture, and broad redesigns need separate project decisions before implementation.
+aiup accepts focused fixes, documentation improvements, and evidence-backed catalog/tool requests for the current macOS implementation and for the new Linux and Windows runtime in `runtime/` (new; so far run on Arch Linux, Windows 11 and Windows Server 2022). Tagged releases, packaged installers, CI architecture, and broad redesigns need separate project decisions before implementation.
 
 ## Before opening a pull request
 

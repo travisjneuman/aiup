@@ -5,7 +5,7 @@
 <p align="center">
   <strong>A macOS TUI to scan, update, install, remove, and browse reviewed AI and developer tools.</strong><br/>
   Inventory stays on your Mac. The public launcher runs the latest published release and keeps working offline.<br/>
-  Linux and Windows versions are new in this release, and first real runs are in progress.
+  Linux and Windows versions are new. So far they have run on Arch Linux, Windows 11 and Windows Server 2022.
 </p>
 
 <p align="center">
@@ -55,7 +55,7 @@ aiup only fzf
 aiup list
 ```
 
-On Linux or Windows (new in this release, first real runs in progress), use the [Linux](linux/README.md) or [Windows](windows/README.md) installer instead.
+On Linux or Windows (new, so far run on Arch Linux, Windows 11 and Windows Server 2022), use the [Linux](linux/README.md) or [Windows](windows/README.md) installer instead.
 
 | You type | What happens |
 |---|---|
@@ -257,7 +257,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.11.03-04** · **293** tools in the main catalog, 232 with a Linux install target and 208 with a Windows one. Generated from `macos/aiup` and the runtime catalog export._
+_**2026.11.03-05** · **293** tools in the main catalog, 232 with a Linux install target and 208 with a Windows one. Generated from `macos/aiup` and the runtime catalog export._
 
 | | Category | What | Size | Linux | Windows |
 |---|---|---|---|---|---|
@@ -314,8 +314,8 @@ The current macOS tool, public repository, minimal site, and six-state media are
 |---|---|
 | 🍎 macOS | Current daily-use implementation (`macos/aiup`) |
 | 🌐 Site | Live; desktop browser review passed, true 375px review remains unverified |
-| 🐧 Linux | New in this release, first real runs in progress ([install guide](linux/README.md)) |
-| 🪟 Windows | New in this release, first real runs in progress ([install guide](windows/README.md)) |
+| 🐧 Linux | New, so far run on Arch Linux; other distros are untried ([install guide](linux/README.md)) |
+| 🪟 Windows | New, so far run on Windows 11 and Windows Server 2022 ([install guide](windows/README.md)) |
 
 ## Everyday commands
 

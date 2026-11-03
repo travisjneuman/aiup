@@ -6,7 +6,7 @@ Current version: **2026.11.03-01**
 
 ## Current product scope
 
-aiup is a local-first Bash TUI for macOS. A Python version for Linux and Windows is new in this release, and first real runs are in progress (see [Linux and Windows](#linux-and-windows)). On macOS the current implementation can:
+aiup is a local-first Bash TUI for macOS. A Python version for Linux and Windows is new, and so far it has run on Arch Linux, Windows 11 and Windows Server 2022 (see [Linux and Windows](#linux-and-windows)). On macOS the current implementation can:
 
 - scan installed managed tools and update only what is present;
 - require and maintain fzf as interactive infrastructure;
@@ -54,11 +54,11 @@ The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Indiv
 
 ## Linux and Windows
 
-New in this release, first real runs in progress. aiup on Linux and Windows is a Python 3.9+ program in `runtime/aiup/` with no third-party packages. It reads the same catalog as macOS, plus `catalog/platforms.tsv` for each tool's Linux and Windows install targets. A small launcher runs the published release named by the same `macos/release` pointer, checks every file against `runtime/FILES`, and runs the last validated release when offline. Install guides: [Linux](../linux/README.md) and [Windows](../windows/README.md). Design: [cross-platform design](cross-platform-design.md).
+New. So far it has run on Arch Linux, Windows 11 and Windows Server 2022; other distros and versions are untried. aiup on Linux and Windows is a Python 3.9+ program in `runtime/aiup/` with no third-party packages. It reads the same catalog as macOS, plus `catalog/platforms.tsv` for each tool's Linux and Windows install targets. A small launcher runs the published release named by the same `macos/release` pointer, checks every file against `runtime/FILES`, and runs the last validated release when offline. Install guides: [Linux](../linux/README.md) and [Windows](../windows/README.md). Design: [cross-platform design](cross-platform-design.md).
 
 ## Current limitations
 
-- aiup on Linux and Windows is new in this release, and first real runs are in progress. Every command in `aiup help` runs there. Two macOS commands don't: `aiup cleanup` (only `aiup cleanup history` works; `aiup remove TOOL` moves a tool's known user data to the Trash or Recycle Bin instead) and `aiup catalog --contracts`. Each prints `<command> is macOS only.` and exits 1. `aiup settings cleanup` is stored so exports stay portable, and has no effect there.
+- aiup on Linux and Windows is new, and so far it has run on Arch Linux, Windows 11 and Windows Server 2022. Every command in `aiup help` runs there. Two macOS commands don't: `aiup cleanup` (only `aiup cleanup history` works; `aiup remove TOOL` moves a tool's known user data to the Trash or Recycle Bin instead) and `aiup catalog --contracts`. Each prints `<command> is macOS only.` and exits 1. `aiup settings cleanup` is stored so exports stay portable, and has no effect there.
 - There is no packaged installer. Releases are published by updating the `macos/release` pointer; there are no Git tags.
 - A first public run needs GitHub access; later runs fall back to the last validated release when offline.
 - There is no repository CI workflow. Current validation is local.

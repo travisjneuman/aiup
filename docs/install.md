@@ -4,7 +4,7 @@ On macOS, aiup is a Bash application with a small launcher that runs the latest 
 
 ## Linux and Windows
 
-aiup on Linux and Windows is new in this release, and first real runs are in progress. It is a Python 3.9+ program with its own launcher and installer. Each install guide covers prerequisites, PATH, uninstall, privileges, state and updates:
+aiup on Linux and Windows is new, and so far it has run on Arch Linux, Windows 11 and Windows Server 2022. It is a Python 3.9+ program with its own launcher and installer. Each install guide covers prerequisites, PATH, uninstall, privileges, state and updates:
 
 - [Linux](../linux/README.md): `curl -fsSL https://raw.githubusercontent.com/travisjneuman/aiup/main/linux/install-aiup | sh`
 - [Windows](../windows/README.md): `irm https://raw.githubusercontent.com/travisjneuman/aiup/main/windows/install-aiup.ps1 | iex`

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.03-05
+
+- Docs and site: Linux and Windows have now run for real on Arch Linux, Windows 11 and Windows Server 2022, and the README, install, status, privacy and scripting docs, `llms.txt` and the site's page details say so. Other Linux distros and Windows versions are untried. The site title and description now name Linux and Windows.
+
 ## 2026.11.03-04
 
 - Fixed (macOS): with the Bash that ships with macOS (3.2), `aiup list` stopped with a "bad substitution" error while it built the inventory. This hit commands run where Homebrew's newer Bash is not first on PATH, such as one-off ssh commands. The script now keeps that Python helper in its own function, which Bash 3.2 reads fine.

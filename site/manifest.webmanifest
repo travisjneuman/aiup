@@ -2,7 +2,7 @@
   "id": "/",
   "name": "aiup | macOS AI and developer tool manager",
   "short_name": "aiup",
-  "description": "aiup is a local-first macOS terminal interface for scanning, updating, installing, removing, and browsing reviewed AI and developer tools.",
+  "description": "aiup is a local-first terminal interface for scanning, updating, installing, removing, and browsing reviewed AI and developer tools on macOS, with new Linux and Windows versions.",
   "start_url": "/",
   "scope": "/",
   "display": "browser",

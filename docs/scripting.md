@@ -59,7 +59,7 @@ Other commands refuse `--json` with exit status 2.
 
 ### Linux and Windows
 
-aiup on Linux and Windows (new in this release, first real runs in progress) writes the same two schemas with the same fields, plus two more. Scripts that read the macOS fields keep working.
+aiup on Linux and Windows (new, so far run on Arch Linux, Windows 11 and Windows Server 2022) writes the same two schemas with the same fields, plus two more. Scripts that read the macOS fields keep working.
 
 - `platform` at the top level: `linux` or `windows`.
 - `channel` on each tool: the install channel aiup used or checked there, such as `apt`, `winget` or `npm`. It's an empty string when there isn't one.
