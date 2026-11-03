@@ -11,3 +11,5 @@ __pycache__/
 # global media ignores.
 !docs/media/aiup-brag.mp4
 !site/media/aiup-brag.mp4
+# Private public-safety deny-list entries (host names, private project names).
+scripts/.public-safety-local.txt

@@ -58,7 +58,7 @@ One atomically replaced `current-generation` pointer selects a complete validate
 
 If the pointer cannot be fetched, or a new release fails to download or validate, the launcher prints the reason and runs the last validated release, so aiup keeps working offline. The installed release is revalidated on every run; if it is damaged, the launcher downloads it again. Only a first run with no validated release stops when GitHub is unreachable. Install and update actions may still need Homebrew or vendor access.
 
-Local repository development is an explicit opt-in and is the only supported offline launcher path:
+Local repository development is an explicit opt-in that runs a checkout instead of the published release:
 
 ```bash
 AIUP_SOURCE_PATH="/path/to/your/aiup/macos/aiup" aiup version

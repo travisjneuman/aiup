@@ -42,9 +42,9 @@ The video uses the `autoplay muted playsinline` attributes and `_headers` allows
 `autoplay=(self)`. Without a script, reduced-motion visitors still get the
 muted autoplay; the native controls let them pause it.
 The animation includes an infinite-loop NETSCAPE extension and repeats its six-state
-narrative continuously. Because its expanded narrative lasts longer than five seconds and no
-playback control is present by owner direction, the page has a known WCAG 2.2.2
-limitation and does not claim complete WCAG conformance.
+narrative continuously. It lasts longer than five seconds and has no playback
+control, so the page has a known WCAG 2.2.2 limitation and does not claim
+complete WCAG conformance.
 
 ## Refresh public facts
 
@@ -58,9 +58,9 @@ This is a real write, not a check or dry run. Include its outputs in the same
 commit as the source change. Use `scripts/sync-public-docs` without the flag only
 when the accepted canonical media should also be copied to `site/media`.
 
-## Validation (only when explicitly requested)
+## Validation
 
-Do not run tests, media checks, or brand generation as an automatic refresh gate.
+The project validates changes by review. Please describe what you reviewed in your pull request.
 
 `scripts/check-site` uses Python's standard library. It validates the minimal
 visible contract, metadata and JSON-LD, the video's attributes, absence of
@@ -70,17 +70,15 @@ manifest/robots/sitemap/llms/404 behavior, security headers, and public-safety
 boundaries without adding dependencies.
 
 For a bounded local preview, serve this existing directory from the canonical
-checkout and use the T3 collaborative preview. Stop the server afterward. Do
+checkout and open it in a local browser preview. Stop the server afterward. Do
 not install or run a separate browser payload.
 
 ## Publication
 
-Completed site work is committed and pushed to the maintainer default branch.
-The existing Cloudflare Pages integration then publishes `site/`. Keep the
-source push, Pages provider receipt, public HTTP readback, browser/device
-evidence, and owner acceptance as separate claims. No direct Cloudflare
-publication, new resource, analytics, tracker, cookie, external font, remote
-runtime asset, or service worker is part of this site.
+Completed site work is pushed to `main`, and the existing Cloudflare Pages
+integration publishes `site/`. I accept site changes after I review them. No
+direct Cloudflare publication, new resource, analytics, tracker, cookie,
+external font, remote runtime asset, or service worker is part of this site.
 
 The homepage media are `media/aiup-brag.mp4` (with `media/aiup-brag-poster.jpg`)
 in the main column and `media/aiup-list.gif` under the lockup; the GIF's static

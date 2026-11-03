@@ -85,7 +85,7 @@ The table shows: tool, outcome, and version. Actual changes show `before → aft
 
 Routine installer output is saved in a private run log under `~/.local/share/aiup/logs/`; `aiup --verbose` also streams it. A **!** marks tools with provider warnings even when their version is unchanged. Blocked setup scripts receive an explicit review message and a tool-log command. Dry runs are labeled **planned**, never updated.
 
-A removed app with a leftover Homebrew receipt is skipped with an explanation; AIUP does not silently reinstall it or erase the receipt. The Updates category includes informational rows for checks that could not finish, so an unsuccessful check is visible even when no updates were confirmed.
+A removed app with a leftover Homebrew receipt is skipped with an explanation; aiup does not silently reinstall it or erase the receipt. The Updates category includes informational rows for checks that could not finish, so an unsuccessful check is visible even when no updates were confirmed.
 
 Each category heading shows its name, a ten-cell bar for how much of it is on your Mac, and a count such as `3 of 12 installed`. Detected commands include owner, description, metadata-based version evidence, and update guidance where recognizable. See [command insights](docs/command-insights.md).
 
@@ -104,7 +104,7 @@ aiup unhold remotion
 aiup group set video remotion ffmpeg macwhisper
 aiup group check video
 aiup group run video               # update installed members; honor preferences
-aiup retry                         # retry failed or deferred tools from the latest inactive run
+aiup retry                         # retry failed, deferred or cancelled tools; may install a missing one
 aiup project /path/to/project       # read declared npm dependency ranges only
 aiup export my-mac.json            # save tools, Homebrew packages and preferences
 aiup import my-mac.json            # on another Mac: show what it adds, ask, install
@@ -119,11 +119,11 @@ Search ranks exact names, aliases, name prefixes, then descriptions. Multiple wo
 
 Media work is split four ways. **Creative apps** (`media`) holds Remotion and the editors and recorders: Blender, OBS, GIMP, Krita and the rest. **Voice and dictation** (`voice`) holds dictation apps, meeting note takers, Whisper and Parakeet transcription, and text-to-speech. **Image and video AI** (`image-gen`) holds Comfy Desktop, Draw Things, LTX Desktop and mflux. **Media tools** (`media-tools`) holds ffmpeg, ImageMagick, yt-dlp and the other converters. The Creative apps category also recognizes five installed apps with **manual update** guidance: Final Cut Pro, Motion, Pixelmator Pro, Darkroom, and Luminar AI. Those remain inspect-only, are excluded from managed counts, and never enter automated updates. `--view managed` hides manual rows; `--view detected` retains them in the inventory. Catalog availability does not install apps, download models, or confer vendor licenses. See the [category and maintenance review](docs/media-and-maintenance-2026-09-04.md) and [media expansion review](docs/media-expansion-2026-09-04.md).
 
-AIUP retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older AIUP versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section (in `less` when the output is a terminal; `AIUP_NO_PAGER=1` prints it straight through). Log cleanup only touches recognized AIUP run files and never follows symlinks. Logs stay on your Mac.
+aiup retains the latest **20 completed runs** by default (`AIUP_LOG_LIMIT=1…100` overrides this). Active runs and recent logs from older aiup versions are protected; interrupted runs remain inspectable. `aiup history [tool]` reads results, and `aiup logs [tool]` reads the latest log or its exact tool section (in `less` when the output is a terminal; `AIUP_NO_PAGER=1` prints it straight through). Log cleanup only touches recognized aiup run files and never follows symlinks. Logs stay on your Mac.
 
-Npm packages are not reinstalled when fresh provider metadata exactly matches a healthy installation in AIUP’s prefix. Homebrew no-op upgrades are skipped only after a valid post-refresh outdated snapshot. Missing, broken, newer, or unverifiable installations keep the existing update path; `--force` bypasses these shortcuts for repairs. Native updaters and manager-switch rules remain in effect.
+Npm packages are not reinstalled when fresh provider metadata exactly matches a healthy installation in aiup’s prefix. Homebrew no-op upgrades are skipped only after a valid post-refresh outdated snapshot. Missing, broken, newer, or unverifiable installations keep the existing update path; `--force` bypasses these shortcuts for repairs. Native updaters and manager-switch rules remain in effect.
 
-`aiup check [tools…]` checks versions without updating software or changing shell profiles. Each tool is compared with the source it installs from: Homebrew's metadata (refreshed when older than 15 minutes) or the vendor's release channel, npm or PyPI, all fetched in one concurrent pass. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. Each tool with an update gets a "What's new" line: the release title and first lines from the project's GitHub release, with a link. Release notes are fetched once per version without a GitHub login and cached; `AIUP_RELEASE_NOTES=0` skips them. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update AIUP’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
+`aiup check [tools…]` checks versions without updating software or changing shell profiles. Each tool is compared with the source it installs from: Homebrew's metadata (refreshed when older than 15 minutes) or the vendor's release channel, npm or PyPI, all fetched in one concurrent pass. Availability may use the same short-lived cache as the catalog; add `--refresh` for fresh provider reads. Unsupported or failed checks are **unverified**, not current. Each tool with an update gets a "What's new" line: the release title and first lines from the project's GitHub release, with a link. Release notes are fetched once per version without a GitHub login and cached; `AIUP_RELEASE_NOTES=0` skips them. `aiup explain <tool>` shows the installation manager and why an update is available, skipped, or unverified. Checks may update aiup’s local metadata cache, but never install tools. See the [maintenance and performance review](docs/maintenance-and-performance-2026-09-04.md) for scope and evidence.
 
 ### 🔄 How releases reach your Mac
 
@@ -140,6 +140,8 @@ One setting covers every tool: `aiup channel --policy newest|keep|brew`. `newest
 When another channel has a newer release than the one a tool uses, the `aiup check` and `aiup` reports end with a hint such as "codex · npm has 0.163.0, Homebrew has 0.162.1 · aiup channel codex npm". It is only a hint: nothing switches until you run the command. Tools you picked a channel for, and tools under the `brew` policy, get no hint.
 
 Official desktop apps that are not Homebrew-managed can declare a lightweight update manifest in the catalog. aiup checks that manifest against the installed bundle version first, downloads the large installer only when a newer release exists, and validates the replacement before activation. Screenpipe uses this path; aiup replaces only its app bundle and does not remove its configured settings or capture paths.
+
+Screenpipe backups (my storage policy as of September 29, 2026): official-DMG updates retain the prior code bundle only through activation. A failed activation restores it; a successful activation deletes the redownloadable code backup. Recordings, settings and user data are not part of this backup or cleanup.
 
 ## ✨ Ground rules
 
@@ -250,7 +252,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.10.23-01** · **259** tools in the main catalog. Generated from `macos/aiup`._
+_**2026.11.03-01** · **259** tools in the main catalog. Generated from `macos/aiup`._
 
 | | Category | What | Size |
 |---|---|---|---|
@@ -297,7 +299,7 @@ Run `command -v bash curl python3` before installing. See the [installation cont
 
 ## 🗺️ Status
 
-The current macOS tool, public repository, minimal site, and six-state media are complete for this dated scope. I've accepted the current media and site design. aiup is not a finished cross-platform or tagged 1.0 product; Safari, physical-device, screen-reader, assistive-technology, and other formal release-acceptance lanes remain separate future work. See **[scope, completion, and next work](docs/status.md)**.
+The current macOS tool, public repository, minimal site, and six-state media are complete for this dated scope. aiup is not a finished cross-platform or tagged 1.0 product; Safari, physical-device, screen-reader, assistive-technology, and other formal release-acceptance lanes remain separate future work. See **[scope, completion, and next work](docs/status.md)**.
 
 | Area | Status |
 |---|---|
@@ -317,10 +319,12 @@ The current macOS tool, public repository, minimal site, and six-state media are
 | `aiup duplicates` | Active PATH selection, other distinct copies and bounded direct-reference review; never automatically removes duplicates |
 | `aiup channel [TOOL [brew\|npm\|uv\|vendor\|default]]` | Lists tools with more than one install channel, shows a tool's channels and latest versions, or picks the one it installs from |
 | `aiup channel --policy [newest\|keep\|brew]` | Shows or sets the install channel policy for every tool without a pick |
-| `aiup resume` | Retries tools whose newest saved result is pending, deferred (app was open), cancelled or failed, across all retained runs, rechecking current state |
+| `aiup resume` | Retries pending, deferred, cancelled or failed tools (newest saved result per tool, across all retained runs), rechecking current state; never installs |
 | `aiup settings cleanup auto` / `review` | Automatic cleanup or review-first mode; exclusions also accept `bc:`/`bf:` IDs |
 | `aiup cleanup history` | Cleanup results from retained structured run history |
 | `aiup --plain welcome` | Colorless guidance; statuses remain readable without color |
+
+Also in `aiup help`: `aiup install` (pick tools to install), `aiup preview <tool>`, `aiup docs --print <tool>` (print the URL instead of opening it), `aiup preferences`, `aiup group remove NAME`, `aiup list --detected` (print the local inventory table), `aiup catalog --markdown` or `--contracts`, and `aiup version`. `uninstall` is another name for `remove`, and `home` and `open` are other names for `docs`.
 
 Normal terminal runs show the guide once, numbered progress and elapsed time. Ctrl-C stops the command that is running, skips the tools not reached yet and still prints the results. The interrupted tool is recorded as `cancelled` and the rest as pending, so `aiup resume` reruns them. A download starts over; it does not continue from where it stopped. Existing provider updaters determine download behavior. aiup never replaces an open app: it defers that update until you quit the app, then `aiup resume` finishes it. Apps that update themselves (Claude, ChatGPT and other `auto_updates` casks) report `self-updated` (`current (self-updated)` in `aiup check`) when they are already at or past Homebrew's version, and aiup skips the Homebrew download. Guidance wraps to the terminal width, using the picker palette when colors are enabled.
 
@@ -328,9 +332,9 @@ Normal terminal runs show the guide once, numbered progress and elapsed time. Ct
 
 In the default automatic cleanup mode, a normal `aiup` run finishes Homebrew uninstall for confirmed missing apps and reports **cleaned**. Holds and exclusions still apply; `--dry-run` only plans the action. `aiup list` and `aiup check` do not remove anything.
 
-`aiup cleanup homebrew` previews Homebrew apps whose explicitly recorded app destinations are all missing. To finish one uninstall, use `aiup cleanup bc:alt-tab --apply` (substitute the displayed name). AIUP checks again immediately before invoking Homebrew's forced cask uninstall. This runs normal uninstall hooks, never `--zap`; it does not delete Homebrew metadata directly. Apps with incomplete destination metadata, partially present multi-app installations, and broken symlinks are not cleanup candidates. Preview is the default; bulk apply is not supported. `brew cleanup` remains a separate cache/old-version operation.
+`aiup cleanup homebrew` previews Homebrew apps whose explicitly recorded app destinations are all missing. To finish one uninstall, use `aiup cleanup bc:alt-tab --apply` (substitute the displayed name). aiup checks again immediately before invoking Homebrew's forced cask uninstall. This runs normal uninstall hooks, never `--zap`; it does not delete Homebrew metadata directly. Apps with incomplete destination metadata, partially present multi-app installations, and broken symlinks are not cleanup candidates. Preview is the default; bulk apply is not supported. `brew cleanup` remains a separate cache/old-version operation.
 
-AIUP remembers bundle identities observed at their installed locations, scans common app folders, and checks Spotlight for known identities before considering a missing app removed. A matching moved/renamed app is left for review, not cleaned or reinstalled. Unindexed locations, inaccessible folders and apps removed before their identity was ever observed limit what can be established; use review mode when automatic cleanup is unsuitable. These checks do not establish that every copy anywhere on disk has been found.
+aiup remembers bundle identities observed at their installed locations, scans common app folders, and checks Spotlight for known identities before considering a missing app removed. A matching moved/renamed app is left for review, not cleaned or reinstalled. Unindexed locations, inaccessible folders and apps removed before their identity was ever observed limit what can be established; use review mode when automatic cleanup is unsuitable. These checks do not establish that every copy anywhere on disk has been found.
 
 ## Documentation map
 
@@ -364,8 +368,3 @@ graph LR
 ## 📜 License
 
 [MIT](LICENSE) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Support](SUPPORT.md) · [travisjneuman/aiup](https://github.com/travisjneuman/aiup)
-
-Screenpipe backups (my storage policy as of September 29, 2026): official-DMG updates retain
-the prior code bundle only through activation. A failed activation restores it;
-a successful activation deletes the redownloadable code backup. Recordings,
-settings and user data are not part of this backup or cleanup.

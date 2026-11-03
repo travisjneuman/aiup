@@ -1,8 +1,8 @@
 # Scope, completion, and next work
 
-Status date: **2026-10-14**
+Status date: **2026-11-03**
 
-Current version: **2026.10.14-01**
+Current version: **2026.11.03-01**
 
 ## Current product scope
 
@@ -18,7 +18,7 @@ aiup is a local-first, macOS-only Bash TUI. The current implementation can:
 - update one verified item, selected verified items, or an explicitly confirmed dependency-ordered snapshot of all bulk-eligible verified items through the existing authoritative updater;
 - validate once per interactive entry, materialize a coherent state snapshot, and serve cursor/search/resize/category helpers from an exact-runtime private session;
 - reuse only versioned, fingerprinted, atomically published disposable cache generations while treating live state as authoritative for every mutation;
-- group 261 catalog entries into 20 named categories, each heading with an installed bar and `N of T installed`, and mark every row's state with `●`, `◐`, `○`, `◇` or `◆`;
+- group 259 catalog entries into 20 named categories, each heading with an installed bar and `N of T installed`, and mark every row's state with `●`, `◐`, `○`, `◇` or `◆`;
 - search inside collapsed categories, match category names, label each hit with its category, and restore a clean picker after provider actions;
 - keep query typing, category toggles, navigation, resize, and documentation return on materialized session data with exact fzf row identity tracking;
 - coalesce and negatively cache bounded remote metadata reads, then prefetch installed managed items only with two read-only workers after the picker becomes interactive;
@@ -59,7 +59,7 @@ The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Indiv
 - A first public run needs GitHub access; later runs fall back to the last validated release when offline.
 - There is no repository CI workflow. Current validation is local.
 - Catalog/provider maintenance is ongoing as upstream tools, installers, macOS floors, and trust requirements change.
-- The minimal site contract and asset bytes pass local static validation. The T3 collaborative preview rendered a clean 1280×800 desktop screenshot, reported no page overflow at its comparable 1683×1052 CSS viewport, exposed only the skip and GitHub links in keyboard order with visible focus, and loaded the 2016×1208 poster when the native `<picture>` branch was forced applicable. A 41-second recording of the current GIF covered more than three complete cycles without adding a control to the accessibility tree. T3's 375px viewport-resize operation timed out again and did not apply, so a true mobile render remains unverified. These checks do not replace Safari/physical-device, screen-reader/assistive-technology, or social-preview acceptance. I accepted the 2026-08-26 six-state media and minimal site design. These preview checks used that earlier 2016×1208 set; the 2026-10-14 recapture has not had a browser preview yet. I accepted the 2026-10-14 GIF and screenshots on 2026-10-14.
+- The minimal site contract and asset bytes pass local static validation. A local browser preview rendered a clean 1280×800 desktop screenshot, reported no page overflow at its comparable 1683×1052 CSS viewport, exposed only the skip and GitHub links in keyboard order with visible focus, and loaded the 2016×1208 poster when the native `<picture>` branch was forced applicable. A 41-second recording of the current GIF covered more than three complete cycles without adding a control to the accessibility tree. The preview's 375px viewport resize timed out and did not apply, so a true mobile render remains unverified. These checks do not replace Safari/physical-device, screen-reader/assistive-technology, or social-preview acceptance. I accepted the 2026-08-26 six-state media and minimal site design. These preview checks used that earlier 2016×1208 set; the 2026-10-14 recapture has not had a browser preview yet. I accepted the 2026-10-14 GIF and screenshots on 2026-10-14.
 
 ## Site and publication status
 
@@ -77,11 +77,11 @@ The GIF and screenshots were captured again on 2026-10-14, so they show the curr
 
 The owner-directed absence of a playback control means the animation's greater-than-five-second autoplay is a known WCAG 2.2.2 limitation. Reduced-motion users receive the static poster through the native `<picture>` media query; the site does not claim complete WCAG conformance.
 
-The explicit 2026-08-25 owner acceptance of media commit `4c1d980d68c2b0d22592ae3a4e587b603c598156` is retained as historical evidence and superseded by the owner's 2026-08-26 acceptance of the six-state media and minimal design. The 2026-10-14 recapture keeps the same six states, and I accepted it on 2026-10-14. The earlier muted media at `d629ca3b92a074de9f0ad99d7b1781c5036ae06e` remains rejected historical evidence of inherited `NO_COLOR=1` flattening the indexed palette.
+The 2026-10-14 recapture keeps the same six states as the 2026-08-26 set, and I accepted it on 2026-10-14. An earlier muted capture was rejected because an inherited `NO_COLOR=1` flattened the indexed palette.
 
 The brand suite retains the open terminal, chevron, underscore, and cyan/mint/purple identity. It includes scalable sources, favicon/PWA/maskable derivatives, and the 1200 × 630 Open Graph and 1280 × 640 GitHub social cards made from the real screenshot. The archived original remains byte-identical. See [`../site/brand/README.md`](../site/brand/README.md).
 
-The homepage has a 32 second video about aiup (`docs/media/aiup-brag.mp4`, 2026-10-14), made by `scripts/brag/film.py` with its own synthesized music. It shows that plain `aiup` updates everything it finds, with a Terminal window drawn from the real report of my 2026-10-06 update run, and that `aiup list` opens the catalog, using the real screenshots. It plays on load, muted, with controls, and does not loop; `_headers` allows `autoplay=(self)` for it. Its counts are rounded down ("260+ tools. 20+ categories.") so they stay true as the catalog grows. Visitors who ask for reduced motion still get the autoplay, since the page has no script to stop it; they can pause it with the controls. A browser check of the video on the live site is still open. See [`media/README.md`](media/README.md).
+The homepage has a 32 second video about aiup (`docs/media/aiup-brag.mp4`, 2026-10-14), made by `scripts/brag/film.py` with its own synthesized music. It shows that plain `aiup` updates everything it finds, with a Terminal window drawn from the real report of my 2026-10-06 update run, and that `aiup list` opens the catalog, using the real screenshots. It plays on load, muted, with controls, and does not loop; `_headers` allows `autoplay=(self)` for it. Its counts are rounded down so they stay true as the catalog grows. The current render says "260+ tools", which went out of date when the catalog dropped to 259 entries on 2026-11-03; `film.py` now says "250+ tools. 20+ categories." and the video needs a new render. Visitors who ask for reduced motion still get the autoplay, since the page has no script to stop it; they can pause it with the controls. A browser check of the video on the live site is still open. See [`media/README.md`](media/README.md).
 
 ## Repository and community status
 
@@ -95,4 +95,4 @@ Future tagged-release, CI, and cross-platform decisions remain separate scopes. 
 
 ## Workstream disposition
 
-The current macOS tool, dynamic Updates category and safe bulk-update slice, public repository, minimal site, continuously looping media, brand/discovery suite, and public documentation are complete for their dated scope. The independent final performance/regression closure is **PARTIAL**: all public source, runtime, test, performance, PTY, publication, and readback gates passed, but its required private maintainer-notes record was blocked by a preserved dirty/behind checkout of that private notes repository. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation remain separate optional release-hardening work. The automated PTY runs do not cover them.
+The current macOS tool, dynamic Updates category and safe bulk-update slice, public repository, minimal site, continuously looping media, brand/discovery suite, and public documentation are complete for their dated scope. The independent final performance/regression closure passed all its public source, runtime, test, performance, PTY, publication, and readback gates. True 375px/mobile and Safari/physical-device rendering, actual OS reduced-motion, screen-reader/assistive-technology review, deployed social-preview acceptance, and reconsideration of the acknowledged WCAG 2.2.2 motion limitation remain separate optional release-hardening work. The automated PTY runs do not cover them.

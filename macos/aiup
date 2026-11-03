@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.10.23-01"
+AIUP_VERSION="2026.11.03-01"
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -6146,21 +6146,6 @@ def info(raw):
         body=text(r,65536)
         if n=='aiup' and 'AIUP_SOURCE_PATH' in body:
             v=sys.argv[3];owner='AIUP';desc='This software updater';guide='The launcher loads AIUP from its configured source.';docs='https://github.com/travisjneuman/aiup'
-        elif n=='npm-update' and 'exec aiup only npm' in body:
-            v='helper';owner='AIUP';desc='Shortcut for updating Node/npm';guide='Runs aiup only npm; it has no independent version.';docs='https://github.com/travisjneuman/aiup'
-        elif n.startswith('codex.pre-') and '@openai/codex' in body:
-            v='saved copy';owner='Saved Codex wrapper';desc='Backup of an older launcher';guide='Not a separate installed product. Review the saved file before removing it.'
-        elif n=='t3code-pi-acp' and 'PI_ACP_PROXY' in body:
-            m=re.search(r'pi-acp ([0-9][^ ]+)',body);v=m[1] if m else 'local helper';owner='Local T3 / Pi integration';desc='Connects T3 Code to Pi';guide='Maintained with the local integration; do not install a similarly named package.'
-        elif n=='repo_sync.py' and 'Repo Sync/bin/repo_sync.py' in rs:
-            v='source managed';owner='Repository Sync';desc='Synchronizes development repositories';guide='Maintained in the local operating-layer repository.'
-        elif n in {'rz0','rz0-updater'}:
-            cargo=text(home/'.cargo/.crates.toml')
-            package='runtime-zero' if n=='rz0' else 'rz0-module-updater'
-            m=re.search(r'"'+package+r' ([^ ]+) \(path\+file://[^\n]+\)"\s*=\s*\["'+n+r'"\]',cargo)
-            if m:v=m[1]+' (registered)';owner='runtime.zero';desc='Local system-management '+('updater' if n.endswith('updater') else 'tool');guide='Source-built package; update through its owning repository.'
-        elif n.startswith('rz0.pre-'):
-            v='saved copy';owner='Possible runtime.zero backup';desc='Filename indicates a saved binary';guide='No independent update; review the backup before removing it.'
         elif n=='node' and str(p)=='/usr/local/bin/node':
             d=plist(Path('/var/db/receipts/org.nodejs.node.pkg.plist'));version=d.get('PackageVersion')
             if version:v=str(version)+' (receipt)';owner='Node.js installer';desc='JavaScript runtime; separate from Homebrew Node';guide='Installer receipt version, not an executed binary check. Review this older installation alongside Homebrew Node.';docs='https://nodejs.org/'
@@ -11900,8 +11885,8 @@ Everyday:
 
 After a run:
   aiup attention           Problems and next steps in one place
-  aiup resume              Retry pending, deferred (app was open) or failed tools from the last inactive run
-  aiup retry               Retry failed or deferred tools in the latest inactive run
+  aiup resume              Retry pending, deferred, cancelled or failed tools (newest saved result per tool); never installs
+  aiup retry               Retry failed, deferred or cancelled tools; may install a missing one
   aiup history [tool]      Recent update results
   aiup logs [tool]         The latest run log, optionally just one tool's part (in a pager)
 
@@ -11953,7 +11938,6 @@ Lists and data:
   aiup catalog             The catalog definition as JSON (--markdown, --contracts)
   aiup project DIRECTORY   Inspect a project's declared npm dependencies (read-only)
   aiup --timings check     Show discovery and provider timings
-  npm-update               Shortcut for: aiup only npm
   aiup version             Print the aiup version
   aiup help                Show this help
 

@@ -119,7 +119,7 @@ RUN_SHADES = {"brew": 39, "claude": 171, "codex": 171, "pi": 171, "chatgpt": 51,
 FEATURES = {
     "browse": {
         "shot": "aiup-list-collapsed.png",
-        "head": ("260+ tools.", "20+ categories."),
+        "head": ("250+ tools.", "20+ categories."),
         "sub": "See what you have and what needs an update.",
         "focus": (300, 120), "scale": (1.04, 1.10),
         "marks": ((17.0, (38, 112, 988, 137), MINT),),

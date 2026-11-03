@@ -31,6 +31,18 @@ GIF_SEQUENCE = [
 ]
 
 
+LOCAL_PUBLIC_SAFETY = ROOT / "scripts" / ".public-safety-local.txt"
+
+
+def local_public_safety_patterns() -> tuple[str, ...]:
+    """Extra private deny-list entries, one per line, from an optional gitignored file."""
+    try:
+        lines = LOCAL_PUBLIC_SAFETY.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return ()
+    return tuple(line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#"))
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -426,11 +438,11 @@ def validate_media_and_public_safety() -> None:
         if path.is_file() and path.suffix.lower() in {".html", ".css", ".js", ".json", ".txt", ".xml", ".webmanifest"}
     ] + [SITE / "_headers", SITE / "_redirects"]
     forbidden = (
-        "/Users/", "/home/", "file://", "localhost", "127.0.0.1", "TJNMPM", "TJN-SERVE",
-        "runtime.zero", "_meta.notes", "PUBLIC-SAFE", "capture fixture", "travis@neuman.dev",
+        "/Users/", "/home/", "C:\\Users\\", "file://", "localhost", "127.0.0.1", ".ts.net",
+        "PUBLIC-SAFE", "capture fixture",
         "fonts.googleapis.com", "fonts.gstatic.com", "googletagmanager", "google-analytics",
         "cloudflareinsights",
-    )
+    ) + local_public_safety_patterns()
     for path in public_files:
         content = path.read_text(encoding="utf-8")
         for needle in forbidden:

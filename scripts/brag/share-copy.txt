@@ -1,5 +1,5 @@
 Short (X, Bluesky, Threads):
-Every AI tool I use updates a different way. brew, npm, uv, their own installers. So I made aiup. Run aiup and it updates all of them. Run aiup list to browse and search 260+ tools. Free for macOS. aiup.neuman.dev
+Every AI tool I use updates a different way. brew, npm, uv, their own installers. So I made aiup. Run aiup and it updates all of them. Run aiup list to browse and search 250+ tools. Free for macOS. aiup.neuman.dev
 
 Longer (LinkedIn):
 I use a lot of AI and developer tools, and each one updates its own way. Some come from Homebrew, some from npm or PyPI, some only from the vendor's installer.

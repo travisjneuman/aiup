@@ -45,7 +45,7 @@ site does not claim full WCAG conformance.
 - The command, fzf picker, row formatter, preview, search reload, and adoption
   prompt are the real ones from this repo.
 - Catalog and inventory content comes from `scripts/fixtures/capture`: the 261
-  manifest entries, a short installed set with demo versions, five Homebrew
+  manifest entries at capture time (2026-10-14), a short installed set with demo versions, five Homebrew
   extras, two recommendations, and a few detected-only rows. None of it is
   read from the capture machine.
 - The fixture `brew` is first on PATH. It records queries and rejects install,
@@ -91,8 +91,10 @@ are no stock or licensed sounds. Its README has the scene plan and settings.
   the first 25 tools with elapsed times added up from their durations, and the
   log path is shortened to `~`. [`scripts/brag/README.md`](../../scripts/brag/README.md)
   has the details.
-- The browse scene says "260+ tools. 20+ categories." The counts are rounded
-  down so they stay true as the catalog grows.
+- The browse scene in the current render says "260+ tools. 20+ categories."
+  The catalog dropped to 259 entries on 2026-11-03, so `film.py` now says
+  "250+ tools." and the video needs a new render. The counts are rounded down
+  so they stay true as the catalog grows.
 - 1920×1080, 30 fps, H.264 with AAC audio, `+faststart`. Integrated loudness
   is about -18 LUFS.
 - Frame 0 is the poster frame (the finished run report), so every player shows

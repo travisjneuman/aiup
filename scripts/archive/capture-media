@@ -700,11 +700,24 @@ def save_png(image: Image.Image, path: pathlib.Path, source_commit: str, state: 
     image.save(path, format="PNG", optimize=True, pnginfo=png_info(source_commit, state))
 
 
+LOCAL_PUBLIC_SAFETY = pathlib.Path(__file__).resolve().parents[1] / ".public-safety-local.txt"
+
+
+def local_public_safety_patterns() -> list[str]:
+    """Extra private deny-list entries, one per line, from an optional gitignored file."""
+    try:
+        lines = LOCAL_PUBLIC_SAFETY.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return []
+    return [line.strip() for line in lines if line.strip() and not line.lstrip().startswith("#")]
+
+
 def check_public_text(label: str, text: str) -> None:
     banned = [
-        "/Users/", str(pathlib.Path.home()), socket.gethostname(), "tjn", "TJNMPM",
+        "/Users/", "/home/", "C:\\Users\\", ".ts.net", str(pathlib.Path.home()), socket.gethostname(),
         "settings always stay", "~/Library is never deleted",
         "The app stays. Notes, vaults, and settings stay.", "omp", "plandex",
+        *local_public_safety_patterns(),
     ]
     lowered = text.lower()
     for needle in banned:

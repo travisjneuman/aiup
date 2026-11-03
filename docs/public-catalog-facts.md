@@ -94,7 +94,7 @@ public outputs unchanged. Replacement across several files is not an OS-level
 transaction: a disk/permission failure during replacement can leave a partial
 refresh and must be reported, not called a success.
 
-Review the source and output diff. Do not run tests, syntax checks, builds,
-media checks, provider checks, or network probes unless the owner explicitly
-asks for them. No CI, scheduled refresh, or automatic metric-source execution
+Review the source and output diff. The project validates changes by review,
+so a refresh needs no extra tests, builds, media checks, provider checks, or
+network probes. No CI, scheduled refresh, or automatic metric-source execution
 is part of this pipeline.

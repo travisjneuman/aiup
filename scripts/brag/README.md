@@ -31,7 +31,7 @@ catalog, where you browse, search and switch tools.
 | 3.5 to 6.5 s | Reveal | `$ aiup` types out, then the logo and "One command for all of them." |
 | 6.5 to 13.5 s | Run | "Run aiup. It updates your tools and Homebrew packages." A Terminal window types `aiup` and prints the update report from a real run (see below). The Updated and Unchanged lines are outlined. |
 | 13.5 to 16.0 s | List | `$ aiup list` types out. "Opens the full catalog in one list." |
-| 16.0 to 20.0 s | Browse | The collapsed list. "260+ tools. 20+ categories." The Updates row is outlined. |
+| 16.0 to 20.0 s | Browse | The collapsed list. "250+ tools. 20+ categories." The Updates row is outlined. |
 | 20.0 to 24.0 s | Search | The Gemini search. "Type to find any tool." The query and the keys line are outlined. |
 | 24.0 to 28.0 s | Asks first | The `[y/N]` prompt. "It asks first." |
 | 28.0 to 32.0 s | End | Logo, "Free and open source, for macOS.", aiup.neuman.dev, github.com/travisjneuman/aiup. |
@@ -47,8 +47,9 @@ aiup uses. The progress line shows the first 25 tools of the run with elapsed
 times added up from each tool's duration, and the run log path is shortened to
 `~`. The constants that hold this data start with `RUN_` in `film.py`.
 
-The counts on the Browse scene are rounded down ("260+", "20+") so the video
-stays true as the catalog grows.
+The counts on the Browse scene are rounded down ("250+", "20+") so the video
+stays true as the catalog grows. The current render still says "260+"; it
+needs a new render to pick up "250+".
 
 ## Sound
 

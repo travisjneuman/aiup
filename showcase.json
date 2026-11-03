@@ -22,16 +22,16 @@
       "label": "Catalog tools",
       "source": "local export: macos/aiup catalog --json; length of top-level tools (curated manifest entries). Refresh: scripts/sync-public-docs --skip-media",
       "round": "exact",
-      "asOf": "2026-11-02",
+      "asOf": "2026-11-03",
       "key": "tools",
       "provenance": {
         "producer": "scripts/sync-public-docs",
         "catalogCommand": "macos/aiup catalog --json",
         "population": "top-level tools: curated manifest entries",
-        "runtimeVersion": "2026.10.23-01",
-        "runtimeSha256": "efb1e1ba1f4f5c17232ef13117ac4f1542abf78e63845ec29426e1b14d2f7b30",
-        "manifestSha256": "c0f15a9497b12f8d67d95226935f7d8ee4119cf76b9a611a72ae28b169551b09",
-        "exportSha256": "d5801cbcce8d39b4dacfd79f660ee619fb1a3f0a55c9c4fd292f59ff54d4471f"
+        "runtimeVersion": "2026.11.03-01",
+        "runtimeSha256": "abca0167672da067d653e6281b7f0b8b2dc5de2ddb4017070ee81952de610f17",
+        "manifestSha256": "d769e4369025a6bc7b513d03087dea97aaa67d2aeafe62e9de020e3fc4ed6725",
+        "exportSha256": "f640c559e6dda8f520432d86bc0ab2ff93aebe35b7273d6a212d0b98752d7a85"
       }
     },
     {
@@ -45,11 +45,11 @@
     {
       "value": "0",
       "label": "Daemons",
-      "source": "grep -rliE 'launchctl|LaunchAgents' . returns nothing (no background service)",
+      "source": "Manual review of macos/aiup and docs/notify.md: aiup installs no launchd agent or daemon; scheduling is left to the user.",
       "round": "exact",
       "asOf": "2026-10-05",
       "key": "background"
     }
   ],
-  "updated": "2026-11-02"
+  "updated": "2026-11-03"
 }

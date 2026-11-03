@@ -1,6 +1,6 @@
 # Understanding detected commands
 
-AIUP reads local package metadata, app bundles, installer receipts, resolved executable paths, and recognizable launcher content. It does not run unfamiliar commands to guess their versions. Recognition provides information, not permission to update or remove a file.
+aiup reads local package metadata, app bundles, installer receipts, resolved executable paths, and recognizable launcher content. It does not run unfamiliar commands to guess their versions. Recognition provides information, not permission to update or remove a file.
 
 ## Command families reviewed on September 4, 2026
 
@@ -19,17 +19,14 @@ AIUP reads local package metadata, app bundles, installer receipts, resolved exe
 | `vp` | Vite+ development toolchain | Follow the owning Vite+ installation. [Vite+](https://viteplus.dev/). |
 | `yai` | AI terminal assistant | Its embedded module identity identifies the project; no automatic updater is assumed. [Yai repository](https://github.com/ekkinox/yai). |
 | `agent` resolving into Grok | Alternate Grok entrypoint | Update Grok itself. This is not a separate tool. |
-| `aiup`, `npm-update` | Updater launcher and shortcut | Maintain AIUP; the shortcut has no independent version. |
-| `repo_sync.py`, `t3code-pi-acp` | Local source-managed integrations | Maintain their owning repositories or integration files. |
-| `rz0`, `rz0-updater` | Locally registered Cargo packages | The registration supplies a version, not proof that a binary has never been replaced. |
-| Saved `codex.pre-*` and `rz0.pre-*` files | Old wrapper or possible binary backups | Review before removing; never treat them as separate products needing updates. |
+| `aiup` | The updater launcher | Maintain aiup itself. |
 
-“Not reported” means a trustworthy version was not available. “Helper,” “saved copy,” “receipt,” “registered,” and “app” distinguish evidence that is not a standalone executable version. Unknown identities remain inspect-only. Custom installations may differ from the reviewed examples.
+“Not reported” means a trustworthy version was not available. “Helper,” “receipt,” and “app” distinguish evidence that is not a standalone executable version. Unknown identities remain inspect-only. Custom installations may differ from the reviewed examples.
 
 Official public sources were read through web/HTTP; local identity evidence came from files and metadata. No authenticated browser or account access was needed. The initial Parallels and Microsoft deep links failed to load; Parallels identity rests on the local app evidence, and the current Microsoft installation page was located successfully.
 
-## Legacy JavaScript installation review (September 4, 2026)
+## Older JavaScript installations
 
-Read-only checks confirmed a separate `/usr/local/bin/node` v18.2.0 alongside Homebrew Node v26.8.1. Homebrew Node, npm, and npx occur first in the inspected shell PATH. The legacy `/usr/local/lib/node_modules` contains npm 8.9.0, Corepack 0.10.0, and Nativefier 47.2.0; `/usr/local/bin/nativefier` resolves into that directory. These are root-owned files. The Corepack pnpm/yarn entrypoint links were not present in `/usr/local/bin`.
+A common example: a Mac has an older Node.js from the nodejs.org installer in `/usr/local/bin/node` next to a newer Homebrew Node. Its `/usr/local/lib/node_modules` can still hold an old npm, Corepack and globally installed tools such as Nativefier, and `/usr/local/bin` commands may resolve into that directory. These files are usually owned by root.
 
-No hard-coded `/usr/local/bin/node` or `/usr/local/lib/node_modules` references were found in the bounded shell/local-wrapper search. This does not prove that other projects or applications never use them. Nativefier remains the only detected Nativefier command, so deleting it would remove functionality. Recommendation: retain the active Homebrew installation; retire the legacy installation only after deciding Nativefier and direct Node 18 consumers are no longer needed. No packages or files were removed in this review. Nativefier's upstream archive status was rechecked through official GitHub over public HTTP; no authenticated account access or external mutation occurred.
+aiup shows both copies and changes neither. If Homebrew Node comes first in your PATH, the older copy is only used by things that call it by its full path. Before you remove it, check whether any global tool installed there (Nativefier, for example) is still needed, and look for scripts or apps that point at `/usr/local/bin/node` or `/usr/local/lib/node_modules`. Nothing is removed for you.

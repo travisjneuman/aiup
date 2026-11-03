@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 2026.11.03-01
 
+- `aiup help` now describes `resume` and `retry` the way they work: both use each tool's newest saved result, `retry` also picks up cancelled tools and may install a missing one, and `resume` never installs.
+- Detected commands: a few helpers that only existed on my own machines no longer get special rows. They show up like any other detected command.
+- Docs and site: the offline fallback, the security update model and the release pointer are described correctly, and counts say 259 entries.
 - Catalog: Playwright CLI and Playwright MCP are gone, from 261 to 259 entries. I don't use or recommend Playwright anymore, so aiup no longer installs, updates or suggests either one. A copy installed by an earlier version is not removed automatically. agent-browser, Browser Use and Chrome DevTools MCP stay. The review rules now exclude Playwright and anything that pulls it in.
 
 ## 2026.10.23-01
@@ -101,7 +104,7 @@
 - pnpm and Wrangler now install from their official npm packages, which publish before Homebrew's formulae. Once the npm copy is installed and runs, aiup removes the older Homebrew formula so one current copy remains (Homebrew declines if another formula depends on it).
 - whisper.cpp follows Homebrew's rename of its formula from `whisper-cpp` to `whisper.cpp`.
 - uv tools are detected from uv's own tool receipts, so a uv tool's version and install method are read without running it. Open WebUI installs with Python 3.12, which it requires; MarkItDown installs with its documented file-format extras.
-- Health (`GOOD`/`WARN`/`BROKEN`) is now judged for every catalog entry, not only the original set. Apps, and tools without a command of their own, are judged by their manager rather than by a PATH command.
+- Health (`GOOD`/`WARN`/`BROKEN`) is now judged for every catalog entry, not only the original set. Apps, and tools without a command of their own, are now judged by their manager, not by a PATH command.
 - The npm-channel "already current" check reads the registry's small latest-version document instead of running `npm view`.
 - Kiro CLI is found by its `kiro-cli` command. Recommended Homebrew extras no longer list tools the catalog already manages.
 
@@ -112,9 +115,9 @@
 - Homebrew freshness: before a check or preview, aiup refreshes Homebrew's package metadata when it is older than 15 minutes (one to three seconds), so "current" means current now. `HOMEBREW_NO_AUTO_UPDATE` is respected.
 - Update candidates now match everywhere: auto-updating casks are included (and compared with the installed app), unversioned `:latest` casks are not, so they no longer reinstall on every run.
 - Safety: an update run waits up to 60 seconds for Homebrew metadata (`AIUP_RUN_PROVIDER_TIMEOUT`); if an app cask's metadata still cannot be read, its upgrade is deferred instead of run unchecked.
-- Declining a switch to Homebrew is reported as `cancelled` rather than updated; `aiup resume` asks again about cancelled and deferred switches.
+- Declining a switch to Homebrew is now reported as `cancelled`, not `updated`; `aiup resume` asks again about cancelled and deferred switches.
 - Versions order dev < alpha < beta < rc < release < post.
-- Robustness: provider checks no longer clear the picker's interrupt handling; an interrupted Screenpipe update detaches its disk image, removes its download and restores the previous app; hidden temporaries left by interrupted commands are swept after an hour; the version cache holds up to 512 tools.
+- Reliability: provider checks no longer clear the picker's interrupt handling; an interrupted Screenpipe update detaches its disk image, removes its download and restores the previous app; hidden temporaries left by interrupted commands are swept after an hour; the version cache holds up to 512 tools.
 - Goose and Aider record the install method actually used.
 - Clearer notes for checks that could not be confirmed: a normal run still updates the tool.
 

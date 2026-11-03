@@ -23,7 +23,7 @@ git diff
 This writes public outputs. It is not a check, test, or dry run. Report what
 actually ran and keep evidence separate from source-review conclusions.
 
-When catalog producer inputs change, run `scripts/sync-public-docs --skip-media` once after edits finish and include its generated outputs, especially `showcase.json`, in the same commit. Review the diff instead of running another export just to check it. The default invocation also copies accepted canonical media; neither invocation generates media. Count-bearing social images need a separately authorized media task. See [public catalog facts](docs/public-catalog-facts.md). Run tests/checks only when the owner explicitly asks for them; a source refresh is not a test gate.
+When catalog producer inputs change, run `scripts/sync-public-docs --skip-media` once after edits finish and include its generated outputs, especially `showcase.json`, in the same commit. Review the diff instead of running another export just to check it. The default invocation also copies accepted canonical media; neither invocation generates media. Count-bearing social images need a separately authorized media task. See [public catalog facts](docs/public-catalog-facts.md). The project validates changes by review. Please describe what you reviewed in your pull request.
 
 ## Pull requests
 

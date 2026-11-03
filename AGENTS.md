@@ -1,4 +1,4 @@
-# AGENTS.md — aiup
+# AGENTS.md | aiup
 
 Instructions for any AI agent working in this repository. Follow the active global and workspace instructions first.
 
@@ -24,7 +24,7 @@ move Unreleased under the new version, commit and push, run
 
 ## Showcase facts contract
 
-This repo is showcased on travisjneuman.com and github.com/travisjneuman.
+This repo is listed on travisjneuman.com and github.com/travisjneuman.
 `showcase.json` is the only source for public facts about this project
 (schema: travisjneuman/travisjneuman `showcase/schema/showcase-v1.json`).
 
