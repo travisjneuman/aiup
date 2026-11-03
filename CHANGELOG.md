@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.03-04
+
+- Fixed (macOS): with the Bash that ships with macOS (3.2), `aiup list` stopped with a "bad substitution" error while it built the inventory. This hit commands run where Homebrew's newer Bash is not first on PATH, such as one-off ssh commands. The script now keeps that Python helper in its own function, which Bash 3.2 reads fine.
+
 ## 2026.11.03-03
 
 - Fixed (macOS): `aiup list` and other catalog-wide commands could fail with "Too many open files" once the catalog passed 256 entries. macOS starts shells with a limit of 256 open files, and the built-in Bash 3.2 kept one open per catalog entry in the Homebrew index pass. That pass now opens none, and aiup raises its own soft limit toward 4096 (within the hard limit) at start.

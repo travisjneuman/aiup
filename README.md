@@ -257,7 +257,7 @@ Press <kbd>enter</kbd> on an **on disk** app to let Homebrew manage it.
 ## 📚 What's in the catalog
 
 <!-- CATALOG:START -->
-_**2026.11.03-03** · **293** tools in the main catalog, 232 with a Linux install target and 208 with a Windows one. Generated from `macos/aiup` and the runtime catalog export._
+_**2026.11.03-04** · **293** tools in the main catalog, 232 with a Linux install target and 208 with a Windows one. Generated from `macos/aiup` and the runtime catalog export._
 
 | | Category | What | Size | Linux | Windows |
 |---|---|---|---|---|---|

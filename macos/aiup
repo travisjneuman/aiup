@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.11.03-03"
+AIUP_VERSION="2026.11.03-04"
 
 # macOS starts shells with a soft limit of 256 open files. Bash 3.2 holds the
 # descriptor of every < <(...) in a loop until the enclosing function returns,
@@ -5958,27 +5958,11 @@ emit_manual_media_rows() {
   done <<< "$MANUAL_MEDIA_ROWS"
 }
 
-inventory_index_init() {
-  [ "${INVENTORY_INDEX_READY:-0}" -eq 1 ] && return 0
-  catalog_manifest_load || return 1
-  local tool binary app pkg packages='' alias_path
-  ensure_system_npm_prefix
-  for tool in "${TOOLS_CATALOG[@]}"; do
-    pkg=''
-    case "$(catalog_kind "$tool")" in aiup-npm|special) pkg="$(catalog_npm_pkg "$tool")" ;; esac
-    [ -z "$pkg" ] || packages="${packages}${pkg}"$'\n'
-    binary="$(binary_of_tool "$tool")"
-    [ -n "$binary" ] && INVENTORY_MANAGED_BINARIES="${INVENTORY_MANAGED_BINARIES}${binary}|"
-    app="$(catalog_app_path "$tool")"
-    [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
-  done
-  for tool in "${HOMEBREW_RECOMMENDED_CASKS[@]}"; do
-    app="$(app_path_for_cask "$tool" 2>/dev/null || true)"
-    [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
-  done
-  while IFS= read -r alias_path; do
-    [ -n "$alias_path" ] && INVENTORY_MANAGED_ALIAS_PATHS="${INVENTORY_MANAGED_ALIAS_PATHS}${alias_path}|"
-  done < <(python3 - "$AIUP_NPM_PREFIX" "$SYSTEM_NPM_PREFIX" "$LOCAL_BIN" "$packages" <<'PYALIASES'
+# Executables in the npm prefixes' bin folders (and LOCAL_BIN) that resolve
+# inside a catalog npm package. The heredoc lives here, not inside <(...):
+# Bash 3.2 cannot parse a here-document inside a process substitution.
+inventory_managed_alias_paths() {
+  python3 - "$@" <<'PYALIASES'
 import json, os, sys
 from pathlib import Path
 prefixes=[Path(p) for p in dict.fromkeys(sys.argv[1:3]) if p]
@@ -6005,7 +5989,29 @@ for prefix in prefixes:
                         print(str(candidate))
         except (OSError,ValueError,TypeError): continue
 PYALIASES
-)
+}
+
+inventory_index_init() {
+  [ "${INVENTORY_INDEX_READY:-0}" -eq 1 ] && return 0
+  catalog_manifest_load || return 1
+  local tool binary app pkg packages='' alias_path
+  ensure_system_npm_prefix
+  for tool in "${TOOLS_CATALOG[@]}"; do
+    pkg=''
+    case "$(catalog_kind "$tool")" in aiup-npm|special) pkg="$(catalog_npm_pkg "$tool")" ;; esac
+    [ -z "$pkg" ] || packages="${packages}${pkg}"$'\n'
+    binary="$(binary_of_tool "$tool")"
+    [ -n "$binary" ] && INVENTORY_MANAGED_BINARIES="${INVENTORY_MANAGED_BINARIES}${binary}|"
+    app="$(catalog_app_path "$tool")"
+    [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
+  done
+  for tool in "${HOMEBREW_RECOMMENDED_CASKS[@]}"; do
+    app="$(app_path_for_cask "$tool" 2>/dev/null || true)"
+    [ -n "$app" ] && INVENTORY_MANAGED_APPS="${INVENTORY_MANAGED_APPS}${app}|"
+  done
+  while IFS= read -r alias_path; do
+    [ -n "$alias_path" ] && INVENTORY_MANAGED_ALIAS_PATHS="${INVENTORY_MANAGED_ALIAS_PATHS}${alias_path}|"
+  done < <(inventory_managed_alias_paths "$AIUP_NPM_PREFIX" "$SYSTEM_NPM_PREFIX" "$LOCAL_BIN" "$packages")
   INVENTORY_INDEX_READY=1
 }
 
