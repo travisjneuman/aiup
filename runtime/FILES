@@ -1,9 +1,9 @@
 # aiup runtime files: sha256 size path
-# aiup-runtime-version: 2026.11.03-02
+# aiup-runtime-version: 2026.11.03-03
 d0df3f62d3bf0d68a1e62977d7e4b763a0d53f11b0719d36219f7861a7b73d24  2358  catalog/categories.tsv
-a20124f6cd93fd552df32c2501a46286565b468e8dee30af073520425a681a01  70252  catalog/platforms.tsv
+af85da8a1c5c5652d69f4f9a2ec7b3af70734d98a2a8a05a402d5cf58110045d  70252  catalog/platforms.tsv
 48342b4f6f45e0709a32f32678dbb46e5985bc8c97102ca8aa15d4921f619aca  6903  catalog/tool-meta.tsv
-e1775078422ddc8ac6290d40de7e67ab7fd0c1bfc71edd9caf39f6d11f44ea5e  39239  macos/catalog/manifest.tsv
+dc3c5120fd6118dd25221a7982a1db3e85d297e7271a1677b12e6957e49dec41  39239  macos/catalog/manifest.tsv
 0e2d04d0aa02e24d445ed00d811a0533d80d4257a9d92b3459267208cfd759f9  318  runtime/aiup/__init__.py
 f1b4e792c418c5947660d60fc97a8af08710e94f4867e73a177fbd8ad5d4d295  198  runtime/aiup/__main__.py
 f7fea23d60e5da794513f397c972e333fe9ef5decdc5a729aa0635420ef4be26  1627  runtime/aiup/catalog/__init__.py
@@ -108,6 +108,6 @@ bbeaf65c62c6fc05032ba845870006be944324e42ed2a309339d8f85f4da10b5  30107  runtime
 27ac11208b72c96c6deb2963cf756add8786779af7bd46e43750f8747235d266  8535  runtime/aiup/tui/preview.py
 b66b94022ff9e7bdd6d45c24667ace90d5d37c0bf6e97e7700bc76ae24014441  28882  runtime/aiup/tui/rows.py
 d19d59fc616c5321d0725a00328bf4f96e66069ba16beeef75d50decaca715ee  22235  runtime/aiup/tui/session.py
-5468f4996e2180e71b093012c183e6905df3e8fe9f0e8f441a56bd1bde715ae4  147  runtime/aiup/version.py
+d9eeb7f6b84fd93e2e5acd135fb88de5d8b2352417b283eef73f83c64c187e48  147  runtime/aiup/version.py
 ee56b89275b06fc048448003e29823c7fd06dd1aaf78fdb5316b2369d56122b1  12550  runtime/aiup/versions.py
 65c60409ae21c08e7e8962a2e2bbdf2bb8d066fc00ae53bb244853a8399bd49b  873  runtime/aiup_main.py

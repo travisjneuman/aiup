@@ -2,7 +2,25 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.11.03-02"
+AIUP_VERSION="2026.11.03-03"
+
+# macOS starts shells with a soft limit of 256 open files. Bash 3.2 holds the
+# descriptor of every < <(...) in a loop until the enclosing function returns,
+# so a catalog-wide pass can run out. Raise the soft limit toward 4096 within
+# the hard limit; nothing changes when it is already higher.
+aiup_raise_open_files() {
+  local soft hard
+  soft="$(ulimit -Sn 2>/dev/null)" || return 0
+  case "$soft" in unlimited|''|*[!0-9]*) return 0 ;; esac
+  [ "$soft" -lt 4096 ] || return 0
+  hard="$(ulimit -Hn 2>/dev/null)" || return 0
+  case "$hard" in
+    unlimited) ulimit -Sn 4096 2>/dev/null || true ;;
+    ''|*[!0-9]*) ;;
+    *) if [ "$hard" -gt "$soft" ]; then ulimit -Sn "$([ "$hard" -lt 4096 ] && printf '%s' "$hard" || printf 4096)" 2>/dev/null || true; fi ;;
+  esac
+}
+aiup_raise_open_files
 AIUP_TUI_CACHE_SCHEMA="4"
 AIUP_TUI_UPDATE_SCHEMA="1"
 HEARTBEAT_SECONDS="${AIUP_HEARTBEAT_SECONDS:-5}"
@@ -2566,6 +2584,8 @@ channels_load() {
     case "$tool" in ''|*[!a-z0-9-]*) continue ;; esac
     case "$picked" in *"|$tool|"*) continue ;; esac
     picked="${picked}${tool}|"
+    catalog_alt_channels_set "$tool"
+    [ -n "$AIUP_ALT_CHANNELS" ] || continue
     while IFS=$'\t' read -r kind target; do
       case "$kind:$name" in
         brew-formula:brew|brew-cask:brew|aiup-npm:npm|uv-tool:uv) ;;
@@ -2574,7 +2594,7 @@ channels_load() {
       case "$target" in ''|*'|'*|*'='*) continue ;; esac
       map="${map}${tool}=${kind}=${target}|"
       break
-    done < <(catalog_alt_channels "$tool")
+    done <<< "$AIUP_ALT_CHANNELS"
   done < "$CHANNELS_FILE"
   AIUP_CHANNEL_MAP="$map"
   AIUP_CHANNEL_PICKED="$picked"
@@ -4028,9 +4048,13 @@ catalog_brew_index_init() {
     name="$(catalog_brew_cask "$tool")"
     [ -n "$name" ] && BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|"
     # Homebrew alternates belong to their catalog entry too.
+    # A here-string, not < <(...): Bash 3.2 keeps each process substitution's
+    # descriptor open until the function returns, and this runs once per tool.
+    catalog_alt_channels_set "$tool"
+    [ -n "$AIUP_ALT_CHANNELS" ] || continue
     while IFS=$'\t' read -r kind name; do
       case "$kind" in brew-formula|brew-cask) BREW_CATALOG_NAMES="${BREW_CATALOG_NAMES}${name}|${name##*/}|" ;; esac
-    done < <(catalog_alt_channels "$tool")
+    done <<< "$AIUP_ALT_CHANNELS"
   done
   AIUP_BREW_CATALOG_INDEX_READY=1
 }

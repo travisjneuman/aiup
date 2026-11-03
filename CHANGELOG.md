@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.03-03
+
+- Fixed (macOS): `aiup list` and other catalog-wide commands could fail with "Too many open files" once the catalog passed 256 entries. macOS starts shells with a limit of 256 open files, and the built-in Bash 3.2 kept one open per catalog entry in the Homebrew index pass. That pass now opens none, and aiup raises its own soft limit toward 4096 (within the hard limit) at start.
+
 ## 2026.11.03-02
 
 - New: aiup for Linux and Windows. Both run a new Python runtime (Python 3.9 or newer, standard library only) that reads the same catalog as macOS and drives fzf 0.73 or newer for `aiup list`. Without fzf, or without a terminal, `aiup list` prints a plain table. macOS keeps the Bash runtime it has today. Linux and Windows support is new, and first real runs are in progress.
