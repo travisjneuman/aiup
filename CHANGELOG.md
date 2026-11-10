@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.10-04
+
+- Fixed (Linux and Windows): a tool that pip installed into a Python install or virtual environment (for example `C:\Python313\Scripts\yt-dlp.exe`) was treated as the tool's own release copy, so aiup ran `yt-dlp -U`, which refuses and says to use pip. aiup now leaves pip's copies alone, as it already did for copies that a distro, Homebrew, Scoop, Chocolatey or winget owns. A copy that another channel reports is still updated there.
+
 ## 2026.11.10-03
 
 - Fixed (macOS): a plain `ssh HOST aiup` run, including every `aiup fleet` run, found no Homebrew because no login profile adds it to PATH. It stopped at the first Homebrew tool with "Homebrew required" plus two "unbound variable" errors. aiup now adds the usual Homebrew and per-user command folders to PATH for every command, as it already did for `aiup notify`, and no longer trips over an empty Homebrew list.

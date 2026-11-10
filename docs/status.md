@@ -2,7 +2,7 @@
 
 Status date: **2026-11-10**
 
-Current version: **2026.11.10-03**
+Current version: **2026.11.10-04**
 
 ## Current product scope
 

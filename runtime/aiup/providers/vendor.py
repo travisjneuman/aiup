@@ -148,8 +148,26 @@ _SYSTEM_ROOTS = ("/usr/bin", "/usr/sbin", "/bin", "/sbin", "/usr/lib", "/usr/lib
 _MANAGED_PARTS = ("/flatpak/exports/", "/cellar/", "/windowsapps/", "/scoop/", "/chocolatey/", "/winget/")
 
 
+def python_env_script(path: str) -> bool:
+    """True for a console script pip put in a Python install or virtual environment.
+
+    That is ``Scripts`` beside ``python.exe`` or ``pyvenv.cfg`` (Windows), or a venv
+    ``bin`` beside ``pyvenv.cfg``. Its own updater refuses (``yt-dlp -U`` says to use
+    pip), so it is never the vendor copy. Only the path found on PATH counts: a
+    ``~/.local/bin`` link into a venv is how some vendor installers publish their tool.
+    """
+    folder = Path(path).parent
+    root = folder.parent
+    name = folder.name.lower()
+    if name == "scripts":
+        return (root / "python.exe").is_file() or (root / "pyvenv.cfg").is_file()
+    return name == "bin" and (root / "pyvenv.cfg").is_file()
+
+
 def vendor_copy(ctx: "Context", path: str) -> bool:
     """False when ``path`` (or the file it links to) sits in another manager's folders."""
+    if python_env_script(path):
+        return False
     for candidate in (path, real_path(path)):
         if not is_windows(ctx) and any(path_inside(candidate, root) for root in _SYSTEM_ROOTS):
             return False

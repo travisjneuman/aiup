@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.11.10-03"
+AIUP_VERSION="2026.11.10-04"
 
 # macOS starts shells with a soft limit of 256 open files. Bash 3.2 holds the
 # descriptor of every < <(...) in a loop until the enclosing function returns,

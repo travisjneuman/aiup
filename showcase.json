@@ -31,10 +31,10 @@
         "producer": "scripts/sync-public-docs",
         "catalogCommand": "macos/aiup catalog --json",
         "population": "top-level tools: curated manifest entries",
-        "runtimeVersion": "2026.11.10-03",
-        "runtimeSha256": "0afa8a955137398d6f5c60a4b56a1323b6682f80fa111279a68277fa713fb77f",
-        "manifestSha256": "f7852270f796b0125d7ce04d0670cf7057bd13f73b1e5e51f9d58a38bcce5ead",
-        "exportSha256": "24a830939082e718a5427293de76d973330c93627de7936123ff74c83ad41b65"
+        "runtimeVersion": "2026.11.10-04",
+        "runtimeSha256": "7e66c721439dd7a942dd15c6032a9fe0c3267fbd927445de6fdb845338fdd523",
+        "manifestSha256": "72f03509af8603a56ca6f264fff10d710fff923023689eab29127f873f550428",
+        "exportSha256": "ef0b8d7d7136969fb3d37b9857ff0b78d190c460230b896f99e327b12df7f79b"
       }
     },
     {
