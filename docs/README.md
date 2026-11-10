@@ -16,6 +16,7 @@ Front door for `docs/`: find the right aiup document in one read. Up: [README](.
 | status, scope, version, next work, limitations | [status.md](status.md) | Current scope and completion record |
 | JSON, exit status, scripts, export, import, another Mac | [scripting.md](scripting.md) | Using aiup from scripts |
 | notify, notifications, cron, launchd, schedule | [notify.md](notify.md) | `aiup notify` and how to schedule it yourself |
+| fleet, several computers, SSH, Tailscale, tailnet, remote | [fleet.md](fleet.md) | `aiup fleet`: one command updates every computer you list |
 | detected commands, ownership, version evidence | [command-insights.md](command-insights.md) | How detected commands are recognized |
 | public counts, showcase, site metrics | [public-catalog-facts.md](public-catalog-facts.md) | Definitions behind published catalog numbers |
 | catalog policy, candidates, managed vs detected | [catalog-research.md](catalog-research.md) | Standing catalog policy and candidate notebook |
@@ -36,6 +37,7 @@ graph LR
   DX --> PV[privacy]
   DX --> SC[scripting]
   SC --> NT[notify]
+  SC --> FL[fleet]
   DX --> HB[homebrew]
   DX --> CT[catalog]
   CT --> PF[public-catalog-facts]
@@ -54,6 +56,7 @@ graph LR
 - [linux/README.md](../linux/README.md) and [windows/README.md](../windows/README.md): install guides for Linux and Windows (new, so far run on Arch Linux, Windows 11 and Windows Server 2022).
 - [scripting.md](scripting.md): JSON output, exit status, export and import.
 - [notify.md](notify.md): `aiup notify` and scheduling it yourself.
+- [fleet.md](fleet.md): `aiup fleet`, updating several computers from one.
 - [homebrew.md](homebrew.md): how aiup works with Homebrew.
 - [privacy.md](privacy.md): what is scanned and what stays local.
 - [status.md](status.md): current version, scope and next work.

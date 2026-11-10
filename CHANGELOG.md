@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.11.10-01
+
+- New: `aiup fleet` updates several computers from one. It runs aiup on this computer and on every computer in your fleet list at the same time, with each output line labelled by computer and a summary at the end. `aiup fleet check`, `plan`, `doctor`, `attention`, `resume`, `retry` and `version` run those commands everywhere, and `--dry-run`, `--force`, `--show-unchanged`, `--verbose` and `--refresh` pass through. It works the same on macOS, Linux and Windows.
+- The fleet list is a local text file with one SSH host or alias per line, managed with `aiup fleet list`, `add` and `remove`. Other computers are reached with your own `ssh` in batch mode, so anything ssh can reach works and nothing new listens on the network. This computer always runs locally, even when the list names it, so one list can be shared by every computer.
+- Optional: `aiup fleet discover` uses Tailscale, when it's installed, to find online tailnet computers that answer `aiup version` over SSH and offers to add them. `docs/fleet.md` has the details.
+
 ## 2026.11.03-05
 
 - Docs and site: Linux and Windows have now run for real on Arch Linux, Windows 11 and Windows Server 2022, and the README, install, status, privacy and scripting docs, `llms.txt` and the site's page details say so. Other Linux distros and Windows versions are untried. The site title and description now name Linux and Windows.

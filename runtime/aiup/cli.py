@@ -91,6 +91,7 @@ class Args:
     list_mode: str = ""                # list: "" (picker), "plain", "detected"
     inventory_mode: str = "json"       # inventory: json|plain
     policy: Optional[str] = None       # channel --policy [VALUE]: "" when no value
+    fleet_add: bool = False            # fleet discover --add
     # Filled in by main().
     os_name: str = ""
     config: Optional[Config] = None
@@ -308,6 +309,23 @@ def _parse_cleanup(args: Args, words: List[str]) -> None:
         "aiup cleanup history works here.".format(trash))
 
 
+def _parse_fleet(args: Args, words: List[str]) -> None:
+    """aiup fleet [COMMAND] | list | add HOST... | remove HOST... | discover [--add]."""
+    from aiup.commands.fleet import FLEET_USAGE, LIST_COMMANDS, RUN_COMMANDS
+
+    found = _take_options(words, ("--add",), "fleet")
+    sub = words.pop(0) if words else "update"
+    _expect(sub in RUN_COMMANDS + LIST_COMMANDS, FLEET_USAGE)
+    args.subcommand = sub
+    if sub in ("add", "remove"):
+        _expect(bool(words), "aiup fleet {} HOST...".format(sub))
+    else:
+        _expect(not words, FLEET_USAGE)
+    if "--add" in found:
+        _expect(sub == "discover", "aiup fleet discover --add")
+        args.fleet_add = True
+
+
 def _parse_list(args: Args, words: List[str]) -> None:
     found = _take_options(words, ("--plain", "--detected"), "list")
     _expect(not words, "aiup list [--plain|--detected]")
@@ -404,6 +422,9 @@ def parse(argv: Sequence[str], os_name: Optional[str] = None) -> Args:
     elif typed == "list":
         args.command = "list"
         _parse_list(args, words)
+    elif typed == "fleet":
+        args.command = "fleet"
+        _parse_fleet(args, words)
     elif typed in _SIMPLE:
         args.command = _ALIASES.get(typed, typed)
         _parse_simple(args, typed, words)
@@ -487,6 +508,13 @@ Preferences:
                                  newest channel, where each is now, or one manager
 
 Other computers and schedules:
+  aiup fleet [COMMAND]     Run aiup here and on every computer in your fleet list at once, over SSH.
+                           COMMAND is update (default), check, plan, doctor, attention, resume,
+                           retry or version; --dry-run, --force, --verbose pass through
+  aiup fleet list          Show the fleet list (one SSH host or alias per line)
+  aiup fleet add HOST...   Add SSH hosts or aliases; aiup fleet remove HOST... drops them
+  aiup fleet discover      With Tailscale: find tailnet computers that answer aiup version
+                           over SSH and offer to add them (--add adds without asking)
   aiup export [FILE]       Save your tools, other packages and preferences as JSON
   aiup import FILE         Show what an export adds here, ask, then install it
   aiup notify [--always]   Check, then show a desktop notification when updates are ready.
@@ -638,6 +666,11 @@ def run_args(args: Args) -> int:
     if args.command == "version":
         sys.stdout.write(AIUP_VERSION + "\n")
         return EXIT_OK
+    if args.command == "fleet":
+        # Runs aiup itself on each computer, so it needs no catalog or engine here.
+        from aiup.commands import fleet
+
+        return fleet.run(args)
     if args.plain:
         os.environ["NO_COLOR"] = "1"
     config = load_config()

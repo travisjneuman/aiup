@@ -1,5 +1,5 @@
 # aiup cross-platform install targets
-# aiup-runtime-version: 2026.11.03-05
+# aiup-runtime-version: 2026.11.10-01
 # id	linux_arch	linux_apt	linux_dnf	linux_flatpak	linux_snap	linux_brew	linux_other	windows_winget	windows_scoop	windows_choco	windows_other	linux_default	windows_default	notes
 brew	aur:brew-git						script:https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh;vendor:brew update					vendor		Infrastructure. Homebrew runs on Linux (script) but on Linux the system package manager (pacman, apt, dnf) is the infrastructure analogue. On Windows the analogue is winget (Scoop and Chocolatey optional). No Windows build. Evidence: https://docs.brew.sh/Homebrew-on-Linux
 npm	npm	npm	nodejs-npm		node --classic	node		OpenJS.NodeJS	main/nodejs	nodejs		pacman	winget	Infrastructure (Node.js plus npm). Current line shown to match the macOS brew node formula. LTS ids are winget OpenJS.NodeJS.LTS, scoop main/nodejs-lts, choco nodejs-lts. Debian stable and Fedora ship older majors. Snap node is published by the OpenJS Foundation (verified). On Linux the npm package pulls in nodejs. Manual download: https://nodejs.org/en/download.

@@ -1,8 +1,8 @@
 # Scope, completion, and next work
 
-Status date: **2026-11-03**
+Status date: **2026-11-10**
 
-Current version: **2026.11.03-01**
+Current version: **2026.11.10-01**
 
 ## Current product scope
 
@@ -51,6 +51,10 @@ aiup is a local-first Bash TUI for macOS. A Python version for Linux and Windows
 The cache/session authority and first performance slice are documented in [TUI performance foundation](tui-performance-foundation-2026-08-26.md). The lazy/eager/background boundaries, provider TTLs, invalidation rules, fallbacks, and second-slice measurements are documented in [TUI performance slice 2](tui-performance-slice-2-2026-08-26.md). The virtual-category identity, verified bulk-update boundary, and invalidation behavior are documented in [Dynamic Updates category and safe bulk updating](dynamic-updates-category-2026-08-27.md). The independently reproduced contract, fault, security, performance, command, PTY, and publication evidence is in [TUI performance and regression closure](tui-performance-regression-closure-2026-08-27.md).
 
 The public support baseline is macOS 14+ with Bash 3+, Python 3, and curl. Individual products can impose stricter constraints recorded in the [dated 83-entry accuracy audit](catalog-accuracy-2026-08-25.md). That audit left 81 managed entries with executable contracts.
+
+## Several computers
+
+`aiup fleet` (2026.11.10-01) runs aiup on this computer and on every computer in a local list at the same time, over SSH, from macOS, Linux or Windows. Optional Tailscale discovery finds tailnet computers that answer `aiup version`. See [fleet.md](fleet.md).
 
 ## Linux and Windows
 

@@ -63,6 +63,7 @@ On Linux or Windows (new, so far run on Arch Linux, Windows 11 and Windows Serve
 | `aiup list` | 🎛️ Full-screen catalog |
 | `aiup check` | Read-only availability report with what's new in each update; accepts optional tool names |
 | `aiup notify` | Check, then show a macOS notification when updates are ready ([schedule it yourself](docs/notify.md)) |
+| `aiup fleet` | Run `aiup` on this computer and every computer in your fleet list at the same time, over SSH ([fleet](docs/fleet.md)) |
 | `aiup explain remotion` | Show detection, manager, location, and next action |
 | `aiup history` | Recent update results; optionally filter by tool |
 | `aiup logs remotion` | Read just that tool’s output from its latest saved run, in a pager |

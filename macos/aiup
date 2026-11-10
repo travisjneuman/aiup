@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.11.03-05"
+AIUP_VERSION="2026.11.10-01"
 
 # macOS starts shells with a soft limit of 256 open files. Bash 3.2 holds the
 # descriptor of every < <(...) in a loop until the enclosing function returns,
@@ -11906,7 +11906,14 @@ Preferences:
   aiup channel --policy [newest|keep|brew]  Where tools without a pick install from: the
                                  newest channel, where each is now, or Homebrew where it can
 
-Other Macs and schedules:
+Other computers and schedules:
+  aiup fleet [COMMAND]     Run aiup here and on every computer in your fleet list at once, over SSH.
+                           COMMAND is update (default), check, plan, doctor, attention, resume,
+                           retry or version; --dry-run, --force, --verbose pass through
+  aiup fleet list          Show the fleet list (one SSH host or alias per line)
+  aiup fleet add HOST...   Add SSH hosts or aliases; aiup fleet remove HOST... drops them
+  aiup fleet discover      With Tailscale: find tailnet computers that answer aiup version
+                           over SSH and offer to add them (--add adds without asking)
   aiup export [FILE]       Save your tools, Homebrew packages and preferences as JSON
   aiup import FILE         Show what an export adds here, ask, then install it
   aiup notify [--always]   Check, then show a macOS notification when updates are ready.
@@ -13074,6 +13081,526 @@ state_sweep_stale_temporaries() {
     find "$STATE_DIR/downloads/screenpipe" -mindepth 1 -maxdepth 1 -mmin +60 \( -name 'screenpipe-*.dmg' -o -name 'staged-*' -o -name 'mount-*' \) \
       -exec sh -c 'for d; do [ -d "$d" ] && { rmdir "$d" 2>/dev/null || case "$d" in */staged-*) rm -rf "$d" ;; esac; } || rm -f "$d"; done' sh {} + 2>/dev/null || true
 }
+
+# ---------------------------------------------------------------------------
+# aiup fleet: run aiup on this Mac and on other computers over SSH.
+# Same command and file format as runtime/aiup/commands/fleet.py; keep them in
+# step. The fleet list (AIUP_FLEET_FILE, else $STATE_DIR/fleet-hosts) holds one
+# SSH host or alias per line; # starts a comment. This Mac always runs too.
+# Every run word is a fixed word, so nothing typed reaches a remote shell.
+# ---------------------------------------------------------------------------
+
+FLEET_RUN_COMMANDS=" update check plan doctor attention resume retry version "
+FLEET_USAGE="aiup fleet [update|check|plan|doctor|attention|resume|retry|version] | fleet list | fleet add HOST... | fleet remove HOST... | fleet discover [--add]"
+FLEET_SSH_OPTIONS="-n -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 -o ServerAliveCountMax=4"
+FLEET_PROBE_OPTIONS="-n -o BatchMode=yes -o ConnectTimeout=8"
+FLEET_MAX_HOSTS=64
+FLEET_NOT_FOUND_WINDOWS="is not recognized as an internal or external command"
+FLEET_TAB="$(printf '\t')"
+FLEET_TMP_DIR=""
+
+fleet_say_error() { printf 'aiup: %s\n' "$*" >&2; }
+
+fleet_file() { printf '%s\n' "${AIUP_FLEET_FILE:-$STATE_DIR/fleet-hosts}"; }
+
+fleet_lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# A plain SSH destination: letters, digits and . _ @ -, first character a
+# letter, digit or _, so it can never be read as an ssh option.
+fleet_valid_host() {
+  [ -n "$1" ] && [ "${#1}" -le 253 ] || return 1
+  case "$1" in -*|.*|@*|*[!A-Za-z0-9._@-]*) return 1 ;; esac
+  return 0
+}
+
+fleet_trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+fleet_entry() { fleet_trim "${1%%#*}"; }
+
+fleet_bad_host() {
+  usage_error "'$1' is not an SSH host name or alias (letters, digits and . _ @ - only)"
+}
+
+# Valid hosts in file order, each once (case-insensitive), one per line.
+fleet_hosts() {
+  local file line host lower seen=" " count=0 number=0
+  file="$(fleet_file)"
+  [ ! -L "$file" ] || { fleet_say_error "refusing symbolic-link fleet list: $file"; return 1; }
+  [ -f "$file" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    number=$((number + 1))
+    host="$(fleet_entry "$line")"
+    [ -n "$host" ] || continue
+    if ! fleet_valid_host "$host"; then
+      fleet_say_error "skipping line $number of $file: not an SSH host"
+      continue
+    fi
+    lower="$(fleet_lower "$host")"
+    case "$seen" in *" $lower "*) continue ;; esac
+    seen="$seen$lower "
+    count=$((count + 1))
+    [ "$count" -le "$FLEET_MAX_HOSTS" ] || { fleet_say_error "the fleet list has more than $FLEET_MAX_HOSTS hosts: $file"; return 1; }
+    printf '%s\n' "$host"
+  done < "$file"
+}
+
+# First DNS label, lowercase, letters and digits only (Work-Laptop.lan -> worklaptop).
+fleet_norm() {
+  local value="${1%.}"
+  value="${value%%.*}"
+  fleet_lower "$value" | tr -cd 'a-z0-9'
+}
+
+fleet_tailscale_command() {
+  if command -v tailscale >/dev/null 2>&1; then
+    command -v tailscale
+  elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    printf '%s\n' /Applications/Tailscale.app/Contents/MacOS/Tailscale
+  else
+    return 1
+  fi
+}
+
+# Tailscale status as tab-separated lines: "self NAME" and "peer SHORT FQDN OS"
+# (FQDN "-" when unknown) for online Linux, macOS and Windows peers. Fails
+# without Tailscale.
+fleet_tailnet_lines() {
+  local tailscale json
+  tailscale="$(fleet_tailscale_command)" || return 1
+  json="$("$tailscale" status --json 2>/dev/null </dev/null)" || return 1
+  [ -n "$json" ] || return 1
+  command -v python3 >/dev/null 2>&1 || return 1
+  printf '%s' "$json" | python3 -c '
+import json, re, sys
+ok = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._@-]{0,252}$")
+try:
+    data = json.load(sys.stdin)
+except ValueError:
+    sys.exit(1)
+me = data.get("Self") or {}
+for key in ("DNSName", "HostName"):
+    if isinstance(me.get(key), str) and me[key]:
+        print("self\t" + me[key])
+peers = data.get("Peer") or {}
+for peer in sorted(peers.values(), key=lambda p: str(p.get("DNSName", ""))):
+    if not isinstance(peer, dict) or not peer.get("Online"):
+        continue
+    system = str(peer.get("OS", ""))
+    if system.lower() not in ("linux", "macos", "windows"):
+        continue
+    fqdn = str(peer.get("DNSName", "")).rstrip(".")
+    short = (fqdn.split(".")[0] if fqdn else str(peer.get("HostName", ""))).lower()
+    if ok.match(short):
+        print("peer\t%s\t%s\t%s" % (short, fqdn if ok.match(fqdn) else "-", system))
+'
+}
+
+# Normalized names this Mac goes by, space separated.
+fleet_self_names() {
+  local names=" " value kind rest
+  for value in "$(hostname 2>/dev/null)" "$(scutil --get LocalHostName 2>/dev/null)"; do
+    [ -z "$value" ] || names="$names$(fleet_norm "$value") "
+  done
+  value="$(scutil --get ComputerName 2>/dev/null)"
+  [ -z "$value" ] || names="$names$(fleet_lower "$value" | tr -cd 'a-z0-9') "
+  while IFS="$FLEET_TAB" read -r kind rest; do
+    [ "$kind" != self ] || names="$names$(fleet_norm "$rest") "
+  done <<EOF_FLEET_SELF
+$(fleet_tailnet_lines 2>/dev/null || true)
+EOF_FLEET_SELF
+  printf '%s\n' "$names"
+}
+
+fleet_is_self() {
+  local entry="$1" names="$2" host candidate resolved norm
+  host="${entry##*@}"
+  resolved="$(ssh -G "$host" 2>/dev/null </dev/null | awk '$1 == "hostname" { print $2; exit }')"
+  for candidate in "$host" "$resolved"; do
+    [ -n "$candidate" ] || continue
+    case "$(fleet_lower "$candidate")" in localhost|127.0.0.1|::1) return 0 ;; esac
+    # Addresses never match by name.
+    case "$candidate" in *:*) continue ;; *[!0-9.]*) ;; *) continue ;; esac
+    norm="$(fleet_norm "$candidate")"
+    [ -n "$norm" ] || continue
+    case "$names" in *" $norm "*) return 0 ;; esac
+  done
+  return 1
+}
+
+fleet_duration() {
+  if [ "$1" -lt 60 ]; then printf '%ss' "$1"; else printf '%dm%02ds' $(($1 / 60)) $(($1 % 60)); fi
+}
+
+fleet_safe_name() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-100; }
+
+# fleet_run_one LABEL LOCAL(0|1) PADDED_LABEL LOG STATUS_FILE WORDS...
+fleet_run_one() {
+  local label="$1" is_local="$2" padded="$3" log="$4" status_file="$5" start code line
+  shift 5
+  start=$SECONDS
+  : 2>/dev/null > "$log" || log=/dev/null
+  {
+    if [ "$is_local" -eq 1 ]; then
+      bash "$(tui_runtime_path)" "$@"
+    else
+      # shellcheck disable=SC2086  # fixed option words
+      ssh $FLEET_SSH_OPTIONS "$label" aiup "$@"
+    fi
+  } </dev/null 2>&1 | LC_ALL=C sed -l -e $'s#\x1b\\[[0-?]*[ -/]*[@-~]##g' -e "s#$FLEET_TAB# #g" -e 's#[[:cntrl:]]##g' | \
+    while IFS= read -r line || [ -n "$line" ]; do
+      printf '%s  %s\n' "$padded" "$line"
+      printf '%s\n' "$line" >> "$log"
+    done
+  code="${PIPESTATUS[0]}"
+  printf '%s %s\n' "$code" $((SECONDS - start)) > "$status_file"
+}
+
+fleet_describe() {
+  local code="$1" is_local="$2" log="$3"
+  if [ "$code" -eq 0 ]; then printf 'done'
+  elif [ "$is_local" -eq 0 ] && [ "$code" -eq 255 ]; then printf 'could not connect over SSH'
+  elif [ "$code" -eq 127 ] || grep -q "$FLEET_NOT_FOUND_WINDOWS" "$log" 2>/dev/null; then printf 'aiup not found on its PATH'
+  elif [ "$code" -eq 130 ]; then printf 'stopped'
+  else printf 'something failed (exit %s)' "$code"
+  fi
+}
+
+fleet_stop_all() {
+  trap '' INT TERM
+  kill -TERM 0 2>/dev/null
+  [ -z "$FLEET_TMP_DIR" ] || rm -rf "$FLEET_TMP_DIR"
+  printf '\naiup: stopped\n' >&2
+  exit 130
+}
+
+# fleet_run WORDS...: this Mac plus every listed host that is not this Mac.
+fleet_run() {
+  local file names host labels="" local_label="" remote_count=0 width=0 index label is_local
+  local padded logs code seconds good=0 total=0 any_ssh=0 shown summary="" note
+  file="$(fleet_file)"
+  names="$(fleet_self_names)"
+  while IFS= read -r host; do
+    [ -n "$host" ] || continue
+    if fleet_is_self "$host" "$names"; then
+      [ -n "$local_label" ] || local_label="$host"
+    else
+      labels="$labels$host
+"
+      remote_count=$((remote_count + 1))
+    fi
+  done <<EOF_FLEET_HOSTS
+$(fleet_hosts)
+EOF_FLEET_HOSTS
+  [ -n "$local_label" ] || local_label="$(fleet_lower "$(hostname -s 2>/dev/null || hostname)")"
+  [ -n "$local_label" ] || local_label=this-computer
+  labels="$local_label
+$labels"
+  if [ "$remote_count" -gt 0 ] && ! command -v ssh >/dev/null 2>&1; then
+    fleet_say_error "ssh is not on PATH, so aiup fleet cannot reach the other computers"
+    return 1
+  fi
+  if [ "$remote_count" -eq 0 ]; then
+    printf 'aiup fleet: no other computers are listed in %s\nAdd some with aiup fleet add HOST..., or aiup fleet discover with Tailscale. Running here only.\n\n' "$file"
+  fi
+  logs="$STATE_DIR/fleet"
+  [ ! -L "$logs" ] || { fleet_say_error "refusing symbolic-link state path: $logs"; return 1; }
+  mkdir -p "$logs" || { fleet_say_error "could not create $logs"; return 1; }
+  FLEET_TMP_DIR="$(mktemp -d "$STATE_DIR/.fleet.XXXXXX")" || { fleet_say_error "could not create a temporary folder"; return 1; }
+  while IFS= read -r label; do
+    [ -n "$label" ] || continue
+    [ "${#label}" -le "$width" ] || width="${#label}"
+  done <<EOF_FLEET_WIDTH
+$labels
+EOF_FLEET_WIDTH
+  shown="aiup${*:+ $*}"
+  printf 'aiup fleet: running `%s` on %s\n' "$shown" "$(printf '%s' "$labels" | sed '/^$/d' | paste -s -d, - | sed 's/,/, /g')"
+  trap fleet_stop_all INT TERM
+  index=0
+  while IFS= read -r label; do
+    [ -n "$label" ] || continue
+    index=$((index + 1))
+    is_local=0
+    [ "$index" -ne 1 ] || is_local=1
+    padded="$(printf "%-${width}s" "$label")"
+    fleet_run_one "$label" "$is_local" "$padded" "$logs/$(fleet_safe_name "$label").log" "$FLEET_TMP_DIR/$index" "$@" &
+  done <<EOF_FLEET_RUN
+$labels
+EOF_FLEET_RUN
+  wait
+  trap - INT TERM
+  index=0
+  while IFS= read -r label; do
+    [ -n "$label" ] || continue
+    index=$((index + 1))
+    total=$((total + 1))
+    is_local=0
+    [ "$index" -ne 1 ] || is_local=1
+    code=1
+    seconds=0
+    [ ! -f "$FLEET_TMP_DIR/$index" ] || read -r code seconds < "$FLEET_TMP_DIR/$index"
+    [ "$code" -ne 0 ] || good=$((good + 1))
+    [ "$is_local" -eq 1 ] || [ "$code" -ne 255 ] || any_ssh=1
+    note=""
+    [ "$is_local" -eq 0 ] || note=" (this computer)"
+    summary="$summary$(printf "  %-${width}s  %-28s %7s%s" "$label" \
+      "$(fleet_describe "$code" "$is_local" "$logs/$(fleet_safe_name "$label").log")" \
+      "$(fleet_duration "$seconds")" "$note")
+"
+  done <<EOF_FLEET_SUMMARY
+$labels
+EOF_FLEET_SUMMARY
+  rm -rf "$FLEET_TMP_DIR"
+  FLEET_TMP_DIR=""
+  note="s"
+  [ "$total" -ne 1 ] || note=""
+  printf '\naiup fleet: %s computer%s, %s done, %s not\n%s' "$total" "$note" "$good" $((total - good)) "$summary"
+  printf 'Full output for each computer: %s\n' "$logs"
+  [ "$any_ssh" -eq 0 ] || printf 'A host that could not connect needs key-based SSH that works with `ssh HOST aiup version` (no password or host-key prompt).\n'
+  [ "$good" -eq "$total" ]
+}
+
+fleet_write_lines() {  # FILE, new contents on stdin
+  local file="$1" dir tmp
+  dir="$(dirname "$file")"
+  [ ! -L "$file" ] || { fleet_say_error "refusing symbolic-link fleet list: $file"; return 1; }
+  mkdir -p "$dir" || { fleet_say_error "could not create $dir"; return 1; }
+  tmp="$(mktemp "$dir/.fleet-hosts.XXXXXX")" || { fleet_say_error "could not write $file"; return 1; }
+  if cat > "$tmp" && mv -f "$tmp" "$file"; then return 0; fi
+  rm -f "$tmp"
+  fleet_say_error "could not write $file"
+  return 1
+}
+
+# fleet_add HOST... (already checked by fleet_valid_host)
+fleet_add() {
+  local file host lower known=" " added="" count=0 line entry
+  file="$(fleet_file)"
+  [ ! -L "$file" ] || { fleet_say_error "refusing symbolic-link fleet list: $file"; return 1; }
+  if [ -f "$file" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      entry="$(fleet_entry "$line")"
+      [ -z "$entry" ] || { known="$known$(fleet_lower "$entry") "; count=$((count + 1)); }
+    done < "$file"
+  fi
+  for host in "$@"; do
+    lower="$(fleet_lower "$host")"
+    case "$known" in
+      *" $lower "*) printf 'already listed: %s\n' "$host"; continue ;;
+    esac
+    known="$known$lower "
+    count=$((count + 1))
+    added="$added$host
+"
+    printf 'added %s\n' "$host"
+  done
+  [ "$count" -le "$FLEET_MAX_HOSTS" ] || { fleet_say_error "a fleet list holds at most $FLEET_MAX_HOSTS hosts"; return 1; }
+  [ -n "$added" ] || return 0
+  {
+    if [ -s "$file" ]; then
+      cat "$file"
+      [ -z "$(tail -c 1 "$file")" ] || printf '\n'
+    else
+      printf '# aiup fleet: one SSH host or alias per line. This computer always runs too.\n'
+    fi
+    printf '%s' "$added"
+  } | fleet_write_lines "$file" || return 1
+  printf 'Saved in %s. Check each with: ssh HOST aiup version\n' "$file"
+}
+
+# fleet_remove HOST... (already checked by fleet_valid_host)
+fleet_remove() {
+  local file host wanted=" " removed=" " line entry lower status=0 kept=""
+  file="$(fleet_file)"
+  [ ! -L "$file" ] || { fleet_say_error "refusing symbolic-link fleet list: $file"; return 1; }
+  for host in "$@"; do
+    wanted="$wanted$(fleet_lower "$host") "
+  done
+  if [ -f "$file" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      entry="$(fleet_entry "$line")"
+      lower="$(fleet_lower "$entry")"
+      case "$wanted" in
+        *" $lower "*)
+          if [ -n "$entry" ]; then removed="$removed$lower "; continue; fi
+          ;;
+      esac
+      kept="$kept$line
+"
+    done < "$file"
+  fi
+  if [ "$removed" != " " ]; then
+    printf '%s' "$kept" | fleet_write_lines "$file" || return 1
+  fi
+  for host in "$@"; do
+    case "$removed" in
+      *" $(fleet_lower "$host") "*) printf 'removed %s\n' "$host" ;;
+      *) printf 'not listed: %s\n' "$host"; status=1 ;;
+    esac
+  done
+  return "$status"
+}
+
+fleet_list() {
+  local file names host count=0
+  file="$(fleet_file)"
+  names="$(fleet_self_names)"
+  printf 'Fleet list: %s\n' "$file"
+  while IFS= read -r host; do
+    [ -n "$host" ] || continue
+    count=$((count + 1))
+    if fleet_is_self "$host" "$names"; then printf '  %s  (this computer)\n' "$host"; else printf '  %s\n' "$host"; fi
+  done <<EOF_FLEET_LIST
+$(fleet_hosts)
+EOF_FLEET_LIST
+  [ "$count" -gt 0 ] || printf '  (empty) aiup fleet runs on this computer only.\n  Add hosts with aiup fleet add HOST..., or aiup fleet discover with Tailscale.\n'
+}
+
+# fleet_probe SHORT FQDN OUT: writes "NAME<TAB>VERSION" for the name that
+# answered over SSH (VERSION empty without aiup), or nothing when neither did.
+fleet_probe() {
+  local name output code
+  for name in "$1" "$2"; do
+    [ -n "$name" ] && [ "$name" != - ] || continue
+    # shellcheck disable=SC2086  # fixed option words
+    output="$(ssh $FLEET_PROBE_OPTIONS "$name" aiup version 2>/dev/null </dev/null)"
+    code=$?
+    [ "$code" -ne 255 ] || continue
+    output="$(printf '%s\n' "$output" | tr -d '\r' | sed '/^[[:space:]]*$/d' | tail -n 1 | cut -c1-40)"
+    [ "$code" -eq 0 ] || output=""
+    printf '%s\t%s\n' "$name" "$output" > "$3"
+    return 0
+  done
+  : > "$3"
+}
+
+fleet_discover() {
+  local add_all="$1" lines kind short fqdn system index=0 width=0 listed answer version state addable="" reply count
+  lines="$(fleet_tailnet_lines 2>/dev/null)" || {
+    fleet_say_error "aiup fleet discover needs Tailscale installed and running. Without it, add hosts by name: aiup fleet add HOST..."
+    return 1
+  }
+  command -v ssh >/dev/null 2>&1 || { fleet_say_error "ssh is not on PATH"; return 1; }
+  lines="$(printf '%s\n' "$lines" | grep "^peer$FLEET_TAB" || true)"
+  if [ -z "$lines" ]; then
+    printf 'No other Linux, macOS or Windows computers are online on this tailnet.\n'
+    return 0
+  fi
+  FLEET_TMP_DIR="$(mktemp -d "$STATE_DIR/.fleet.XXXXXX")" || { fleet_say_error "could not create a temporary folder"; return 1; }
+  count="$(printf '%s\n' "$lines" | wc -l | tr -d ' ')"
+  printf 'Asking %s tailnet computer(s) for `aiup version` over SSH...\n' "$count"
+  while IFS="$FLEET_TAB" read -r kind short fqdn system; do
+    index=$((index + 1))
+    [ "${#short}" -le "$width" ] || width="${#short}"
+    fleet_probe "$short" "$fqdn" "$FLEET_TMP_DIR/$index" &
+  done <<EOF_FLEET_PEERS
+$lines
+EOF_FLEET_PEERS
+  wait
+  listed=" $(fleet_hosts | tr '[:upper:]' '[:lower:]' | tr '\n' ' ')"
+  index=0
+  while IFS="$FLEET_TAB" read -r kind short fqdn system; do
+    index=$((index + 1))
+    answer=""
+    version=""
+    [ ! -s "$FLEET_TMP_DIR/$index" ] || IFS="$FLEET_TAB" read -r answer version < "$FLEET_TMP_DIR/$index"
+    if [ -n "$version" ]; then state="aiup $version"
+    elif [ -n "$answer" ]; then state="SSH works, no aiup"
+    else state="SSH did not connect"; fi
+    case "$listed" in
+      *" $short "*|*" $(fleet_lower "$fqdn") "*) state="$state, listed" ;;
+      *) [ -z "$version" ] || addable="$addable $answer" ;;
+    esac
+    printf "  %-${width}s  %-8s %s\n" "$short" "$system" "$state"
+  done <<EOF_FLEET_RESULTS
+$lines
+EOF_FLEET_RESULTS
+  rm -rf "$FLEET_TMP_DIR"
+  FLEET_TMP_DIR=""
+  addable="${addable# }"
+  if [ -z "$addable" ]; then
+    printf 'Nothing new to add.\n'
+    return 0
+  fi
+  if [ "$add_all" -eq 0 ]; then
+    if ! [ -t 0 ] || ! [ -t 1 ]; then
+      printf 'Add them with aiup fleet discover --add, or aiup fleet add %s\n' "$addable"
+      return 0
+    fi
+    read -r -p "Add $(printf '%s' "$addable" | sed 's/ /, /g') to the fleet list? [y/N] " reply || reply=""
+    case "$(fleet_lower "$reply")" in y|yes) ;; *) printf 'Nothing changed.\n'; return 0 ;; esac
+  fi
+  # shellcheck disable=SC2086  # names checked by the tailnet filter
+  fleet_add $addable
+}
+
+# fleet_main ARGS...: the whole command line (flags may appear anywhere).
+fleet_main() {
+  local word sub="" seen_fleet=0 add_all=0 pass="" hosts=""
+  for word in "$@"; do
+    case "$word" in
+      --dry-run|--force|--show-unchanged|--verbose|--refresh) pass="$pass $word" ;;
+      --plain) export NO_COLOR=1 ;;
+      --add) add_all=1 ;;
+      -*) usage_error "unknown option '$word' for aiup fleet"; return 2 ;;
+      *)
+        if [ "$seen_fleet" -eq 0 ]; then seen_fleet=1
+        elif [ -z "$sub" ]; then sub="$word"
+        else
+          fleet_valid_host "$word" || { fleet_bad_host "$word"; return 2; }
+          hosts="$hosts $word"
+        fi
+        ;;
+    esac
+  done
+  [ -n "$sub" ] || sub=update
+  if [ "$add_all" -eq 1 ] && [ "$sub" != discover ]; then
+    usage_error "expected: aiup fleet discover --add"
+    return 2
+  fi
+  case "$sub" in
+    add|remove)
+      [ -n "$hosts" ] || { usage_error "expected: aiup fleet $sub HOST..."; return 2; }
+      # shellcheck disable=SC2086  # host names checked above
+      if [ "$sub" = add ]; then fleet_add $hosts; else fleet_remove $hosts; fi
+      return $?
+      ;;
+  esac
+  [ -z "$hosts" ] || { usage_error "expected: $FLEET_USAGE"; return 2; }
+  case "$sub" in
+    list) fleet_list ;;
+    discover) fleet_discover "$add_all" ;;
+    *)
+      case "$FLEET_RUN_COMMANDS" in *" $sub "*) ;; *) usage_error "expected: $FLEET_USAGE"; return 2 ;; esac
+      [ "$sub" = update ] || pass=" $sub$pass"
+      # shellcheck disable=SC2086  # fixed command and flag words
+      set -- $pass
+      fleet_run "$@"
+      ;;
+  esac
+}
+
+# The first word that is not a flag (skipping the values of value flags).
+fleet_first_word() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --heartbeat-seconds|--category|--view|--sort) [ "$#" -ge 2 ] || return 0; shift 2 ;;
+      -*) shift ;;
+      *) printf '%s\n' "$1"; return 0 ;;
+    esac
+  done
+}
+
+# aiup fleet runs aiup itself on each computer, so it skips the catalog and
+# runtime checks this Mac's own commands need.
+if [ "$(fleet_first_word "$@")" = fleet ]; then
+  fleet_main "$@"
+  exit $?
+fi
 
 # Local public definition exports never initialize, prune or inspect user state.
 # Keep them ahead of launcher notices and state cleanup. Use the checkout runtime,

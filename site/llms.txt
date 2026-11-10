@@ -2,7 +2,7 @@
 
 > A local-first macOS terminal catalog for reviewed AI and developer tools.
 
-aiup scans local tool state, updates installed managed tools, and provides an fzf interface for deliberate install, remove, adoption, documentation, and catalog actions. Version 2026.11.03-05 contains 293 reviewed entries. macOS 14+, Bash 3+, Python 3, and curl are required; fzf is required infrastructure managed through Homebrew.
+aiup scans local tool state, updates installed managed tools, and provides an fzf interface for deliberate install, remove, adoption, documentation, and catalog actions. Version 2026.11.10-01 contains 293 reviewed entries. macOS 14+, Bash 3+, Python 3, and curl are required; fzf is required infrastructure managed through Homebrew.
 
 Local inventory is never uploaded. A normal run checks a small release pointer on GitHub, downloads the runtime and matching catalog only when a new release is published, and runs the last validated release when offline. Selected maintenance actions may contact GitHub, Homebrew, npm, uv, or the applicable vendor. On macOS, aiup does not invoke sudo itself, although upstream installers may request administrator authentication.
 

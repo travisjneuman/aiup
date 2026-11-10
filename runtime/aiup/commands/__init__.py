@@ -48,6 +48,7 @@ COMMAND_MODULES: Dict[str, str] = {
     "inventory": "inventory_cmd",
     "catalog": "catalog_cmd",
     "project": "project",
+    "fleet": "fleet",            # list, add, remove, discover, and runs on every computer
 }
 
 # Internal fzf binding commands (__fzf-rows, __cat-*, ...) go to the TUI helper.
