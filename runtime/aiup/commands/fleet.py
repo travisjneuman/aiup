@@ -28,6 +28,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -336,38 +337,65 @@ class _Printer:
                 pass
 
 
+def _show(outcome: Outcome, printer: _Printer, raw: bytes) -> None:
+    text = _clean(raw.decode("utf-8", "replace").rstrip("\r\n"))
+    if _NOT_FOUND_WINDOWS in text:
+        outcome.not_found = True
+    printer.line(outcome.target.label, text)
+
+
+def _follow(outcome: Outcome, printer: _Printer, process: "subprocess.Popen[bytes]",
+            reader: IO[bytes]) -> None:
+    """Print the log as the child writes it, until the child exits and the log is read out."""
+    pending = b""
+    exited = False
+    while True:
+        chunk = reader.read(65536)
+        if chunk:
+            lines = (pending + chunk).split(b"\n")
+            pending = lines.pop()
+            for raw in lines:
+                _show(outcome, printer, raw)
+        elif exited:
+            break
+        elif process.poll() is not None:
+            exited = True
+        else:
+            time.sleep(0.2)
+    if pending:
+        _show(outcome, printer, pending)
+
+
 def _run_one(outcome: Outcome, printer: _Printer, logs: Path) -> None:
+    # The child writes straight to its log file, never to a pipe: Windows ssh.exe
+    # does not exit while its output is a pipe this process made.
     target = outcome.target
     start = time.monotonic()
     log_path = logs / (_safe_name(target.label) + ".log")
-    outcome.log = log_path
-    log: Optional[IO[str]] = None
+    writer: Optional[IO[bytes]] = None
     try:
-        log = open(str(log_path), "w", encoding="utf-8", errors="replace")
-    except OSError:
-        outcome.log = None
-    try:
-        process = subprocess.Popen(target.argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+        writer = open(str(log_path), "wb")
+        reader = open(str(log_path), "rb")
     except OSError as exc:
-        printer.line(target.label, "could not start: " + (exc.strerror or str(exc)))
-        outcome.code = 127
-        if log is not None:
-            log.close()
+        if writer is not None:
+            writer.close()
+        printer.line(target.label, "could not open its log: " + (exc.strerror or str(exc)))
+        outcome.code = EXIT_FAILED
         return
-    outcome.process = process
-    assert process.stdout is not None
-    for raw in process.stdout:
-        text = _clean(raw.decode("utf-8", "replace").rstrip("\r\n"))
-        if _NOT_FOUND_WINDOWS in text:
-            outcome.not_found = True
-        printer.line(target.label, text)
-        if log is not None:
-            log.write(text + "\n")
+    outcome.log = log_path
+    with writer, reader:
+        try:
+            process = subprocess.Popen(target.argv, stdin=subprocess.DEVNULL, stdout=writer,
+                                       stderr=subprocess.STDOUT)
+        except OSError as exc:
+            printer.line(target.label, "could not start: " + (exc.strerror or str(exc)))
+            outcome.code = 127
+            return
+        outcome.process = process
+        writer.close()
+        _follow(outcome, printer, process, reader)
     outcome.code = process.wait()
     outcome.seconds = time.monotonic() - start
-    if log is not None:
-        log.close()
 
 
 def _duration(seconds: float) -> str:
@@ -554,15 +582,19 @@ def _probe(ssh: str, peer: Peer) -> Peer:
     for name in (peer.short, peer.fqdn):
         if not name:
             continue
+        # A temporary file, not a pipe: see _run_one.
         try:
-            done = subprocess.run([ssh] + list(PROBE_OPTIONS) + [name, "aiup", "version"],
-                                  stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                  stderr=subprocess.DEVNULL, timeout=60, check=False)
+            with tempfile.TemporaryFile() as out:
+                done = subprocess.run([ssh] + list(PROBE_OPTIONS) + [name, "aiup", "version"],
+                                      stdin=subprocess.DEVNULL, stdout=out,
+                                      stderr=subprocess.DEVNULL, timeout=60, check=False)
+                out.seek(0)
+                text = out.read(65536).decode("utf-8", "replace")
         except (OSError, subprocess.SubprocessError):
             continue
         if done.returncode == 255:
             continue
-        lines = [_clean(x).strip() for x in done.stdout.decode("utf-8", "replace").splitlines()]
+        lines = [_clean(x).strip() for x in text.splitlines()]
         lines = [x for x in lines if x]
         peer.answer = name
         if done.returncode == 0 and lines:

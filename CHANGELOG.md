@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.10-02
+
+- Fixed (Windows): `aiup fleet` and `aiup fleet discover` waited forever on every other computer. Windows `ssh.exe` printed its output and then never exited, because aiup read that output through a pipe. Each computer's output now goes straight to its log file, and aiup prints the log as it grows.
+
 ## 2026.11.10-01
 
 - New: `aiup fleet` updates several computers from one. It runs aiup on this computer and on every computer in your fleet list at the same time, with each output line labelled by computer and a summary at the end. `aiup fleet check`, `plan`, `doctor`, `attention`, `resume`, `retry` and `version` run those commands everywhere, and `--dry-run`, `--force`, `--show-unchanged`, `--verbose` and `--refresh` pass through. It works the same on macOS, Linux and Windows.
