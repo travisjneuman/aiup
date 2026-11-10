@@ -1,9 +1,9 @@
 # aiup runtime files: sha256 size path
-# aiup-runtime-version: 2026.11.10-02
+# aiup-runtime-version: 2026.11.10-03
 d0df3f62d3bf0d68a1e62977d7e4b763a0d53f11b0719d36219f7861a7b73d24  2358  catalog/categories.tsv
-05e7b3ff67ff40638fb9ab5806fce2fedb0b65ea4dee1bdc2bc82d431ba4c131  70252  catalog/platforms.tsv
+9730f7be31853fee474d07b8c9bdf5c045a35fa11079f714d7aca0c859772a90  70252  catalog/platforms.tsv
 48342b4f6f45e0709a32f32678dbb46e5985bc8c97102ca8aa15d4921f619aca  6903  catalog/tool-meta.tsv
-3d9da957b84215ab2f765fb13bd020cbd4cecae039baec4dc905944c7b28bab2  39239  macos/catalog/manifest.tsv
+f7852270f796b0125d7ce04d0670cf7057bd13f73b1e5e51f9d58a38bcce5ead  39239  macos/catalog/manifest.tsv
 0e2d04d0aa02e24d445ed00d811a0533d80d4257a9d92b3459267208cfd759f9  318  runtime/aiup/__init__.py
 f1b4e792c418c5947660d60fc97a8af08710e94f4867e73a177fbd8ad5d4d295  198  runtime/aiup/__main__.py
 f7fea23d60e5da794513f397c972e333fe9ef5decdc5a729aa0635420ef4be26  1627  runtime/aiup/catalog/__init__.py
@@ -26,7 +26,7 @@ aea07c1b00fede386e92d795b9510f2a2e70f306317ede1b10253f98b33693a5  25272  runtime
 9e8fe18d567e31f199aa18afd23afeb5c4b61d8111887a21158a51e26999cacb  1226  runtime/aiup/commands/history_cmds.py
 a5b0fa480b0665738ce318e48b44bb5c2471037091eddf7ca82b36f63b3a9550  3297  runtime/aiup/commands/inventory_cmd.py
 d25a612d317a0827cb734250ac5e3b4c6e925dd2bb5eda1b731be7a153532bf2  30655  runtime/aiup/commands/listing.py
-357f4500b843e5d89505cd8c5bfa37be9cd2627c71acf367ffc82a5dd716529b  5402  runtime/aiup/commands/notify.py
+fe3e171ac344b30c7f6ae3809e3ee305e75d710bc0fbaef0c20a3048309c6941  5404  runtime/aiup/commands/notify.py
 d1bdb9191614f86f53899c31c7493bfd5827e84124d63a042ee8371ce54bb8c9  7088  runtime/aiup/commands/overview.py
 bb994790784509d004f857e8c009c300c7ecfe4c230e59ca08e6ef7291ef052d  6053  runtime/aiup/commands/plan.py
 1629889846e2f3990a7124cbb5811a475b621702b755af9819e3f00b27cdaa7d  4816  runtime/aiup/commands/prefs_cmds.py
@@ -109,6 +109,6 @@ bbeaf65c62c6fc05032ba845870006be944324e42ed2a309339d8f85f4da10b5  30107  runtime
 27ac11208b72c96c6deb2963cf756add8786779af7bd46e43750f8747235d266  8535  runtime/aiup/tui/preview.py
 b66b94022ff9e7bdd6d45c24667ace90d5d37c0bf6e97e7700bc76ae24014441  28882  runtime/aiup/tui/rows.py
 d19d59fc616c5321d0725a00328bf4f96e66069ba16beeef75d50decaca715ee  22235  runtime/aiup/tui/session.py
-533029daf7405a5c0c242854d037ca18f3b7a9b52fd2380d7d23cf0dee7c858f  147  runtime/aiup/version.py
+74fb314af9113bfc04fda7e7538b029bc7848372102b05b90f2552d8b2f50e0e  147  runtime/aiup/version.py
 ee56b89275b06fc048448003e29823c7fd06dd1aaf78fdb5316b2369d56122b1  12550  runtime/aiup/versions.py
 65c60409ae21c08e7e8962a2e2bbdf2bb8d066fc00ae53bb244853a8399bd49b  873  runtime/aiup_main.py

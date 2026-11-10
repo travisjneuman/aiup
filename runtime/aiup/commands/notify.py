@@ -1,4 +1,4 @@
-"""aiup notify [--always] (macOS: cmd_notify, notify_path_setup).
+"""aiup notify [--always] (macOS: cmd_notify, standard_path_setup).
 
 Checks for updates and shows a desktop notification when some are ready. It
 installs nothing. The list it last told you about is kept in

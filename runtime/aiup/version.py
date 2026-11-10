@@ -2,4 +2,4 @@
 
 from __future__ import annotations
 
-AIUP_VERSION = "2026.11.10-02"
+AIUP_VERSION = "2026.11.10-03"

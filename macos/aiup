@@ -2,7 +2,7 @@
 set -u
 set -o pipefail
 
-AIUP_VERSION="2026.11.10-02"
+AIUP_VERSION="2026.11.10-03"
 
 # macOS starts shells with a soft limit of 256 open files. Bash 3.2 holds the
 # descriptor of every < <(...) in a loop until the enclosing function returns,
@@ -1279,6 +1279,8 @@ brew_cache_load() {
   else
     AIUP_BREW_FORMULAE=" "
     AIUP_BREW_CASKS=" "
+    AIUP_BREW_FORMULA_VERSIONS=""
+    AIUP_BREW_CASK_VERSIONS=""
     AIUP_BREW_CACHE_READY=1
   fi
 }
@@ -11551,10 +11553,10 @@ print_release_notes() {
   done < <(printf '%s' "$ready" | release_notes_lookup)
 }
 
-# Cron and launchd start jobs with a short PATH (/usr/bin:/bin). Add the usual
-# Homebrew and per-user command folders so a scheduled aiup notify finds the
-# same tools your shell does.
-notify_path_setup() {
+# Cron, launchd and plain `ssh HOST aiup` (such as aiup fleet) start with a short
+# PATH (/usr/bin:/bin) because no login profile runs. Add the usual Homebrew and
+# per-user command folders so aiup finds the same tools your shell does.
+standard_path_setup() {
   local dir
   for dir in "$LOCAL_BIN" /usr/local/sbin /usr/local/bin /opt/homebrew/sbin /opt/homebrew/bin; do
     [ -d "$dir" ] || continue
@@ -12752,9 +12754,10 @@ parse_args() {
     esac
   done
 
-  # Scheduled jobs start with a short PATH; widen it before python3 and the
-  # rest are looked up, so notify uses the same tools a shell would.
-  [ "${args[0]:-}" != notify ] || notify_path_setup
+  # Scheduled jobs and ssh commands start with a short PATH; widen it before
+  # python3, brew and the rest are looked up, so aiup uses the same tools a
+  # shell would.
+  standard_path_setup
   require_runtime_environment || return 1
   AIUP_RUNTIME_HASH="$(sha256_file "$(tui_runtime_path)")" || return 1
   profile_mark "runtime validation"

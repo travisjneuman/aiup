@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.11.10-03
+
+- Fixed (macOS): a plain `ssh HOST aiup` run, including every `aiup fleet` run, found no Homebrew because no login profile adds it to PATH. It stopped at the first Homebrew tool with "Homebrew required" plus two "unbound variable" errors. aiup now adds the usual Homebrew and per-user command folders to PATH for every command, as it already did for `aiup notify`, and no longer trips over an empty Homebrew list.
+
 ## 2026.11.10-02
 
 - Fixed (Windows): `aiup fleet` and `aiup fleet discover` waited forever on every other computer. Windows `ssh.exe` printed its output and then never exited, because aiup read that output through a pipe. Each computer's output now goes straight to its log file, and aiup prints the log as it grows.
