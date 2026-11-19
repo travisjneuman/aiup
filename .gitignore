@@ -13,3 +13,9 @@ __pycache__/
 !site/media/aiup-brag.mp4
 # Private public-safety deny-list entries (host names, private project names).
 scripts/.public-safety-local.txt
+
+# Local credentials
+.env*
+.dev.vars*
+*.pem
+*.key
